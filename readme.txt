@@ -26,15 +26,15 @@ Here is a sample configuration for doing it using bind9 for the acurite
 internet bridge:
 
 In the file /etc/bind/named.conf.local:
-```
+
 zone "www.acu-link.com" {
     type master;
     file "/etc/bind/acu-link.com";
 };
-```
+
 
 In the file /etc/bind/acu-link.com:
-```
+
 $TTL    604800
 @       IN      SOA     dns.www.acu-link.com. root.www.acu-link.com. (
 2016032001 ; Serial
@@ -47,9 +47,9 @@ $TTL    604800
 @       IN      A       Y.Y.Y.Y
 *       IN      A       Y.Y.Y.Y
 *       IN      AAAA    ::1
-```
 
-```Y.Y.Y.Y``` is the address of the machine on which weewx is running the
+
+Y.Y.Y.Y is the address of the machine on which weewx is running the
 driver.
 
 This will redirect any requests to www.acu-link.com, but it will not redirect
@@ -65,11 +65,11 @@ to the driver, and relays any responses from the driver back to the internet
 bridge.  It applies only to traffic destined for www.acu-link.com.
 
 In the file /etc/apache2/conf.d/aculink.conf:
-```
+
 RewriteEngine on
 RewriteCond %{HTTP_POST} www.acu-link.com
 RewriteRule ^/messages(.*)$ http://Y.Y.Y.Y/messages$1
-```
+
 
 3) Network tap configurations
 
@@ -80,19 +80,17 @@ also be sent to its original destination.
 There are many ways to intercept and redirect network traffic.  Here are two
 examples:
 
-```
 #!/bin/sh
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
-```
 
-```
+
 #!/bin/sh
 ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80'
-```
 
-```X.X.X.X``` is the address of the internet bridge
-```Y.Y.Y.Y``` is the address of the computer on which weewx is running
-```PPPP``` is the port on which the driver is listening
+
+X.X.X.X is the address of the internet bridge
+Y.Y.Y.Y is the address of the computer on which weewx is running
+PPPP is the port on which the driver is listening
 
 Here are four different configurations that use this strategy.
 
