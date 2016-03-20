@@ -73,12 +73,12 @@ RewriteRule ^/messages(.*)$ http://Y.Y.Y.Y/messages$1
 
 3) Network tap configurations
 
-There are many ways to intercept network traffic from the internet bridge.  In
-each case, traffic is intercepted then sent to the driver.  The traffic may
-also be sent to its original destination.
+There are many ways to intercept network traffic.  In each case, traffic is
+intercepted then sent to the driver.  The capture and the driver might run on
+the same device, or they can run on separate devices.  The traffic may also be
+sent to its original destination.
 
-There are many ways to intercept and redirect network traffic.  Here are two
-examples:
+Here are two examples of direct capture:
 
 #!/bin/sh
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
@@ -91,6 +91,7 @@ ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80'
 X.X.X.X is the address of the internet bridge
 Y.Y.Y.Y is the address of the computer on which weewx is running
 PPPP is the port on which the driver is listening
+
 
 Here are four different configurations that use this strategy.
 
