@@ -59,7 +59,17 @@ any requests to acu-link.com.
 
 Use a proxy to capture HTTP traffic and redirect it to the driver.
 
-TODO: apache configuration
+Here is an example of an Apache 'reverse proxy' configuration for the Acurite
+internet bridge.  The Apache server sends any requests from the internet bridge
+to the driver, and relays any responses from the driver back to the internet
+bridge.  It applies only to traffic destined for www.acu-link.com.
+
+In the file /etc/apache2/conf.d/aculink.conf:
+```
+RewriteEngine on
+RewriteCond %{HTTP_POST} www.acu-link.com
+RewriteRule ^/messages(.*)$ http://Y.Y.Y.Y/messages$1
+```
 
 3) Network tap configurations
 
