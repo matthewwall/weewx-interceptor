@@ -60,7 +60,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._server_thread = threading.Thread(
             target=self._server.serve_forever)
         self._server_thread.setDaemon(True)
-        self._server_thread.setName('InterceptorServerThread')
+        self._server_thread.setName('ServerThread')
         self._server_thread.start()
 
     def closePort(self):
@@ -84,7 +84,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
                 logdbg('mapped packet: %s' % packet)
                 yield packet
             except Queue.Empty:
-                loginf('empty queue')
+                logdbg('empty queue')
 
     def remap_fields(self, pkt):
         packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
@@ -93,7 +93,9 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         return packet
 
 
-class AcuriteBridgeServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+# if you need multiple threads (e.g., for multiple bridges) then use this
+#class AcuriteBridgeServer(SocketServer.ThreadingMixIn,SocketServer.TCPServer):
+class AcuriteBridgeServer(SocketServer.TCPServer):
     daemon_threads = True
     allow_reuse_address = True
     queue = Queue.Queue()
@@ -107,7 +109,7 @@ class AcuriteBridgeServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def do_POST(self):
             length = int(self.headers["Content-Length"])
             data = str(self.rfile.read(length))
-            loginf('POST: %s' % data)
+            logdbg('acurite POST: %s' % data)
             AcuriteBridgeServer.queue.put(data)
             response = bytes(self.RESPONSE)
             self.send_response(200)
