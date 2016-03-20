@@ -12,6 +12,8 @@ LaCross C84612, the Oregon Scientific WS301/302, or the Fine Offset ObserverIP.
 # FIXME: handle traffic from multiple types of devices
 
 from __future__ import with_statement
+import BaseHTTPServer
+import SocketServer
 import Queue
 import syslog
 import threading
@@ -51,32 +53,38 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._device_type = stn_dict.get('device_type', 'acurite-bridge')
         self._addr = stn_dict.get('address', '')
         self._port = stn_dict.get('port', self.DEFAULT_PORT)
-        self._hardware_type = 'Acurite Bridge'
-        self._handler = AcuriteBridgeHandler()
+        loginf('server will listen on %s:%s' % (self._addr, self._port))
         self._parser = AcuriteBridgeParser()
         self._obs_map = stn_dict.get('map', self._parser.DEFAULT_MAP)
-        self.server_thread = ServerThread(handler,
-                                          addr=self._addr, port=self._port)
-        self.server_thread.start()
+        self._server = AcuriteBridgeServer((self._addr, self._port))
+        self._server_thread = threading.Thread(
+            target=self._server.serve_forever)
+        self._server_thread.setDaemon(True)
+        self._server_thread.setName('InterceptorServerThread')
+        self._server_thread.start()
 
     def closePort(self):
-        if self.server_thread.isAlive():
-            self.server_thread.shutdown()
-            self.server_thread.join(20.0)
-            if self.server_thread.isAlive():
-                logerr("unable to shut down server thread")
-            else:
-                loginf("server thread has been shut down")
+        loginf('shutting down server thread')
+        self._server.shutdown()
+        self._server_thread.join(20.0)
+        if self._server_thread.isAlive():
+            logerr('unable to shut down server thread')
 
     def hardware_name(self):
-        return self._hardware_type
+        return self._device_type
 
     def genLoopPackets(self):
         while True:
-            data = self._handler.queue.get()
-            packet = self._parser.parse(data)
-            packet = self.remap_fields(packet)
-            yield packet
+            try:
+                data = self._server.queue.get(True, 10)
+                logdbg('raw data: %s' % data)
+                packet = self._parser.parse(data)
+                logdbg('raw packet: %s' % packet)
+                packet = self.remap_fields(packet)
+                logdbg('mapped packet: %s' % packet)
+                yield packet
+            except Queue.Empty:
+                loginf('empty queue')
 
     def remap_fields(self, pkt):
         packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
@@ -85,41 +93,30 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         return packet
 
 
-class ServerThread(threading.Thread):
-    def __init__(self, handler, addr='', port=80):
-        threading.Thread.__init__(self, name='InterceptorServerThread')
-        self.setDaemon(True)
-        self._server = SocketServer.TCPServer((addr, port), handler)
-        loginf("server will listen on %s:%s" % (addr, port))
+class AcuriteBridgeServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+    queue = Queue.Queue()
 
-    def run(self):
-        loginf("start socket server")
-        self._server.serve_forever()
+    def __init__(self, server_address):
+        SocketServer.TCPServer.__init__(self, server_address, self.Handler)
 
-    def shutdown(self):
-        loginf("shutdown socket server")
-        self._server.shutdown()
-        loginf("shutdown server thread")
-        super(ServerThread, self).shutdown()
+    class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
+        RESPONSE = '{ "success": 1, "checkversion": "126" }'
 
+        def do_POST(self):
+            length = int(self.headers["Content-Length"])
+            data = str(self.rfile.read(length))
+            loginf('POST: %s' % data)
+            AcuriteBridgeServer.queue.put(data)
+            response = bytes(self.RESPONSE)
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
 
-class AcuriteBridgeHandler(BaseHTTPRequestHandler):
-    RESPONSE = '{ "success": 1, "checkversion": "126" }'
-
-    def __init__(self):
-        self.queue = Queue.Queue()
-
-    def do_POST(self):
-        length = int(self.headers["Content-Length"])
-        data = str(self.rfile.read(length))
-        loginf('POST: %s' % data)
-        self.queue.put(data)
-        response = bytes(self.RESPONSE)
-        self.send_response(200)
-        self.send_header("Content-Length", str(len(response)))
-        self.end_headers()
-        self.wfile.write(reponse)
-
+        def log_message(self, format, *args):
+            pass
 
 class AcuriteBridgeParser():
     # sample output from a bridge with 3 t/h sensors and 1 5-in-1
@@ -156,69 +153,70 @@ class AcuriteBridgeParser():
                 packet['sensor_id'] = v
             elif n == 'mt':
                 packet['sensor_type'] = v
-            elif hasattr(AcuriteBridgeParser, '_decode_%s' % n):
+            elif hasattr(AcuriteBridgeParser, 'decode_%s' % n):
                 try:
-                    packet[n] = getattr(AcuriteBridgeParser, '_decode_%s' % n)
+                    func = 'decode_%s' % n
+                    packet[n] = getattr(AcuriteBridgeParser, func)(v)
                 except (ValueError, IndexError), e:
                     logerr("decode failed for %s '%s': %s" % (n, v, e))
-            elif n in ['C1', 'C1', 'C3', 'C4', 'C5', 'C6', 'C7',
+            elif n in ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7',
                        'A', 'B', 'C', 'D', 'PR', 'TR']:
                 packet[n] = v
             else:
                 loginf("unknown element '%s' with value '%s'" % (n, v))
         if packet['sensor_type'] == 'pressure':
-            packet['pressure'], packet['temperature'] = self._decode_pressure(packet)
+            packet['pressure'], packet['temperature'] = AcuriteBridgeParser.decode_pressure(packet)
         return packet
 
     @staticmethod
-    def _decode_battery(s):
+    def decode_battery(s):
         return 1 if s != 'normal' else 0
 
     @staticmethod
-    def _decode_rssi(s):
+    def decode_rssi(s):
         return int(s)
 
     @staticmethod
-    def _decode_humidity(s):
+    def decode_humidity(s):
         # humidity in [0, 100]
         return float(s[2:5]) / 10.0
 
     @staticmethod
-    def _decode_temperature(s):
+    def decode_temperature(s):
         # temperature in degree C
         return float(s[1:5]) / 10.0
 
     @staticmethod
-    def _decode_windspeed(s):
+    def decode_windspeed(s):
         # wind speed in meters per second
-        return float(s) / 100.0
+        return float(s[2:5]) / 100.0
 
     @staticmethod
-    def _decode_winddir(s):
+    def decode_winddir(s):
         # wind direction in compass degrees [0, 360]
         return AcuriteBridgeParser.IDX_TO_DEG.get(int(s))
 
     @staticmethod
-    def _decode_rainfall(s):
+    def decode_rainfall(s):
         # rainfall since last report, in mm
-        return float(s)
+        return float(s[2:8])
 
     @staticmethod
-    def _decode_pressure(pkt):
+    def decode_pressure(pkt):
         # pressure in mbar, temperature in degree C
-        c1 = hex(pkt['C1'])
-        c2 = hex(pkt['C2'])
-        c3 = hex(pkt['C3'])
-        c4 = hex(pkt['C4'])
-        c5 = hex(pkt['C5'])
-        c6 = hex(pkt['C6'])
-        c7 = hex(pkt['C7'])
-        a = hex(pkt['A'])
-        b = hex(pkt['B'])
-        c = hex(pkt['C'])
-        d = hex(pkt['D'])
-        pr = hex(pkt['PR'])
-        tr = hex(pkt['TR'])
+        c1 = int(pkt['C1'], 16)
+        c2 = int(pkt['C2'], 16)
+        c3 = int(pkt['C3'], 16)
+        c4 = int(pkt['C4'], 16)
+        c5 = int(pkt['C5'], 16)
+        c6 = int(pkt['C6'], 16)
+        c7 = int(pkt['C7'], 16)
+        a = int(pkt['A'], 16)
+        b = int(pkt['B'], 16)
+        c = int(pkt['C'], 16)
+        d = int(pkt['D'], 16)
+        pr = int(pkt['PR'], 16)
+        tr = int(pkt['TR'], 16)
         if (0x100 <= c1 <= 0xffff and
             0x0 <= c2 <= 0x1fff and
             0x0 <= c3 <= 0x400 and
@@ -228,7 +226,7 @@ class AcuriteBridgeParser():
             0x960 <= c7 <= 0xa28 and
             0x01 <= a <= 0x3f and 0x01 <= b <= 0x3f and
             0x01 <= c <= 0x0f and 0x01 <= d <= 0x0f):
-            return AcuriteBridgeParser._decode_HP03S(
+            return AcuriteBridgeParser.decode_HP03S(
                 c1, c2, c3, c4, c5, c6, c7, a, b, c, d, pr, tr)
         logerr("one or more bogus constants in pressure packet: %s" % pkt)
         return None, None
