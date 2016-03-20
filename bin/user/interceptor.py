@@ -30,7 +30,7 @@ def confeditor_loader():
 
 
 def logmsg(level, msg):
-    syslog.syslog(dst, 'interceptor: %s: %s' %
+    syslog.syslog(level, 'interceptor: %s: %s' %
                   (threading.currentThread().getName(), msg))
 
 def logdbg(msg):
@@ -111,10 +111,10 @@ class AcuriteBridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers["Content-Length"])
-        data = str(self.rfile.read(length), "utf-8")
+        data = str(self.rfile.read(length))
         loginf('POST: %s' % data)
         self.queue.put(data)
-        response = bytes(self.RESPONSE, "utf-8")
+        response = bytes(self.RESPONSE)
         self.send_response(200)
         self.send_header("Content-Length", str(len(response)))
         self.end_headers()
