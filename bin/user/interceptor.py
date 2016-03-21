@@ -55,7 +55,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._port = stn_dict.get('port', self.DEFAULT_PORT)
         loginf('server will listen on %s:%s' % (self._addr, self._port))
         self._parser = AcuriteBridgeParser()
-        self._obs_map = stn_dict.get('map', self._parser.DEFAULT_MAP)
+        self._obs_map = stn_dict.get('map', None)
         self._server = AcuriteBridgeServer((self._addr, self._port))
         self._server_thread = threading.Thread(
             target=self._server.serve_forever)
@@ -80,17 +80,11 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
                 logdbg('raw data: %s' % data)
                 packet = self._parser.parse(data)
                 logdbg('raw packet: %s' % packet)
-                packet = self.remap_fields(packet)
+                packet = self._parser.map_to_fields(packet, self._obs_map)
                 logdbg('mapped packet: %s' % packet)
                 yield packet
             except Queue.Empty:
                 logdbg('empty queue')
-
-    def remap_fields(self, pkt):
-        packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
-        for n in self._obs_map:
-            packet[self._obs_map[n]] = pkt.get(n)
-        return packet
 
 
 # if you need multiple threads (e.g., for multiple bridges) then use this
@@ -129,14 +123,14 @@ class AcuriteBridgeParser():
     # id=X&sensor=05961&mt=tower&humidity=A0300&temperature=A017400000&battery=normal&rssi=3
     # id=X&sensor=14074&mt=tower&humidity=A0300&temperature=A021500000&battery=normal&rssi=4
 
-    DEFAULT_MAP = {
-        'pressure': 'pressure',
-        'temperature': 'inTemp',
-        'windspeed': 'windSpeed',
-        'winddir': 'windDir',
-        'rainfall': 'rain',
-        'battery': 'battery',
-        'rssi': 'rssi'}
+    DEFAULT_FIELD_MAP = {
+        'pressure..*': 'pressure',
+        'temperature..*': 'inTemp',
+        'temperature.*.*': 'outTemp',
+        'humidity.*.*': 'outHumidity',
+        'windspeed.*.*': 'windSpeed',
+        'winddir.*.*': 'windDir',
+        'rainfall.*.*': 'rain'}
 
     IDX_TO_DEG = {6: 0.0, 14: 22.5, 12: 45.0, 8: 67.5, 10: 90.0, 11: 112.5,
                   9: 135.0, 13: 157.5, 15: 180.0, 7: 202.5, 5: 225.0, 1: 247.5,
@@ -144,31 +138,72 @@ class AcuriteBridgeParser():
 
     @staticmethod
     def parse(s):
-        packet = {'dateTime': int(time.time() + 0.5),
-                  'usUnits': weewx.METRICWX}
+        pkt = dict()
         parts = s.split('&')
         for x in parts:
             (n, v) = x.split('=')
             if n == 'id':
-                packet['bridge_id'] = v
+                pkt['bridge_id'] = v
             elif n == 'sensor':
-                packet['sensor_id'] = v
+                pkt['sensor_id'] = v
             elif n == 'mt':
-                packet['sensor_type'] = v
+                pkt['sensor_type'] = v
             elif hasattr(AcuriteBridgeParser, 'decode_%s' % n):
                 try:
                     func = 'decode_%s' % n
-                    packet[n] = getattr(AcuriteBridgeParser, func)(v)
+                    pkt[n] = getattr(AcuriteBridgeParser, func)(v)
                 except (ValueError, IndexError), e:
                     logerr("decode failed for %s '%s': %s" % (n, v, e))
             elif n in ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7',
                        'A', 'B', 'C', 'D', 'PR', 'TR']:
-                packet[n] = v
+                pkt[n] = v
             else:
                 loginf("unknown element '%s' with value '%s'" % (n, v))
-        if packet['sensor_type'] == 'pressure':
-            packet['pressure'], packet['temperature'] = AcuriteBridgeParser.decode_pressure(packet)
+        if pkt['sensor_type'] == 'pressure':
+            pkt['pressure'], pkt['temperature'] = AcuriteBridgeParser.decode_pressure(pkt)
+
+        # now tag each value with the sensor and bridge identifiers
+        packet = {'dateTime': int(time.time() + 0.5),
+                  'usUnits': weewx.METRICWX}
+        for n in pkt:
+            label = "%s.%s.%s" % (
+                n, pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
+            packet[label] = pkt[n]
         return packet
+
+    @staticmethod
+    def map_to_fields(pkt, field_map):
+        if field_map is None:
+            field_map = AcuriteBridgeParser.DEFAULT_FIELD_MAP
+        packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
+        for n in field_map:
+            label = AcuriteBridgeParser._find_match(n, pkt.keys())
+            if label:
+                packet[field_map[n]] = pkt.get(label)
+        return packet
+
+    @staticmethod
+    def _find_match(pattern, keylist):
+        pat_parts = pattern.split('.')
+        if len(pat_parts) != 3:
+            logerr("bogus pattern '%s'" % pattern)
+            return None
+        match = None
+        for k in keylist:
+            key_parts = k.split('.')
+            if (AcuriteBridgeParser._part_match(pat_parts[0], key_parts[0]) and
+                AcuriteBridgeParser._part_match(pat_parts[1], key_parts[1]) and
+                AcuriteBridgeParser._part_match(pat_parts[2], key_parts[2])):
+                match = k
+        return match
+
+    @staticmethod
+    def _part_match(pattern, value):
+        if pattern == value:
+            return True
+        if pattern == '*' and value:
+            return True
+        return False
 
     @staticmethod
     def decode_battery(s):
@@ -196,7 +231,7 @@ class AcuriteBridgeParser():
     @staticmethod
     def decode_winddir(s):
         # wind direction in compass degrees [0, 360]
-        return AcuriteBridgeParser.IDX_TO_DEG.get(int(s))
+        return AcuriteBridgeParser.IDX_TO_DEG.get(int(s, 16))
 
     @staticmethod
     def decode_rainfall(s):
