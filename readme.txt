@@ -10,7 +10,24 @@ How it works
 The driver runs a web server on a separate thread.  Data posted to that server
 are parsed then processed as sensor inputs.
 
-There are a few options for getting the data from the network to the driver.
+There are a few options for getting the data from the network to the driver:
+
+  1) Hijack DNS
+     internet_bridge -> driver ( -> web_service )
+
+  2) Man-in-the-middle with HTTP proxy
+     internet_bridge -> proxy -> driver ( -> web_service )
+
+  3) Network tap
+     internet_bridge -> web_service
+
+  4) DNS hijack plus HTTP redirect
+     internet_bridge -> web_server --> driver
+                                   \-> web_service
+
+Which one you choose depends on your network configuration, network hardware,
+and your ability to add and configure devices on the network.
+
 
 1) Hijack DNS
 
