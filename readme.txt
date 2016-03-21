@@ -78,14 +78,18 @@ intercepted then sent to the driver.  The capture and the driver might run on
 the same device, or they can run on separate devices.  The traffic may also be
 sent to its original destination.
 
-Here are two examples of direct capture:
+Here are three examples of direct capture:
 
 #!/bin/sh
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
 
 
 #!/bin/sh
-ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80'
+tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
+
+
+#!/bin/sh
+ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 
 
 X.X.X.X is the address of the internet bridge
@@ -95,17 +99,18 @@ PPPP is the port on which the driver is listening
 
 Here are four different configurations that use this strategy.
 
-a) Tap-on-Router
+a) Tap-in-Router
 
 Capture traffic on the network's edge router.  Run a script on the router that
 captures traffic from the internet bridge and sends it to the driver.
 
-b) Tap-on-Bridge
+b) Tap-as-Bridge
 
 Configure a computer with two network interfaces to bridge between the
-internet bridge and the regular network.  The bridge captures traffic and
-sends it to the driver, and optionally sends it along to its original
-destination.
+internet bridge and the regular network.  Plug the internet bridge into one
+port, and plug the other port into the local network.  The bridge captures
+traffic and sends it to the driver, and optionally sends it along to its
+original destination.
 
 c) Tap-on-Hub
 
@@ -116,7 +121,14 @@ the driver.
 
 d) Tap-on-Switch
 
-Configure a device on a managed switch.  Unmanaged switches will not work.
-Configure the switch to mirror the traffic from one port to a second port.
-Configure a device on the second port to capture traffic from the internet
-bridge then send it to the driver.
+Configure a device that is connected to a managed switch.  Unmanaged switches
+will not work.  Configure the switch to mirror the traffic from one port to a
+second port.  Configure a device on the second port to capture traffic from
+the internet bridge then send it to the driver.
+
+
+4) DNS hijack plus HTTP redirect
+
+First hijack the DNS so that traffic goes to a local web server.  Then
+configure the web server so that it relays the requests to the driver and
+optionally to the web service.
