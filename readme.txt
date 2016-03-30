@@ -8,7 +8,9 @@ ObserverIP.
 
 Installation
 
-0) install weewx (see the weewx user guide)
+0) install weewx, select 'Simulator' driver (see the weewx user guide)
+
+dpkg -i weewx_x.y.z-r.deb
 
 1) download the driver
 
