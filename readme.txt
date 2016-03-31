@@ -55,6 +55,11 @@ including the following:
 Which one you choose depends on your network configuration, network hardware,
 and your ability to add and configure devices on the network.
 
+In the examples that follow,
+  X.X.X.X is the address of the internet bridge
+  Y.Y.Y.Y is the address of the computer on which weewx is running
+  PPPP is the port on which the driver is listening
+
 
 1) Hijack DNS
 
@@ -63,13 +68,16 @@ driver.  If you control DNS on the network, you can make the internet bridge
 send to a the driver by creating a DNS entry for the host to which the
 internet bridge tries to send its data.
 
-Some router software such as OpenWrt or pfSense include a graphic interface
-for adding DNS entries.  If you use either of these, simply create a DNS entry
-for the name to which the bridge normally sends (e.g., www.acu-link.com) and
-enter the address for the host on which the driver is running.
+1a) If you run pfsense, simply add an entry in the Services -> DNS forwarder
 
-If you run your own nameserver, add an entry to your DNS configuration.  Here
-is a sample configuration for bind9 to hijack traffic from the acurite
+  host: www
+  domain: acu-link.com
+  ip address: Y.Y.Y.Y
+
+OpenWrt has a similar configuration.
+
+1b) If you run your own nameserver, add an entry to your DNS configuration.
+Here is a sample configuration for bind9 to hijack traffic from the acurite
 internet bridge:
 
 In the file /etc/bind/named.conf.local:
@@ -94,21 +102,19 @@ $TTL    604800
 *       IN      A       Y.Y.Y.Y
 *       IN      AAAA    ::1
 
-
-Y.Y.Y.Y is the address of the machine on which weewx is running the
-driver.
-
 This will redirect any requests to www.acu-link.com, but it will not redirect
 any requests to acu-link.com.
+
 
 2) Man-in-the-middle
 
 Use a proxy to capture HTTP traffic and redirect it to the driver.
 
-Here is an example of an Apache 'reverse proxy' configuration for the Acurite
-internet bridge.  The Apache server sends any requests from the internet bridge
-to the driver, and relays any responses from the driver back to the internet
-bridge.  It applies only to traffic destined for www.acu-link.com.
+2a) Here is an example of an Apache 'reverse proxy' configuration for the
+Acurite internet bridge.  The Apache server sends any requests from the
+internet bridge to the driver, and relays any responses from the driver back
+to the internet bridge.  It applies only to traffic destined for
+www.acu-link.com.
 
 In the file /etc/apache2/conf.d/aculink.conf:
 
@@ -116,13 +122,29 @@ RewriteEngine on
 RewriteCond %{HTTP_POST} www.acu-link.com
 RewriteRule ^/messages(.*)$ http://Y.Y.Y.Y/messages$1
 
+2b) Another option is to use an Apache CGI script.  Put a script alias in
+the file /etc/apache2/conf.d/aculink.conf:
+
+ScriptAlias /messages/ /usr/lib/cgi-bin/aculink
+
+and copy the aculink cgi script from util/usr/lib/cgi-bin to the Apache
+cgi-bin directory (nominally /usr/lib/cgi-bin).
+
+2c) Here is an equivalent configuration for the nginx web server:
+
+server {
+    location /messages/ {
+        proxy_pass http://Y.Y.Y.Y:PPPP/;
+    }
+}
+
 
 3) Network tap configurations
 
 There are many ways to capture traffic using a 'tap'.  In each case, traffic is
 intercepted then sent to the driver.  The capture and the driver might run on
 the same device, or they can run on separate devices.  The traffic may also be
-sent to its original destination.
+sent on to its original destination.
 
 Here are three examples of direct capture.  Some use tcpdump to capture, others
 use ngrep to capture.  The tool 'nc' is used to direct captured traffic to the
@@ -140,10 +162,6 @@ tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
 #!/bin/sh
 ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 
-
-X.X.X.X is the address of the internet bridge
-Y.Y.Y.Y is the address of the computer on which weewx is running
-PPPP is the port on which the driver is listening
 
 Here are four different configurations that use this strategy.
 
