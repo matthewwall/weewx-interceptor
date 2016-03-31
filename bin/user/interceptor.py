@@ -199,7 +199,7 @@ class AcuriteBridge():
         @staticmethod
         def decode_windspeed(s):
             # wind speed in meters per second
-            return float(s[2:5]) / 100.0
+            return float(s[2:5]) / 10.0
 
         @staticmethod
         def decode_winddir(s):
@@ -209,7 +209,7 @@ class AcuriteBridge():
         @staticmethod
         def decode_rainfall(s):
             # rainfall since last report, in mm
-            return float(s[2:8])
+            return float(s[2:8]) / 10.0
 
         @staticmethod
         def decode_pressure(pkt):
