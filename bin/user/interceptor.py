@@ -5,17 +5,21 @@ This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
 LaCross C84612, the Oregon Scientific WS301/302, or the Fine Offset ObserverIP.
 
+Thanks to Pat at obrienlabs.net for the observerip parsing
 
+Thanks to george nincehelser and rich of modern toil for acurite parsing
 """
 
 # FIXME: automatically detect the traffic type
 # FIXME: handle traffic from multiple types of devices
 # FIXME: default acurite mapping confuses multiple tower sensors
+# FIXME: does observerip ever post in non-us units?
 
 from __future__ import with_statement
 import BaseHTTPServer
 import SocketServer
 import Queue
+import calendar
 import syslog
 import threading
 import time
@@ -80,7 +84,7 @@ class AcuriteBridge():
         def do_POST(self):
             length = int(self.headers["Content-Length"])
             data = str(self.rfile.read(length))
-            logdbg('acurite POST: %s' % data)
+            logdbg('POST: %s' % data)
             AcuriteBridge.queue.put(data)
             response = bytes(self.RESPONSE)
             self.send_response(200)
@@ -274,8 +278,99 @@ class AcuriteBridge():
             return p, t
 
 
+class ObserverIP():
+    queue = Queue.Queue()
+
+    def __init__(self, server_address):
+        self.parser = ObserverIP.Parser()
+        self._server = ObserverIP.Server(server_address)
+
+    def run_server(self):
+        self._server.serve_forever()
+
+    def shutdown(self):
+        self._server.shutdown()
+
+    def get_queue(self):
+        return ObserverIP.queue
+
+    class Server(SocketServer.TCPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
+        def __init__(self, server_address):
+            SocketServer.TCPServer.__init__(
+                self, server_address, ObserverIP.Handler)
+
+    class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
+        RESPONSE = '{ "success": 1, "checkversion": "126" }'
+
+        def do_POST(self):
+            length = int(self.headers["Content-Length"])
+            data = str(self.rfile.read(length))
+            logdbg('POST: %s' % data)
+            AcuriteBridge.queue.put(data)
+            response = bytes(self.RESPONSE)
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+
+        # do not spew messages on every connection
+        def log_message(self, format, *args):
+            pass
+
+    class Parser():
+        # sample output from an observer ip
+        # ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
+        # lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
+        # ilyrainin=0.04&weeklyrainin=0.04&monthlyrainin=0.91&yearlyrainin=0.91
+        # &solarradiation=0.00&UV=0&indoortempf=76.5&indoorhumidity=49&baromin=
+        # 29.05&lowbatt=0&dateutc=2016-1-4%2021:2:35&softwaretype=Weather%20log
+        # ger%20V2.1.9&action=updateraw&realtime=1&rtfreq=5
+
+        @staticmethod
+        def parse(s):
+            pkt = dict()
+            try:
+                parts = s.split('&')
+                data = dict([x.split('=') for x in parts])
+                pkt['dateTime'] = decode_datetime(data['dateutc'])
+                pkt['usUnits'] = weewx.US
+                pkt['inTemp'] = decode_float(data['indoortempf'])
+                pkt['inHumidity'] = decode_float(data['indoorhumidity'])
+                pkt['outTemp'] = decode_float(data['tempf'])
+                pkt['outHumidity'] = decode_float(data['humidity'])
+                pkt['barometer'] = decode_float(data['baromin'])
+                pkt['rain'] = accumulate_rain(data['rainin'])
+                pkt['windDir'] = decode_float(data['windDir'])
+                pkt['windSpeed'] = decode_float(data['windSpeed'])
+                pkt['windGust'] = decode_float(data['windgustmph'])
+                pkt['radiation'] = decode_float(data['solarradiation'])
+                pkt['txBatteryStatus'] = decode_float(data['lowbatt'])
+            except ValueError, e:
+                logerr("parse failed for %s: %s" % (s, e))
+            return pkt
+
+        @staticmethod
+        def map_to_fields(pkt, field_map):
+            return pkt
+
+        @staticmethod
+        def decode_datetime(s):
+            s = s.replace("%20", " ")
+            ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
+            return calendar.timegm(ts)
+
+        @staticmethod
+        def decode_float(x):
+            return None if x is None else float(x)
+
+
 class InterceptorDriver(weewx.drivers.AbstractDevice):
-    DEVICE_TYPES = {'acurite-bridge': AcuriteBridge}
+    DEVICE_TYPES = {
+        'acurite-bridge': AcuriteBridge,
+        'observerip': ObserverIP}
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
@@ -381,7 +476,9 @@ if __name__ == '__main__':
         debug = True
 
     if not options.device_type in InterceptorDriver.DEVICE_TYPES:
-        raise Exception("unsupported device type '%s'" % options.device_type)
+        raise Exception("unsupported device type '%s'.  options include %s" %
+                        (options.device_type,
+                         ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
     device = InterceptorDriver.DEVICE_TYPES[options.device_type](
         (options.addr, options.port))
 
