@@ -36,8 +36,7 @@ def logmsg(level, msg):
                   (threading.currentThread().getName(), msg))
 
 def logdbg(msg):
-#    logmsg(syslog.LOG_DEBUG, msg)
-    print msg
+    logmsg(syslog.LOG_DEBUG, msg)
 
 def loginf(msg):
     logmsg(syslog.LOG_INFO, msg)
