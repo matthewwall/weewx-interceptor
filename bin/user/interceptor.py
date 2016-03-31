@@ -10,6 +10,7 @@ LaCross C84612, the Oregon Scientific WS301/302, or the Fine Offset ObserverIP.
 
 # FIXME: automatically detect the traffic type
 # FIXME: handle traffic from multiple types of devices
+# FIXME: default acurite mapping confuses multiple tower sensors
 
 from __future__ import with_statement
 import BaseHTTPServer
@@ -23,6 +24,10 @@ import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
 DRIVER_VERSION = '0.1'
+
+DEFAULT_PORT = 9999
+DEFAULT_ADDR = ''
+DEFAULT_DEVICE_TYPE = 'acurite-bridge'
 
 def loader(config_dict, _):
     return InterceptorDriver(**config_dict[DRIVER_NAME])
@@ -108,6 +113,20 @@ class AcuriteBridge():
         IDX_TO_DEG = {6: 0.0, 14: 22.5, 12: 45.0, 8: 67.5, 10: 90.0, 11: 112.5,
                       9: 135.0, 13: 157.5, 15: 180.0, 7: 202.5, 5: 225.0,
                       1: 247.5, 3: 270.0, 2: 292.5, 0: 315.0, 4: 337.5}
+
+        @staticmethod
+        def parse_identifiers(s):
+            bridge_id = sensor_id = sensor_type = None
+            parts = s.split('&')
+            for x in parts:
+                (n, v) = x.split('=')
+                if n == 'id':
+                    bridge_id = v
+                if n == 'sensor':
+                    sensor_id = v
+                if n == 'mt':
+                    sensor_type = v
+            return bridge_id, sensor_id, sensor_type
 
         @staticmethod
         def parse(s):
@@ -256,22 +275,20 @@ class AcuriteBridge():
 
 
 class InterceptorDriver(weewx.drivers.AbstractDevice):
-    DEFAULT_PORT = 9999
-    DEVICES = {'acurite-bridge': AcuriteBridge}
+    DEVICE_TYPES = {'acurite-bridge': AcuriteBridge}
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
-        self._addr = stn_dict.get('address', '')
-        self._port = stn_dict.get('port', self.DEFAULT_PORT)
+        self._addr = stn_dict.get('address', DEFAULT_ADDR)
+        self._port = stn_dict.get('port', DEFAULT_PORT)
         loginf('server will listen on %s:%s' % (self._addr, self._port))
         self._obs_map = stn_dict.get('map', None)
         loginf('observation map: %s' % self._obs_map)
         self._device_type = stn_dict.get('device_type', 'acurite-bridge')
-        if self._device_type in self.DEVICES:
-            self._device = self.DEVICES[self._device_type](
-                (self._addr, self._port))
-        else:
+        if not self._device_type in self.DEVICE_TYPES:
             raise Exception("unsupported device type '%s'" % self._device_type)
+        self._device = self.DEVICE_TYPES[self._device_type](
+            (self._addr, self._port))
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
         self._server_thread.setName('ServerThread')
@@ -326,3 +343,64 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
                                    ['acurite-bridge', 'observerip', 'ws30x',
                                     'lacross-bridge', 'netatmo'])
         return {'device_type': device_type}
+
+
+# define a main entry point for determining sensor identifiers.
+# invoke this as follows from the weewx root dir:
+#
+# PYTHONPATH=bin python bin/user/interceptor.py
+
+if __name__ == '__main__':
+    import optparse
+
+    usage = """%prog [options] [--debug] [--help]"""
+
+    syslog.openlog('interceptor', syslog.LOG_PID | syslog.LOG_CONS)
+    syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_INFO))
+
+    parser = optparse.OptionParser(usage=usage)
+    parser.add_option('--version', dest='version', action='store_true',
+                      help='display driver version')
+    parser.add_option('--debug', dest='debug', action='store_true',
+                      help='display diagnostic information while running')
+    parser.add_option('--port', dest='port', metavar='PORT',
+                      default=DEFAULT_PORT,
+                      help='port on which to listen')
+    parser.add_option('--address', dest='addr', metavar='ADDRESS',
+                      default=DEFAULT_ADDR,
+                      help='address on which to bind')
+    parser.add_option('--device', dest='device_type', metavar='DEVICE_TYPE',
+                      default=DEFAULT_DEVICE_TYPE,
+                      help='type of device for which to listen')
+
+    (options, args) = parser.parse_args()
+
+    debug = False
+    if options.debug is not None:
+        syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
+        debug = True
+
+    if not options.device_type in InterceptorDriver.DEVICE_TYPES:
+        raise Exception("unsupported device type '%s'" % options.device_type)
+    device = InterceptorDriver.DEVICE_TYPES[options.device_type](
+        (options.addr, options.port))
+
+    server_thread = threading.Thread(target=device.run_server)
+    server_thread.setDaemon(True)
+    server_thread.setName('ServerThread')
+    server_thread.start()
+
+    while True:
+        try:
+            data = device.get_queue().get(True, 10)
+            if debug:
+                print 'raw data: %s' % data
+            if debug:
+                pkt = device.parser.parse(data)
+                print 'raw packet: %s' % pkt
+#                pkt = device.parser.map_to_fields(pkt, obs_map)
+#                print 'mapped packet: %s' % pkt
+            ids = device.parser.parse_identifiers(data)
+            print "bridge_id: %s sensor_id: %s sensor_type: %s" % ids
+        except Queue.Empty:
+            pass
