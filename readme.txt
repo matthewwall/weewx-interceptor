@@ -33,24 +33,29 @@ sudo /etc/init.d/weewx start
 
 How it works
 
-The driver runs a web server on its own thread.  Data posted to that server
-are parsed then processed as sensor inputs.
+The driver runs a web server on a thread separate from the primary weewx
+thread.  Data posted to that server are parsed then processed as sensor inputs.
 
 There are a few options for getting the data from the network to the driver,
 including the following:
 
   1) Hijack DNS
-     internet_bridge -> driver ( -> web_service )
+     use a local DNS entry to make the bridge send directly to weewx
+     internet_bridge ---> driver ( ---> web_service )
 
   2) Man-in-the-middle with HTTP proxy
-     internet_bridge -> proxy -> driver ( -> web_service )
+     configure the bridge to send to an HTTP proxy that you control
+     internet_bridge ---> proxy ---> driver ( ---> web_service )
 
   3) Network tap
-     internet_bridge -> web_service
+     listen to traffic on the network and capture anything from the bridge
+     internet_bridge ---> web_service
+                      \-> driver
 
   4) DNS hijack plus HTTP redirect
-     internet_bridge -> web_server --> driver
-                                   \-> web_service
+     use a local DNS entry to direct traffic to a local HTTP relay
+     internet_bridge ---> web_server ---> driver
+                                    ( \-> web_service )
 
 Which one you choose depends on your network configuration, network hardware,
 and your ability to add and configure devices on the network.
