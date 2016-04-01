@@ -49,8 +49,8 @@ including the following:
 
   3) Network tap
      listen to traffic on the network and capture anything from the bridge
-     internet_bridge ---> web_service
-                      \-> driver
+     internet_bridge ---> tap ---> web_service
+                           \-> driver
 
   4) DNS hijack plus HTTP redirect
      use a local DNS entry to direct traffic to a local HTTP relay
@@ -70,8 +70,8 @@ In the examples that follow,
 
 Change the DNS entry so that the internet bridge device sends directly to the
 driver.  If you control DNS on the network, you can make the internet bridge
-send to a the driver by creating a DNS entry for the host to which the
-internet bridge tries to send its data.
+send to the driver by creating a DNS entry for the host to which the internet
+bridge tries to send its data.
 
 1a) If you run pfsense, simply add an entry in the Services -> DNS forwarder
 
@@ -82,8 +82,7 @@ internet bridge tries to send its data.
 OpenWrt has a similar configuration.
 
 1b) If you run your own nameserver, add an entry to your DNS configuration.
-Here is a sample configuration for bind9 to hijack traffic from the acurite
-internet bridge:
+For example, a bind9 configuration looks something like this:
 
 In the file /etc/bind/named.conf.local:
 
@@ -117,9 +116,7 @@ Use a proxy to capture HTTP traffic and redirect it to the driver.
 
 2a) Here is an example of an Apache 'reverse proxy' configuration for the
 Acurite internet bridge.  The Apache server sends any requests from the
-internet bridge to the driver, and relays any responses from the driver back
-to the internet bridge.  It applies only to traffic destined for
-www.acu-link.com.
+internet bridge to the driver.
 
 In the file /etc/apache2/conf.d/aculink.conf:
 
@@ -132,10 +129,10 @@ the file /etc/apache2/conf.d/aculink.conf:
 
 ScriptAlias /messages/ /usr/lib/cgi-bin/aculink
 
-and copy the aculink cgi script from util/usr/lib/cgi-bin to the Apache
+and copy the cgi script util/usr/lib/cgi-bin/aculink to the Apache
 cgi-bin directory (nominally /usr/lib/cgi-bin).
 
-2c) Here is an equivalent configuration for the nginx web server:
+2c) Here is a reverse proxy configuration for the nginx web server:
 
 server {
     location /messages/ {
