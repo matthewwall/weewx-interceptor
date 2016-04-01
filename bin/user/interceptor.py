@@ -8,6 +8,9 @@ LaCross C84612, the Oregon Scientific WS301/302, or the Fine Offset ObserverIP.
 Thanks to Pat at obrienlabs.net for the observerip parsing
 
 Thanks to george nincehelser and rich of modern toil for acurite parsing
+
+Thanks to sergei and weibi for the LW301/302 samples
+  http://www.silent-gardens.com/blog/shark-hunt-lw301/
 """
 
 # FIXME: automatically detect the traffic type
@@ -54,12 +57,12 @@ def logerr(msg):
     logmsg(syslog.LOG_ERR, msg)
 
 
-class AcuriteBridge():
+class Consumer(object):
     queue = Queue.Queue()
 
-    def __init__(self, server_address):
-        self.parser = AcuriteBridge.Parser()
-        self._server = AcuriteBridge.Server(server_address)
+    def __init__(self, server_address, handler, parser):
+        self.parser = parser
+        self._server = Consumer.Server(server_address, handler)
 
     def run_server(self):
         self._server.serve_forever()
@@ -68,25 +71,26 @@ class AcuriteBridge():
         self._server.shutdown()
 
     def get_queue(self):
-        return AcuriteBridge.queue
+        return Consumer.queue
 
     class Server(SocketServer.TCPServer):
         daemon_threads = True
         allow_reuse_address = True
 
-        def __init__(self, server_address):
-            SocketServer.TCPServer.__init__(
-                self, server_address, AcuriteBridge.Handler)
+        def __init__(self, server_address, handler):
+            SocketServer.TCPServer.__init__(self, server_address, handler)
 
     class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
-        RESPONSE = '{ "success": 1, "checkversion": "126" }'
+
+        def get_response(self):
+            return '{ "success": 1 }'
 
         def do_POST(self):
             length = int(self.headers["Content-Length"])
             data = str(self.rfile.read(length))
             logdbg('POST: %s' % data)
-            AcuriteBridge.queue.put(data)
-            response = bytes(self.RESPONSE)
+            Consumer.queue.put(data)
+            response = bytes(self.get_response())
             self.send_response(200)
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
@@ -96,7 +100,58 @@ class AcuriteBridge():
         def log_message(self, format, *args):
             pass
 
-    class Parser():
+    class Parser(object):
+
+        @staticmethod
+        def parse_identifiers(s):
+            bridge_id = sensor_id = sensor_type = None
+            return bridge_id, sensor_id, sensor_type
+
+        @staticmethod
+        def parse(s):
+            return dict()
+
+        @staticmethod
+        def map_to_fields(pkt, field_map):
+            return pkt
+
+        @staticmethod
+        def _find_match(pattern, keylist):
+            pparts = pattern.split('.')
+            if len(pparts) != 3:
+                logerr("bogus pattern '%s'" % pattern)
+                return None
+            match = None
+            for k in keylist:
+                kparts = k.split('.')
+                if (Consumer.Parser._part_match(pparts[0], kparts[0]) and
+                    Consumer.Parser._part_match(pparts[1], kparts[1]) and
+                    Consumer.Parser._part_match(pparts[2], kparts[2])):
+                    match = k
+            return match
+
+        @staticmethod
+        def _part_match(pattern, value):
+            if pattern == value:
+                return True
+            if pattern == '*' and value:
+                return True
+            return False
+
+
+class AcuriteBridge(Consumer):
+
+    def __init__(self, server_address):
+        self.Consumer.__init__(server_address,
+                               AcuriteBridge.Handler,
+                               AcuriteBridge.Parser())
+
+    class Handler(Consumer.Handler):
+
+        def get_response(self):
+            return '{ "success": 1, "checkversion": "126" }'
+
+    class Parser(Consumer.Parser):
         # sample output from a bridge with 3 t/h sensors and 1 5-in-1
         # id=X&mt=pressure&C1=452D&C2=0D7F&C3=010D&C4=0330&C5=8472&C6=1858&C7=09C4&A=07&B=1B&C=06&D=09&PR=91CA&TR=8270
         # id=X&sensor=02004&mt=5N1x31&windspeed=A001660000&winddir=8&rainfall=A0000000&battery=normal&rssi=3
@@ -114,9 +169,10 @@ class AcuriteBridge():
             'winddir.*.*': 'windDir',
             'rainfall.*.*': 'rain'}
 
-        IDX_TO_DEG = {6: 0.0, 14: 22.5, 12: 45.0, 8: 67.5, 10: 90.0, 11: 112.5,
-                      9: 135.0, 13: 157.5, 15: 180.0, 7: 202.5, 5: 225.0,
-                      1: 247.5, 3: 270.0, 2: 292.5, 0: 315.0, 4: 337.5}
+        # this is *not* the same as the acurite console mapping!
+        IDX_TO_DEG = {5: 0.0, 7: 22.5, 3: 45.0, 1: 67.5, 9: 90.0, 11: 112.5,
+                      15: 135.0, 13: 157.5, 12: 180.0, 14: 202.5, 10: 225.0,
+                      8: 247.5, 0: 270.0, 2: 292.5, 6: 315.0, 4: 337.5}
 
         @staticmethod
         def parse_identifiers(s):
@@ -173,33 +229,10 @@ class AcuriteBridge():
                 field_map = AcuriteBridge.Parser.DEFAULT_FIELD_MAP
             packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
             for n in field_map:
-                label = AcuriteBridge.Parser._find_match(n, pkt.keys())
+                label = Consumer.Parser._find_match(n, pkt.keys())
                 if label:
                     packet[field_map[n]] = pkt.get(label)
             return packet
-
-        @staticmethod
-        def _find_match(pattern, keylist):
-            pparts = pattern.split('.')
-            if len(pparts) != 3:
-                logerr("bogus pattern '%s'" % pattern)
-                return None
-            match = None
-            for k in keylist:
-                kparts = k.split('.')
-                if (AcuriteBridge.Parser._part_match(pparts[0], kparts[0]) and
-                    AcuriteBridge.Parser._part_match(pparts[1], kparts[1]) and
-                    AcuriteBridge.Parser._part_match(pparts[2], kparts[2])):
-                    match = k
-            return match
-
-        @staticmethod
-        def _part_match(pattern, value):
-            if pattern == value:
-                return True
-            if pattern == '*' and value:
-                return True
-            return False
 
         @staticmethod
         def decode_battery(s):
@@ -232,7 +265,7 @@ class AcuriteBridge():
         @staticmethod
         def decode_rainfall(s):
             # rainfall since last report, in mm
-            return float(s[2:8]) / 10.0
+            return float(s[2:8]) / 100.0
 
         @staticmethod
         def decode_pressure(pkt):
@@ -278,49 +311,19 @@ class AcuriteBridge():
             return p, t
 
 
-class ObserverIP():
-    queue = Queue.Queue()
+class ObserverIP(Consumer):
 
     def __init__(self, server_address):
-        self.parser = ObserverIP.Parser()
-        self._server = ObserverIP.Server(server_address)
+        self.Consumer.__init__(server_address,
+                               ObserverIP.Handler,
+                               ObserverIP.Parser())
 
-    def run_server(self):
-        self._server.serve_forever()
+    class Handler(Consumer.Handler):
 
-    def shutdown(self):
-        self._server.shutdown()
+        def get_response(self):
+            return '{ "success": 1 }'
 
-    def get_queue(self):
-        return ObserverIP.queue
-
-    class Server(SocketServer.TCPServer):
-        daemon_threads = True
-        allow_reuse_address = True
-
-        def __init__(self, server_address):
-            SocketServer.TCPServer.__init__(
-                self, server_address, ObserverIP.Handler)
-
-    class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
-        RESPONSE = '{ "success": 1, "checkversion": "126" }'
-
-        def do_POST(self):
-            length = int(self.headers["Content-Length"])
-            data = str(self.rfile.read(length))
-            logdbg('POST: %s' % data)
-            AcuriteBridge.queue.put(data)
-            response = bytes(self.RESPONSE)
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(response)))
-            self.end_headers()
-            self.wfile.write(response)
-
-        # do not spew messages on every connection
-        def log_message(self, format, *args):
-            pass
-
-    class Parser():
+    class Parser(Consumer.Parser):
         # sample output from an observer ip
         # ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
         # lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
@@ -342,7 +345,7 @@ class ObserverIP():
                 pkt['outTemp'] = decode_float(data['tempf'])
                 pkt['outHumidity'] = decode_float(data['humidity'])
                 pkt['barometer'] = decode_float(data['baromin'])
-                pkt['rain'] = accumulate_rain(data['rainin'])
+                pkt['rain'] = delta_rain(data['rainin'], last_rain)
                 pkt['windDir'] = decode_float(data['windDir'])
                 pkt['windSpeed'] = decode_float(data['windSpeed'])
                 pkt['windGust'] = decode_float(data['windgustmph'])
@@ -366,11 +369,122 @@ class ObserverIP():
         def decode_float(x):
             return None if x is None else float(x)
 
+        @staticmethod
+        def delta_rain(rain, last_rain):
+            if last_rain is None:
+                return None
+            if rain < last_rain:
+                return None
+            return rain - last_rain
+
+
+class LW30x(Consumer):
+
+    def __init__(self, server_address):
+        self.Consumer.__init__(server_address, LW30x.Handler, LW30x.Parser())
+
+    class Handler(Consumer.Handler):
+
+        def get_response(self):
+            return '{ "success": 1 }'
+
+    class Parser(Consumer.Parser):
+        # sample output from a LW301
+        # mac=XX&id=8e&rid=af&pwr=0&or=0&uvh=0&uv=125&ch=1&p=1
+        # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=315&wg=1.9&ws=1.1&ch=1&p=1
+        # mac=XX&id=84&rid=20&pwr=0&htr=0&cz=3&oh=90&ttr=0&ot=18.9&ch=1&p=1
+        # mac=XX&id=82&rid=1d&pwr=0&rro=0&rr=0.00&rfa=5.114&ch=1&p=1
+        # mac=XX&id=c2&pv=0&lb=0&ac=0&reg=1803&lost=0000&baro=806&ptr=0&wfor=3&p=1
+        # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=247&wg=1.9&ws=1.1&ch=1&p=1
+
+        DEFAULT_FIELD_MAP = {
+            'baro..*': 'barometer',
+            'ot.*.*': 'outTemp',
+            'oh.*.*': 'outHumidity',
+            'ws.*.*': 'windSpeed',
+            'wg.*.*': 'windGust',
+            'wd.*.*': 'windDir',
+            'rfa.*.*': 'rain',
+            'uv.*.*': 'uv'}
+
+        @staticmethod
+        def parse(s):
+            pkt = dict()
+            parts = s.split('&')
+            data = dict([x.split('=') for x in parts])
+            try:
+                pkt['dateTime'] = int(time.time() + 0.5)
+                pkt['usUnits'] = weewx.US
+                pkt['mac'] = data['mac']
+                pkt['id'] = data['id']
+                pkt['rid'] = data['rid']
+                pkt['pwr'] = data['pwr']
+                pkt['channel'] = data['ch']
+                pkt[''] = data['p']
+
+                # uv sensor
+                pkt[''] = data['or']
+                pkt[''] = data['uvh']
+                pkt['uv'] = data['uv']
+
+                # wind sensor
+                pkt[''] = data['gw']
+                pkt[''] = data['av']
+                pkt['winddir'] = decode_float(data['wd']) # compass degrees
+                pkt['windgust'] = decode_float(data['wg']) # m/s
+                pkt['windspeed'] = decode_float(data['ws']) # m/s
+
+                # temperature/humidity sensor
+                pkt[''] = data['htr']
+                pkt[''] = data['cz']
+                pkt['humidity'] = decode_float(data['oh']) # %
+                pkt[''] = data['ttr']
+                pkt['temperature'] = decode_float(data['ot']) # C
+
+                # rain sensor
+                pkt[''] = data['rro']
+                pkt['rainRate'] = decode_float(data['rr']) # mm/hr ?
+                pkt['rain'] = decode_float(data['rfa']) # mm
+
+                # pressure sensor
+                pkt[''] = data['pv']
+                pkt[''] = data['lb']
+                pkt[''] = data['ac']
+                # known sensors
+                # 0803: wind, t/h, rain
+                # 1803: wind, t/h, rain, uv
+                pkt[''] = data['reg']
+                # lost contact?
+                pkt[''] = data['lost']
+                pkt['barometer'] = decode_float(data['baro']) # mbar
+                pkt[''] = data['ptr']
+                # forecast:
+                # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
+                pkt[''] = data['wfor']
+            except ValueError, e:
+                logerr("parse failed for %s: %s" % (s, e))
+            return pkt
+
+        @staticmethod
+        def map_to_fields(pkt, field_map):
+            return pkt
+
+        @staticmethod
+        def decode_datetime(s):
+            s = s.replace("%20", " ")
+            ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
+            return calendar.timegm(ts)
+
+        @staticmethod
+        def decode_float(x):
+            return None if x is None else float(x)
+
 
 class InterceptorDriver(weewx.drivers.AbstractDevice):
     DEVICE_TYPES = {
         'acurite-bridge': AcuriteBridge,
-        'observerip': ObserverIP}
+        'observerip': ObserverIP,
+        'lw30x': LW30x}
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
@@ -382,7 +496,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._device_type = stn_dict.get('device_type', 'acurite-bridge')
         if not self._device_type in self.DEVICE_TYPES:
             raise Exception("unsupported device type '%s'" % self._device_type)
-        self._device = self.DEVICE_TYPES[self._device_type](
+        self._device = self.DEVICE_TYPES.get(self._device_type)(
             (self._addr, self._port))
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
@@ -479,7 +593,7 @@ if __name__ == '__main__':
         raise Exception("unsupported device type '%s'.  options include %s" %
                         (options.device_type,
                          ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
-    device = InterceptorDriver.DEVICE_TYPES[options.device_type](
+    device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
         (options.addr, options.port))
 
     server_thread = threading.Thread(target=device.run_server)
