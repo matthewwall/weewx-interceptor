@@ -6,8 +6,11 @@ internet weather reporting device such as the Acurite internet bridge, the
 LaCross C84612, the Oregon Scientific WS301/302, or the Fine Offset ObserverIP.
 
 Thanks to Pat at obrienlabs.net for the observerip parsing
+  http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
 
 Thanks to george nincehelser and rich of modern toil for acurite parsing
+  http://moderntoil.com/?p=794
+  http://nincehelser.com/ipwx/
 
 Thanks to sergei and weibi for the LW301/302 samples
   http://www.silent-gardens.com/blog/shark-hunt-lw301/
@@ -30,7 +33,7 @@ import time
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.1'
+DRIVER_VERSION = '0.3'
 
 DEFAULT_PORT = 9999
 DEFAULT_ADDR = ''
@@ -83,7 +86,7 @@ class Consumer(object):
     class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
         def get_response(self):
-            return '{ "success": 1 }'
+            return 'OK'
 
         def do_POST(self):
             length = int(self.headers["Content-Length"])
@@ -315,13 +318,8 @@ class ObserverIP(Consumer):
 
     def __init__(self, server_address):
         self.Consumer.__init__(server_address,
-                               ObserverIP.Handler,
+                               Consumer.Handler,
                                ObserverIP.Parser())
-
-    class Handler(Consumer.Handler):
-
-        def get_response(self):
-            return '{ "success": 1 }'
 
     class Parser(Consumer.Parser):
         # sample output from an observer ip
@@ -381,12 +379,9 @@ class ObserverIP(Consumer):
 class LW30x(Consumer):
 
     def __init__(self, server_address):
-        self.Consumer.__init__(server_address, LW30x.Handler, LW30x.Parser())
-
-    class Handler(Consumer.Handler):
-
-        def get_response(self):
-            return '{ "success": 1 }'
+        self.Consumer.__init__(server_address,
+                               Consumer.Handler,
+                               LW30x.Parser())
 
     class Parser(Consumer.Parser):
         # sample output from a LW301

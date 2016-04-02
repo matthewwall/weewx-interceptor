@@ -1,3 +1,6 @@
+0.3 02apr2016
+* added support for os lw301/lw302 and fine offset wh2600 (observerip)
+
 0.2 31mar2016
 * initial release with support for acurite bridge only
 
