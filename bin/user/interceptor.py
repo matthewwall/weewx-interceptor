@@ -110,8 +110,7 @@ class Consumer(object):
             bridge_id = sensor_id = sensor_type = None
             return bridge_id, sensor_id, sensor_type
 
-        @staticmethod
-        def parse(s):
+        def parse(self, s):
             return dict()
 
         @staticmethod
@@ -191,8 +190,7 @@ class AcuriteBridge(Consumer):
                     sensor_type = v
             return bridge_id, sensor_id, sensor_type
 
-        @staticmethod
-        def parse(s):
+        def parse(self, s):
             pkt = dict()
             parts = s.split('&')
             for x in parts:
@@ -322,6 +320,10 @@ class ObserverIP(Consumer):
                                ObserverIP.Parser())
 
     class Parser(Consumer.Parser):
+
+        def __init__(self):
+            self._last_rain = None
+
         # sample output from an observer ip
         # ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
         # lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
@@ -330,8 +332,7 @@ class ObserverIP(Consumer):
         # 29.05&lowbatt=0&dateutc=2016-1-4%2021:2:35&softwaretype=Weather%20log
         # ger%20V2.1.9&action=updateraw&realtime=1&rtfreq=5
 
-        @staticmethod
-        def parse(s):
+        def parse(self, s):
             pkt = dict()
             try:
                 parts = s.split('&')
@@ -343,7 +344,8 @@ class ObserverIP(Consumer):
                 pkt['outTemp'] = decode_float(data['tempf'])
                 pkt['outHumidity'] = decode_float(data['humidity'])
                 pkt['barometer'] = decode_float(data['baromin'])
-                pkt['rain'] = delta_rain(data['rainin'], last_rain)
+                pkt['rain'] = delta_rain(data['rainin'], self._last_rain)
+                self._last_rain = data['rainin']
                 pkt['windDir'] = decode_float(data['windDir'])
                 pkt['windSpeed'] = decode_float(data['windSpeed'])
                 pkt['windGust'] = decode_float(data['windgustmph'])
@@ -402,67 +404,81 @@ class LW30x(Consumer):
             'rfa.*.*': 'rain',
             'uv.*.*': 'uv'}
 
-        @staticmethod
-        def parse(s):
+        def parse(self, s):
             pkt = dict()
             parts = s.split('&')
             data = dict([x.split('=') for x in parts])
             try:
                 pkt['dateTime'] = int(time.time() + 0.5)
-                pkt['usUnits'] = weewx.US
                 pkt['mac'] = data['mac']
                 pkt['id'] = data['id']
                 pkt['rid'] = data['rid']
                 pkt['pwr'] = data['pwr']
                 pkt['channel'] = data['ch']
-                pkt[''] = data['p']
+                pkt['p'] = data['p']
 
                 # uv sensor
-                pkt[''] = data['or']
-                pkt[''] = data['uvh']
-                pkt['uv'] = data['uv']
+                pkt['or'] = data['or']
+                pkt['uvh'] = data['uvh']
+                pkt['uv'] = data['uv'] # index? what is range?
 
                 # wind sensor
-                pkt[''] = data['gw']
-                pkt[''] = data['av']
+                pkt['gw'] = data['gw']
+                pkt['av'] = data['av']
                 pkt['winddir'] = decode_float(data['wd']) # compass degrees
                 pkt['windgust'] = decode_float(data['wg']) # m/s
                 pkt['windspeed'] = decode_float(data['ws']) # m/s
 
                 # temperature/humidity sensor
-                pkt[''] = data['htr']
-                pkt[''] = data['cz']
+                pkt['htr'] = data['htr']
+                pkt['cz'] = data['cz']
                 pkt['humidity'] = decode_float(data['oh']) # %
-                pkt[''] = data['ttr']
+                pkt['ttr'] = data['ttr']
                 pkt['temperature'] = decode_float(data['ot']) # C
 
                 # rain sensor
-                pkt[''] = data['rro']
+                pkt['rro'] = data['rro']
                 pkt['rainRate'] = decode_float(data['rr']) # mm/hr ?
                 pkt['rain'] = decode_float(data['rfa']) # mm
 
                 # pressure sensor
-                pkt[''] = data['pv']
-                pkt[''] = data['lb']
-                pkt[''] = data['ac']
+                pkt['pv'] = data['pv']
+                pkt['lb'] = data['lb']
+                pkt['ac'] = data['ac']
                 # known sensors
                 # 0803: wind, t/h, rain
                 # 1803: wind, t/h, rain, uv
-                pkt[''] = data['reg']
+                pkt['reg'] = data['reg']
                 # lost contact?
-                pkt[''] = data['lost']
+                pkt['lost'] = data['lost']
                 pkt['barometer'] = decode_float(data['baro']) # mbar
-                pkt[''] = data['ptr']
+                pkt['ptr'] = data['ptr']
                 # forecast:
                 # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
-                pkt[''] = data['wfor']
+                pkt['forecast'] = data['wfor']
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
 
+            # now tag each value with the sensor and bridge identifiers
+            packet = {'dateTime': pkt['dateTime'],
+                      'usUnits': weewx.METRICWX}
+            for n in pkt:
+                label = "%s.%s.%s" % (
+                    n, pkt.get('rid', ''), pkt.get('mac', ''))
+                packet[label] = pkt[n]
+            return packet
+
         @staticmethod
         def map_to_fields(pkt, field_map):
-            return pkt
+            if field_map is None:
+                field_map = AcuriteBridge.Parser.DEFAULT_FIELD_MAP
+            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
+            for n in field_map:
+                label = Consumer.Parser._find_match(n, pkt.keys())
+                if label:
+                    packet[field_map[n]] = pkt.get(label)
+            return packet
 
         @staticmethod
         def decode_datetime(s):

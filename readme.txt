@@ -1,8 +1,8 @@
 weewx-interceptor
 
-This is a driver for weewx that intercepts and parses network traffic.  It can
+This is a driver for weewx that receives and parses network traffic.  It can
 be used with a variety of "internet bridge" devices such as the Acurite
-Internet Bridge, the Oregon Scientific WS301/302, or the Fine Offset
+Internet Bridge, the Oregon Scientific LW301/302, or the Fine Offset
 ObserverIP.
 
 
@@ -36,7 +36,7 @@ How it works
 The driver runs a web server on a thread separate from the primary weewx
 thread.  Data posted to that server are parsed then processed as sensor inputs.
 
-There are a few options for getting the data from the network to the driver,
+There many options for getting the data from the network to the driver,
 including the following:
 
   1) Hijack DNS
