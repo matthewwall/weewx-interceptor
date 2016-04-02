@@ -266,7 +266,7 @@ class AcuriteBridge(Consumer):
         @staticmethod
         def decode_rainfall(s):
             # rainfall since last report, in mm
-            return float(s[2:8]) / 100.0
+            return float(s[2:8]) / 1000.0
 
         @staticmethod
         def decode_pressure(pkt):
