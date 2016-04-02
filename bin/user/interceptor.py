@@ -404,6 +404,20 @@ class LW30x(Consumer):
             'rfa.*.*': 'rain',
             'uv.*.*': 'uv'}
 
+        @staticmethod
+        def parse_identifiers(s):
+            bridge_id = sensor_id = sensor_type = None
+            parts = s.split('&')
+            for x in parts:
+                (n, v) = x.split('=')
+                if n == 'mac':
+                    bridge_id = v
+                if n == 'rid':
+                    sensor_id = v
+                if n == 'id':
+                    sensor_type = v
+            return bridge_id, sensor_id, sensor_type
+
         def parse(self, s):
             pkt = dict()
             parts = s.split('&')
