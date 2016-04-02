@@ -144,9 +144,9 @@ class Consumer(object):
 class AcuriteBridge(Consumer):
 
     def __init__(self, server_address):
-        self.Consumer.__init__(server_address,
-                               AcuriteBridge.Handler,
-                               AcuriteBridge.Parser())
+        super(AcuriteBridge, self).__init__(server_address,
+                                            AcuriteBridge.Handler,
+                                            AcuriteBridge.Parser())
 
     class Handler(Consumer.Handler):
 
@@ -315,9 +315,9 @@ class AcuriteBridge(Consumer):
 class ObserverIP(Consumer):
 
     def __init__(self, server_address):
-        self.Consumer.__init__(server_address,
-                               Consumer.Handler,
-                               ObserverIP.Parser())
+        super(ObserverIP, self).__init__(server_address,
+                                         Consumer.Handler,
+                                         ObserverIP.Parser())
 
     class Parser(Consumer.Parser):
 
@@ -381,9 +381,9 @@ class ObserverIP(Consumer):
 class LW30x(Consumer):
 
     def __init__(self, server_address):
-        self.Consumer.__init__(server_address,
-                               Consumer.Handler,
-                               LW30x.Parser())
+        super(LW30x, self).__init__(server_address,
+                                    Consumer.Handler,
+                                    LW30x.Parser())
 
     class Parser(Consumer.Parser):
         # sample output from a LW301
