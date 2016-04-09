@@ -505,6 +505,33 @@ class LW30x(Consumer):
             return None if x is None else float(x)
 
 
+class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
+    @property
+    def default_stanza(self):
+        return """
+[Interceptor]
+    # This section is for the network traffic nterceptor driver.
+
+    # Specify the hardware device to capture.  Options include:
+    #   acurite-bridge - acurite internet bridge
+    #   observerip - fine offset ObserverIP or WS140x/WS120x
+    #   ws30x - oregon scientific WS301/WS302
+    #   lacross-bridge - lacross C84612 internet bridge
+    #   netatmo - netatmo weather stations
+    device_type = acurite-bridge
+
+    # The driver to use:
+    driver = user.interceptor
+"""
+
+    def prompt_for_settings(self):
+        print "Specify the type of device whose data will be captured"
+        device_type = self._prompt('device_type', 'acurite-bridge',
+                                   ['acurite-bridge', 'observerip', 'ws30x',
+                                    'lacross-bridge', 'netatmo'])
+        return {'device_type': device_type}
+
+
 class InterceptorDriver(weewx.drivers.AbstractDevice):
     DEVICE_TYPES = {
         'acurite-bridge': AcuriteBridge,
@@ -550,33 +577,6 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
                 yield pkt
             except Queue.Empty:
                 logdbg('empty queue')
-
-
-class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
-    @property
-    def default_stanza(self):
-        return """
-[Interceptor]
-    # This section is for the network traffic nterceptor driver.
-
-    # Specify the hardware device to capture.  Options include:
-    #   acurite-bridge - acurite internet bridge
-    #   observerip - fine offset ObserverIP or WS140x/WS120x
-    #   ws30x - oregon scientific WS301/WS302
-    #   lacross-bridge - lacross C84612 internet bridge
-    #   netatmo - netatmo weather stations
-    device_type = acurite-bridge
-
-    # The driver to use:
-    driver = user.interceptor
-"""
-
-    def prompt_for_settings(self):
-        print "Specify the type of device whose data will be captured"
-        device_type = self._prompt('device_type', 'acurite-bridge',
-                                   ['acurite-bridge', 'observerip', 'ws30x',
-                                    'lacross-bridge', 'netatmo'])
-        return {'device_type': device_type}
 
 
 # define a main entry point for determining sensor identifiers.
