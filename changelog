@@ -1,3 +1,7 @@
+0.4 08apr2016
+* added firewall rules as options in readme.txt
+* use 'sensor_map' in config for mapping between sensor name and database field
+
 0.3 02apr2016
 * added support for os lw301/lw302 and fine offset wh2600 (observerip)
 

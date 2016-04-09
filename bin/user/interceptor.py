@@ -33,7 +33,7 @@ import time
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.3'
+DRIVER_VERSION = '0.4'
 
 DEFAULT_PORT = 9999
 DEFAULT_ADDR = ''
@@ -114,7 +114,7 @@ class Consumer(object):
             return dict()
 
         @staticmethod
-        def map_to_fields(pkt, field_map):
+        def map_to_fields(pkt, sensor_map):
             return pkt
 
         @staticmethod
@@ -162,7 +162,7 @@ class AcuriteBridge(Consumer):
         # id=X&sensor=05961&mt=tower&humidity=A0300&temperature=A017400000&battery=normal&rssi=3
         # id=X&sensor=14074&mt=tower&humidity=A0300&temperature=A021500000&battery=normal&rssi=4
 
-        DEFAULT_FIELD_MAP = {
+        DEFAULT_SENSOR_MAP = {
             'pressure..*': 'pressure',
             'temperature..*': 'inTemp',
             'temperature.*.*': 'outTemp',
@@ -225,14 +225,14 @@ class AcuriteBridge(Consumer):
             return packet
 
         @staticmethod
-        def map_to_fields(pkt, field_map):
-            if field_map is None:
-                field_map = AcuriteBridge.Parser.DEFAULT_FIELD_MAP
+        def map_to_fields(pkt, sensor_map):
+            if sensor_map is None:
+                sensor_map = AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
             packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
-            for n in field_map:
+            for n in sensor_map:
                 label = Consumer.Parser._find_match(n, pkt.keys())
                 if label:
-                    packet[field_map[n]] = pkt.get(label)
+                    packet[sensor_map[n]] = pkt.get(label)
             return packet
 
         @staticmethod
@@ -356,7 +356,7 @@ class ObserverIP(Consumer):
             return pkt
 
         @staticmethod
-        def map_to_fields(pkt, field_map):
+        def map_to_fields(pkt, sensor_map):
             return pkt
 
         @staticmethod
@@ -394,7 +394,7 @@ class LW30x(Consumer):
         # mac=XX&id=c2&pv=0&lb=0&ac=0&reg=1803&lost=0000&baro=806&ptr=0&wfor=3&p=1
         # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=247&wg=1.9&ws=1.1&ch=1&p=1
 
-        DEFAULT_FIELD_MAP = {
+        DEFAULT_SENSOR_MAP = {
             'baro..*': 'barometer',
             'ot.*.*': 'outTemp',
             'oh.*.*': 'outHumidity',
@@ -484,14 +484,14 @@ class LW30x(Consumer):
             return packet
 
         @staticmethod
-        def map_to_fields(pkt, field_map):
-            if field_map is None:
-                field_map = AcuriteBridge.Parser.DEFAULT_FIELD_MAP
+        def map_to_fields(pkt, sensor_map):
+            if sensor_map is None:
+                sensor_map = AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
             packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
-            for n in field_map:
+            for n in sensor_map:
                 label = Consumer.Parser._find_match(n, pkt.keys())
                 if label:
-                    packet[field_map[n]] = pkt.get(label)
+                    packet[sensor_map[n]] = pkt.get(label)
             return packet
 
         @staticmethod
@@ -516,8 +516,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._addr = stn_dict.get('address', DEFAULT_ADDR)
         self._port = stn_dict.get('port', DEFAULT_PORT)
         loginf('server will listen on %s:%s' % (self._addr, self._port))
-        self._obs_map = stn_dict.get('map', None)
-        loginf('observation map: %s' % self._obs_map)
+        self._obs_map = stn_dict.get('sensor_map', None)
+        loginf('sensor map: %s' % self._obs_map)
         self._device_type = stn_dict.get('device_type', 'acurite-bridge')
         if not self._device_type in self.DEVICE_TYPES:
             raise Exception("unsupported device type '%s'" % self._device_type)

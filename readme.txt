@@ -40,22 +40,22 @@ There many options for getting the data from the network to the driver,
 including the following:
 
   1) Hijack DNS
-     use a local DNS entry to make the bridge send directly to weewx
+     use a local DNS entry to make the internet bridge send directly to weewx
      internet_bridge ---> driver ( ---> web_service )
 
-  2) Man-in-the-middle with HTTP proxy
+  2) HTTP proxy
      configure the bridge to send to an HTTP proxy that you control
      internet_bridge ---> proxy ---> driver ( ---> web_service )
 
-  3) Network tap
-     listen to traffic on the network and capture anything from the bridge
-     internet_bridge ---> tap ---> web_service
-                           \-> driver
-
-  4) DNS hijack plus HTTP redirect
+  3) DNS hijack plus HTTP redirect
      use a local DNS entry to direct traffic to a local HTTP relay
      internet_bridge ---> web_server ---> driver
                                     ( \-> web_service )
+
+  4) Packet capture
+     listen to traffic on the network and capture anything from the bridge
+     internet_bridge ---> tap ( ---> web_service )
+                           \-> driver
 
 Which one you choose depends on your network configuration, network hardware,
 and your ability to add and configure devices on the network.
@@ -110,7 +110,7 @@ This will redirect any requests to www.acu-link.com, but it will not redirect
 any requests to acu-link.com.
 
 
-2) Man-in-the-middle
+2) HTTP proxy
 
 Use a proxy to capture HTTP traffic and redirect it to the driver.
 
@@ -141,62 +141,72 @@ server {
 }
 
 
-3) Network tap configurations
+3) DNS hijack plus HTTP redirect
 
-There are many ways to capture traffic using a 'tap'.  In each case, traffic is
-intercepted then sent to the driver.  The capture and the driver might run on
-the same device, or they can run on separate devices.  The traffic may also be
-sent on to its original destination.
+First hijack the DNS so that traffic goes to a local web server.  Then
+configure the web server so that it redirects the requests to the driver.
+This can be done using a reverse proxy configuration or CGI.
 
-Here are three examples of direct capture.  Some use tcpdump to capture, others
-use ngrep to capture.  The tool 'nc' is used to direct captured traffic to the
-host on which the driver is running.
+
+4) Packet capture configurations
+
+There are many ways to capture traffic.  In each case, traffic is intercepted
+then sent to the driver.  The capture and the driver might run on the same
+device, or they can run on separate devices.  The traffic may also be sent on
+to its original destination.
+
+One strategy is to use a network capture tool such as tcpdump or ngrep to
+capture traffic, then use a tool such as nc to direct the traffic to the
+driver.  Another strategy is to use firewall rules to capture and redirect
+traffic.
 
 
 #!/bin/sh
+# option 1: capture using tcpdump, redirect using nc
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
 
-
 #!/bin/sh
+# option 2: capture using tcpdump, redirect using nc
 tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
 
-
 #!/bin/sh
+# option 3: capture using ngrep, redirect using nc
 ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 
+#!/bin/sh
+# option 4: redirect traffic using iptables firewall rules
+ebtables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
+iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 8000
 
-Here are four different configurations that use this strategy.
 
-a) Tap-in-Router
+Here are configurations that use these strategies:
 
-Capture traffic on the network's edge router.  Run a script on the router that
-captures traffic from the internet bridge and sends it to the driver.
+a) Tap-on-Router
 
-b) Tap-as-Bridge
+Capture traffic on the network's edge router.  This can be done with a script
+that captures traffic from the internet bridge and sends it to the driver.
 
-Configure a computer with two network interfaces to bridge between the
-internet bridge and the regular network.  Plug the internet bridge into one
-port, and plug the other port into the local network.  The bridge captures
-traffic and sends it to the driver, and optionally sends it along to its
-original destination.
+b) Firewall-on-Router
 
-c) Tap-on-Hub
+Use firewall rules to redirect traffic from the internet bridge to the driver.
+
+c) Bridge
+
+Configure a computer or other device with two network interfaces to physically
+bridge between the internet bridge and the regular network.  Plug the internet
+bridge into one port, and connect the other port into the local network.  The
+bridge captures traffic and sends it to the driver.
+
+d) Tap-on-Hub
 
 Configure a device connected to the same hub as the internet bridge.  Since
 any device on a hub can see the network traffic from any other device on the
-hub, simply intercept any traffic from the internet bridge then send it to
-the driver.
+hub, simply listen for traffic from the internet bridge then send it to the
+driver.
 
-d) Tap-on-Switch
+e) Tap-on-Switch
 
 Configure a device that is connected to a managed switch.  Unmanaged switches
 will not work.  Configure the switch to mirror the traffic from one port to a
 second port.  Configure a device on the second port to capture traffic from
 the internet bridge then send it to the driver.
-
-
-4) DNS hijack plus HTTP redirect
-
-First hijack the DNS so that traffic goes to a local web server.  Then
-configure the web server so that it relays the requests to the driver and
-optionally to the web service.
