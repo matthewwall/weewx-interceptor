@@ -36,15 +36,31 @@ How it works
 The driver runs a web server on a thread separate from the primary weewx
 thread.  Data posted to that server are parsed then processed as sensor inputs.
 
-There many options for getting the data from the network to the driver,
-including the following:
+There are many options for getting data to the driver.  Here are some examples,
+from simplest to most complicated.
+
+Example 1: weewx is running on host 'pi' and nothing is listening on port 80.
+Configure the driver to listen on port 80 and configure the internet bridge to
+send to the host 'pi' instead of the cloud.
+
+Example 2: weewx is running on host 'pi', nothing is listening on port 80, and
+the internet bridge cannot be configured.  Add a DNS entry so that traffic from
+the internet bridge is send to 'pi' instead of the cloud.
+
+Example 3: weewx is running on host 'pi', which has a web server on port 80
+to display weewx reports.  Add a reverse proxy to the web server configuration
+so that the bridge data go to port 80, the driver listens on port 9999, and
+the reverse proxy sends traffic from port 80 to port 9999.
+
+These are strategies for getting data to the driver when the simple approach
+is not possible:
 
   1) Hijack DNS
      use a local DNS entry to make the internet bridge send directly to weewx
      internet_bridge ---> driver ( ---> web_service )
 
   2) HTTP proxy
-     configure the bridge to send to an HTTP proxy that you control
+     configure the internet bridge to send to an HTTP proxy that you control
      internet_bridge ---> proxy ---> driver ( ---> web_service )
 
   3) DNS hijack plus HTTP redirect
@@ -179,7 +195,7 @@ ebtables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 
 iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 8000
 
 
-Here are configurations that use these strategies:
+Here are configurations that use packet capture:
 
 a) Tap-on-Router
 

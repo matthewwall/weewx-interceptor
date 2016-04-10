@@ -3,17 +3,22 @@
 """
 This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
-LaCross C84612, the Oregon Scientific WS301/302, or the Fine Offset ObserverIP.
+LaCross GW1000U, the Oregon Scientific LW301/302, or the FineOffset ObserverIP.
 
 Thanks to Pat at obrienlabs.net for the observerip parsing
   http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
 
-Thanks to george nincehelser and rich of modern toil for acurite parsing
+Thanks to rich of modern toil and george nincehelser for acurite parsing
   http://moderntoil.com/?p=794
   http://nincehelser.com/ipwx/
 
-Thanks to sergei and weibi for the LW301/302 samples
+Thanks to sergei and weibi for the LW301/LW302 samples
   http://www.silent-gardens.com/blog/shark-hunt-lw301/
+
+Thanks to skydvrz, mycal, kennkong for publishing results of their lacross work
+  http://www.wxforum.net/index.php?topic=14299.0
+  https://github.com/lowerpower/LaCrosse
+  https://github.com/kennkong/Weather-ERF-Gateway-1000U
 """
 
 # FIXME: automatically detect the traffic type
@@ -35,7 +40,7 @@ import weewx.drivers
 DRIVER_NAME = 'Interceptor'
 DRIVER_VERSION = '0.4'
 
-DEFAULT_PORT = 9999
+DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
 DEFAULT_DEVICE_TYPE = 'acurite-bridge'
 
@@ -115,7 +120,14 @@ class Consumer(object):
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
-            return pkt
+            if sensor_map is None:
+                return pkt
+            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
+            for n in sensor_map:
+                label = Consumer.Parser._find_match(n, pkt.keys())
+                if label:
+                    packet[sensor_map[n]] = pkt.get(label)
+            return packet
 
         @staticmethod
         def _find_match(pattern, keylist):
@@ -212,28 +224,25 @@ class AcuriteBridge(Consumer):
                     pkt[n] = v
                 else:
                     loginf("unknown element '%s' with value '%s'" % (n, v))
+
+            # if this is a pressure packet, calculate the pressure
             if pkt['sensor_type'] == 'pressure':
                 pkt['pressure'], pkt['temperature'] = AcuriteBridge.Parser.decode_pressure(pkt)
 
             # now tag each value with the sensor and bridge identifiers
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
+            label_id = '%s.%s' % (
+                pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
             for n in pkt:
-                label = "%s.%s.%s" % (
-                    n, pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
-                packet[label] = pkt[n]
+                packet["%s.%s" % (n, label_id)] = pkt[n]
             return packet
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
                 sensor_map = AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
-            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
-            for n in sensor_map:
-                label = Consumer.Parser._find_match(n, pkt.keys())
-                if label:
-                    packet[sensor_map[n]] = pkt.get(label)
-            return packet
+            return Consumer.Parser.map_to_fields(sensor_map)
 
         @staticmethod
         def decode_battery(s):
@@ -472,21 +481,18 @@ class LW30x(Consumer):
                 pkt['forecast'] = data['wfor']
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
-            return pkt
 
             # now tag each value with the sensor and bridge identifiers
-            packet = {'dateTime': pkt['dateTime'],
-                      'usUnits': weewx.METRICWX}
+            packet = {'dateTime': pkt['dateTime'], 'usUnits': weewx.METRICWX}
+            label_id = '%s.%s' % (pkt.get('rid', ''), pkt.get('mac', ''))
             for n in pkt:
-                label = "%s.%s.%s" % (
-                    n, pkt.get('rid', ''), pkt.get('mac', ''))
-                packet[label] = pkt[n]
+                packet["%s.%s" % (n, label_id)] = pkt[n]
             return packet
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
-                sensor_map = AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
+                sensor_map = LW30x.Parser.DEFAULT_SENSOR_MAP
             packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
             for n in sensor_map:
                 label = Consumer.Parser._find_match(n, pkt.keys())
@@ -505,6 +511,153 @@ class LW30x(Consumer):
             return None if x is None else float(x)
 
 
+class GW1000U(Consumer):
+
+    def __init__(self, server_address):
+        super(GW1000U, self).__init__(server_address,
+                                      Consumer.Handler,
+                                      GW1000U.Parser())
+
+    class Handler(Consumer.Handler):
+
+        def do_POST(self):
+            flags = '00:00'
+            response = ''
+            ctype = True
+            parts = self.headers.get('HTTP_IDENTIFY', '').split(':')
+            if len(parts) == 4:
+                mac = parts[0]
+                id1 = parts[1]
+                key = parts[2]
+                id2 = parts[3]
+                length = int(self.headers.get('Content-Length', 0))
+                data = str(self.rfile.read(length))
+                logdbg("POST: %s %s %s:%s: %s" % (mac, key, id1, id2, data))
+                if id1 == '00' and id2 == '10':
+                    # power up packet for unregistered gateway
+                    flags = '10:00'
+                elif id1 == '00' and id2 == '20':
+                    # push button registration packet
+                    flags = '20:00'
+                    response = self._create_reg_response()
+                elif id1 == '00' and id2 == '30':
+                    # received after response to 00:70 packet
+                    flags = '30:00'
+                elif id1 == '00' and id2 == '70':
+                    # ping?
+                    flags = '70:00'
+                    response = self._create_ping_response()
+                elif id1 == '7F' and id2 == '10':
+                    # registration packet
+                    reply = False
+                    if reply:
+                        flags = '14:00'
+                        response = self._create_reg_response()
+                elif id1 == '00' and id2 == '14':
+                    # reply after 7f:10 packet
+                    flags = '1C:00'
+                elif id1 == '01' and id2 == '14':
+                    # same response as 00:14 packet
+                    flags = '1C:00'
+                elif id1 == '01' and id2 == '00':
+                    # weather station ping
+                    flags = '14:01'
+                    response = self._create_ping_response()
+                elif id1 == '01' and id2 == '01':
+                    # data packet
+                    Consumer.queue.put(data)
+                else:
+                    loginf("unknown packet type %s:%s" % (id1, id2))
+                    ctype = False
+            elif 'HTTP_IDENTIFY' not in self.headers:
+                logdbg('no HTTP_IDENTIFY in headers')
+            else:
+                logdbg("unknown format for HTTP_IDENTIFY: '%s'" %
+                       self.headers.get('HTTP_IDENTIFY', ''))
+
+            #self.send_response(200) # FIXME: is this necessary?
+            logdbg("http_flags: %s" % flags)
+            self.send_header('HTTP_FLAGS', flags)
+            self.send_header('Server', 'Microsoft-II/6.0')
+            self.send_header('X-Powered-By', 'ASP.NET')
+            self.send_header('X-ApsNet-Version', '2.0.50727')
+            self.send_header('Cache-Control', 'private')
+            if ctype:
+                self.send_header('Content-Type', 'application/octet-stream')
+            self.end_headers()
+            logdbg("response: %s" % response)
+            self.wfile.write(response)
+
+    class Parser(Consumer.Parser):
+
+        @staticmethod
+        def parse_identifiers(s):
+            bridge_id = sensor_id = sensor_type = None
+            parts = s.split('&')
+            for x in parts:
+                (n, v) = x.split('=')
+                if n == 'mac':
+                    bridge_id = v
+                if n == 'rid':
+                    sensor_id = v
+                if n == 'id':
+                    sensor_type = v
+            return bridge_id, sensor_id, sensor_type
+
+        def parse(self, s):
+            pkt = dict()
+
+            # now tag each value with the sensor and bridge identifiers
+            packet = {'dateTime': pkt['dateTime'],
+                      'usUnits': weewx.METRICWX}
+            for n in pkt:
+                label = "%s.%s.%s" % (
+                    n, pkt.get('rid', ''), pkt.get('mac', ''))
+                packet[label] = pkt[n]
+            return packet
+
+        @staticmethod
+        def map_to_fields(pkt, sensor_map):
+            return pkt
+
+        @staticmethod
+        def decode_char(x):
+            return (x >> 4) * 10.0 + (x & 0xf)
+
+        @staticmethod
+        def decode_datetime(s):
+            year = 2000 + decode_char(s[])
+            month = decode_char(s[])
+            day = decode_char(s[])
+            hour = decode_char(s[])
+            minute = decode_char(s[])
+            return time.mktime((year, month, day, hour, minute, 0, 0, 0, -1))
+
+        @staticmethod
+        def decode_pressure(s):
+            return decode_char(s[0]) + decode_char(s[1]) / 100.0
+
+        @staticmethod
+        def decode_humidity(s):
+            return decode_char(s)
+
+        @staticmethod
+        def decode_temperature(s):
+            v = s[0] + decode_char(s[1])
+            return v * 0.18030 - 40.15
+
+        @staticmethod
+        def decode_winddir(s):
+            return (s[0] & 0xf) * 22.5
+
+        def decode_windspeed(s):
+            return (s[0] * 255 + s[1]) / 170.0
+
+        @staticmethod
+        def decode_rain(s):
+            return decode_char(s[0]) * 100.0 + decode_char(s[1]) * 10.0 + decode_char(s[2]) * 10.0 + decode_char(s[3]) * 1000.0
+
+
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
     def default_stanza(self):
@@ -514,8 +667,8 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
 
     # Specify the hardware device to capture.  Options include:
     #   acurite-bridge - acurite internet bridge
-    #   observerip - fine offset ObserverIP or WS140x/WS120x
-    #   ws30x - oregon scientific WS301/WS302
+    #   observerip - fine offset ObserverIP or WH140x/WH120x
+    #   lw30x - oregon scientific LW301/LW302
     #   lacross-bridge - lacross C84612 internet bridge
     #   netatmo - netatmo weather stations
     device_type = acurite-bridge
@@ -527,7 +680,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     def prompt_for_settings(self):
         print "Specify the type of device whose data will be captured"
         device_type = self._prompt('device_type', 'acurite-bridge',
-                                   ['acurite-bridge', 'observerip', 'ws30x',
+                                   ['acurite-bridge', 'observerip', 'lw30x',
                                     'lacross-bridge', 'netatmo'])
         return {'device_type': device_type}
 
@@ -536,7 +689,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
     DEVICE_TYPES = {
         'acurite-bridge': AcuriteBridge,
         'observerip': ObserverIP,
-        'lw30x': LW30x}
+        'lw30x': LW30x,
+        'lacrosse-bridge': GW1000U}
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)

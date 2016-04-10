@@ -1,6 +1,9 @@
-0.4 08apr2016
+0.4 09apr2016
 * added firewall rules as options in readme.txt
 * use 'sensor_map' in config for mapping between sensor name and database field
+* added skeleton for lacrosse internet bridge
+* fix lw30x decoder
+* minor decoder refactoring
 
 0.3 02apr2016
 * added support for os lw301/lw302 and fine offset wh2600 (observerip)
