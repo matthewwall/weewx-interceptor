@@ -526,48 +526,43 @@ class GW1000U(Consumer):
             ctype = True
             parts = self.headers.get('HTTP_IDENTIFY', '').split(':')
             if len(parts) == 4:
-                mac = parts[0]
-                id1 = parts[1]
-                key = parts[2]
-                id2 = parts[3]
+                (mac, id1, key, id2) = parts
+                pkt_type = ("%s:%s" % (id1, id2)).upper()
                 length = int(self.headers.get('Content-Length', 0))
-                data = str(self.rfile.read(length))
+                data = str(self.rfile.read(length)) if length else ''
                 logdbg("POST: %s %s %s:%s: %s" % (mac, key, id1, id2, data))
-                if id1 == '00' and id2 == '10':
+                if pkt_type == '00:10':
                     # power up packet for unregistered gateway
                     flags = '10:00'
-                elif id1 == '00' and id2 == '20':
+                elif pkt_type == '00:20':
                     # push button registration packet
                     flags = '20:00'
-                    response = self._create_reg_response()
-                elif id1 == '00' and id2 == '30':
+                    response = self._create_gateway_reg_response()
+                elif pkt_type == '00:30':
                     # received after response to 00:70 packet
                     flags = '30:00'
-                elif id1 == '00' and id2 == '70':
-                    # ping?
+                elif pkt_type == '00:70':
+                    # gateway ping
                     flags = '70:00'
-                    response = self._create_ping_response()
-                elif id1 == '7F' and id2 == '10':
-                    # registration packet
-                    reply = False
-                    if reply:
+                    response = self._create_gateway_ping_response()
+                elif pkt_type == '7F:10':
+                    # station registration packet
+                    sn = self._extract_serial(data)
+                    if sn == self.station_serial:
                         flags = '14:00'
-                        response = self._create_reg_response()
-                elif id1 == '00' and id2 == '14':
+                        response = self._create_station_reg_response()
+                elif pkt_type == '00:14' or pkt_type == '01:14':
                     # reply after 7f:10 packet
                     flags = '1C:00'
-                elif id1 == '01' and id2 == '14':
-                    # same response as 00:14 packet
-                    flags = '1C:00'
-                elif id1 == '01' and id2 == '00':
+                elif pkt_type == '01:00':
                     # weather station ping
                     flags = '14:01'
-                    response = self._create_ping_response()
-                elif id1 == '01' and id2 == '01':
-                    # data packet
+                    response = self._create_station_ping_response()
+                elif pkt_type == '01:01':
+                    # data packet - current or history
                     Consumer.queue.put(data)
                 else:
-                    loginf("unknown packet type %s:%s" % (id1, id2))
+                    loginf("unknown packet type %s" % pkt_type)
                     ctype = False
             elif 'HTTP_IDENTIFY' not in self.headers:
                 logdbg('no HTTP_IDENTIFY in headers')
@@ -606,9 +601,25 @@ class GW1000U(Consumer):
 
         def parse(self, s):
             pkt = dict()
+            pkt['record_type'] = bin2hex(s[0])
+            pkt['rf_signal_strength'] = hexdec(s[1])
+            pkt['status'] = bin2hex(s[2])
+            pkt['forecast'] = bin2hex(s[3])
+            pkt['in_temp'] = hex2degF(h[39:3])
+            pkt['out_temp'] = hex2degF(h[75:3])
+            ok = h[114:1] == 0
+            pkt['windchill'] = hex2degF(h[111:3]) if ok else None
+            pkt['in_humidity'] = bcd2int(s[70])
+            pkt['out_humidity'] = bcd2int(s[83])
+            pkt['rain_count'] = intval(h[267:7])/1000 # 0.001 mm
+            ok = h[297:1] == 0
+            pkt['wind_speed'] = hexdec(h[290:4])/100 if ok else None # 0.01km/h
+            # FIXME: figure out wind dir
+            # FIXME: figure out wind gust
+            pkt['pressure'] = intval(h[339:5])/10 # mbar
 
             # now tag each value with the sensor and bridge identifiers
-            packet = {'dateTime': pkt['dateTime'],
+            packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
             for n in pkt:
                 label = "%s.%s.%s" % (
