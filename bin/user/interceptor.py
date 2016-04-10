@@ -151,6 +151,14 @@ class Consumer(object):
                 return True
             return False
 
+        @staticmethod
+        def _delta_rain(rain, last_rain):
+            if last_rain is None:
+                return None
+            if rain < last_rain:
+                return None
+            return rain - last_rain
+
 
 class AcuriteBridge(Consumer):
 
@@ -350,7 +358,7 @@ class ObserverIP(Consumer):
                 pkt['outTemp'] = decode_float(data['tempf'])
                 pkt['outHumidity'] = decode_float(data['humidity'])
                 pkt['barometer'] = decode_float(data['baromin'])
-                pkt['rain'] = delta_rain(data['rainin'], self._last_rain)
+                pkt['rain'] = self._delta_rain(data['rainin'], self._last_rain)
                 self._last_rain = data['rainin']
                 pkt['windDir'] = decode_float(data['windDir'])
                 pkt['windSpeed'] = decode_float(data['windSpeed'])
@@ -374,14 +382,6 @@ class ObserverIP(Consumer):
         @staticmethod
         def decode_float(x):
             return None if x is None else float(x)
-
-        @staticmethod
-        def delta_rain(rain, last_rain):
-            if last_rain is None:
-                return None
-            if rain < last_rain:
-                return None
-            return rain - last_rain
 
 
 class LW30x(Consumer):
@@ -642,8 +642,11 @@ class GW1000U(Consumer):
             'wind_speed..*': 'windSpeed',
             'wind_gust..*': 'windGust',
             'wind_dir..*': 'windDir',
-            'rain_count..*': 'rain',
+            'rain..*': 'rain',
             'rf_signal_strength..*': 'rxCheckPercent'}
+
+        def __init__(self):
+            self._last_rain = None
 
         @staticmethod
         def parse_identifiers(s):
@@ -663,6 +666,8 @@ class GW1000U(Consumer):
             pkt['in_humidity'] = int(s[70], 16) # %
             pkt['out_humidity'] = int(s[83], 16) # %
             pkt['rain_count'] = int(s[267:7], 16) / 1000.0 # 0.001 mm
+            pkt['rain'] = self._delta_rain(data['rain_count'], self._last_rain)
+            self._last_rain = data['rain_count']
             ok = h[297:1] == 0 # 0=ok, 5=err
             pkt['wind_speed'] = int(s[290:4], 16) / 100.0 if ok else None # 0.01km/h
             pkt['wind_dir'] = 0 # FIXME: figure out wind dir
