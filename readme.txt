@@ -186,8 +186,9 @@ ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 
 #!/bin/sh
 # option 4: redirect traffic using iptables firewall rules
+# driver is running in weewx on the router listening on port PPPP
 ebtables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
-iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 8000
+iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
 
 
 Here are configurations that use packet capture:
