@@ -112,8 +112,7 @@ class Consumer(object):
 
         @staticmethod
         def parse_identifiers(s):
-            bridge_id = sensor_id = sensor_type = None
-            return bridge_id, sensor_id, sensor_type
+            return None, None, None
 
         def parse(self, s):
             return dict()
@@ -156,9 +155,8 @@ class Consumer(object):
 class AcuriteBridge(Consumer):
 
     def __init__(self, server_address):
-        super(AcuriteBridge, self).__init__(server_address,
-                                            AcuriteBridge.Handler,
-                                            AcuriteBridge.Parser())
+        super(AcuriteBridge, self).__init__(
+            server_address, AcuriteBridge.Handler, AcuriteBridge.Parser())
 
     class Handler(Consumer.Handler):
 
@@ -229,7 +227,7 @@ class AcuriteBridge(Consumer):
             if pkt['sensor_type'] == 'pressure':
                 pkt['pressure'], pkt['temperature'] = AcuriteBridge.Parser.decode_pressure(pkt)
 
-            # now tag each value with the sensor and bridge identifiers
+            # now tag each value with identifiers
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
             label_id = '%s.%s' % (
@@ -324,9 +322,8 @@ class AcuriteBridge(Consumer):
 class ObserverIP(Consumer):
 
     def __init__(self, server_address):
-        super(ObserverIP, self).__init__(server_address,
-                                         Consumer.Handler,
-                                         ObserverIP.Parser())
+        super(ObserverIP, self).__init__(
+            server_address, Consumer.Handler, ObserverIP.Parser())
 
     class Parser(Consumer.Parser):
 
@@ -390,9 +387,8 @@ class ObserverIP(Consumer):
 class LW30x(Consumer):
 
     def __init__(self, server_address):
-        super(LW30x, self).__init__(server_address,
-                                    Consumer.Handler,
-                                    LW30x.Parser())
+        super(LW30x, self).__init__(
+            server_address, Consumer.Handler, LW30x.Parser())
 
     class Parser(Consumer.Parser):
         # sample output from a LW301
@@ -482,7 +478,7 @@ class LW30x(Consumer):
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
 
-            # now tag each value with the sensor and bridge identifiers
+            # now tag each value identifiers
             packet = {'dateTime': pkt['dateTime'], 'usUnits': weewx.METRICWX}
             label_id = '%s.%s' % (pkt.get('rid', ''), pkt.get('mac', ''))
             for n in pkt:
@@ -493,12 +489,7 @@ class LW30x(Consumer):
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
                 sensor_map = LW30x.Parser.DEFAULT_SENSOR_MAP
-            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
-            for n in sensor_map:
-                label = Consumer.Parser._find_match(n, pkt.keys())
-                if label:
-                    packet[sensor_map[n]] = pkt.get(label)
-            return packet
+            return Consumer.Parser.map_to_fields(sensor_map)
 
         @staticmethod
         def decode_datetime(s):
@@ -514,9 +505,8 @@ class LW30x(Consumer):
 class GW1000U(Consumer):
 
     def __init__(self, server_address):
-        super(GW1000U, self).__init__(server_address,
-                                      Consumer.Handler,
-                                      GW1000U.Parser())
+        super(GW1000U, self).__init__(
+            server_address, GW1000U.Handler, GW1000U.Parser())
 
     class Handler(Consumer.Handler):
 
@@ -570,8 +560,10 @@ class GW1000U(Consumer):
                 logdbg("unknown format for HTTP_IDENTIFY: '%s'" %
                        self.headers.get('HTTP_IDENTIFY', ''))
 
-            #self.send_response(200) # FIXME: is this necessary?
             logdbg("http_flags: %s" % flags)
+            logdbg("response: %s" % response)
+
+            #self.send_response(200) # FIXME: is this necessary?
             self.send_header('HTTP_FLAGS', flags)
             self.send_header('Server', 'Microsoft-II/6.0')
             self.send_header('X-Powered-By', 'ASP.NET')
@@ -580,93 +572,59 @@ class GW1000U(Consumer):
             if ctype:
                 self.send_header('Content-Type', 'application/octet-stream')
             self.end_headers()
-            logdbg("response: %s" % response)
             self.wfile.write(response)
 
     class Parser(Consumer.Parser):
 
+        DEFAULT_SENSOR_MAP = {
+            'pressure..*': 'pressure',
+            'in_temperature..*': 'inTemp',
+            'out_temperature..*': 'outTemp',
+            'in_humidity..*': 'inHumidity',
+            'out_humidity..*': 'outHumidity',
+            'wind_speed..*': 'windSpeed',
+            'wind_gust..*': 'windGust',
+            'wind_dir..*': 'windDir',
+            'rain_count..*': 'rain',
+            'rf_signal_strength..*': 'rxCheckPercent'}
+
         @staticmethod
         def parse_identifiers(s):
-            bridge_id = sensor_id = sensor_type = None
-            parts = s.split('&')
-            for x in parts:
-                (n, v) = x.split('=')
-                if n == 'mac':
-                    bridge_id = v
-                if n == 'rid':
-                    sensor_id = v
-                if n == 'id':
-                    sensor_type = v
-            return bridge_id, sensor_id, sensor_type
+            bridge_id = 'mac' # FIXME
+            return bridge_id, None, None
 
         def parse(self, s):
             pkt = dict()
-            pkt['record_type'] = bin2hex(s[0])
-            pkt['rf_signal_strength'] = hexdec(s[1])
-            pkt['status'] = bin2hex(s[2])
-            pkt['forecast'] = bin2hex(s[3])
-            pkt['in_temp'] = hex2degF(h[39:3])
-            pkt['out_temp'] = hex2degF(h[75:3])
-            ok = h[114:1] == 0
-            pkt['windchill'] = hex2degF(h[111:3]) if ok else None
-            pkt['in_humidity'] = bcd2int(s[70])
-            pkt['out_humidity'] = bcd2int(s[83])
+            pkt['record_type'] = bin2hex(s[0]) # always 01
+            pkt['rf_signal_strength'] = hexdec(s[1]) # %
+            pkt['status'] = bin2hex(s[2]) # 0x10, 0x20, 0x30
+            pkt['forecast'] = bin2hex(s[3]) # 0x11, 0x12, 0x20, 0x21
+            pkt['in_temperature'] = hex2degF(h[39:3]) # C
+            pkt['out_temperature'] = hex2degF(h[75:3]) # C
+            ok = h[114:1] == 0 # 0=ok, 0xa=err
+            pkt['windchill'] = hex2degF(h[111:3]) if ok else None # C
+            pkt['in_humidity'] = bcd2int(s[70]) # %
+            pkt['out_humidity'] = bcd2int(s[83]) # %
             pkt['rain_count'] = intval(h[267:7])/1000 # 0.001 mm
-            ok = h[297:1] == 0
+            ok = h[297:1] == 0 # 0=ok, 5=err
             pkt['wind_speed'] = hexdec(h[290:4])/100 if ok else None # 0.01km/h
-            # FIXME: figure out wind dir
-            # FIXME: figure out wind gust
+            pkt['wind_dir'] = 0 # FIXME: figure out wind dir
+            pkt['wind_gust'] = 0 # FIXME: figure out wind gust
             pkt['pressure'] = intval(h[339:5])/10 # mbar
 
-            # now tag each value with the sensor and bridge identifiers
+            # now tag each value with identifiers
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
+            label_id = pkt.get('mac') # FIXME
             for n in pkt:
-                label = "%s.%s.%s" % (
-                    n, pkt.get('rid', ''), pkt.get('mac', ''))
-                packet[label] = pkt[n]
+                packet["%s..%s" % (n, label_id)] = pkt[n]
             return packet
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
-            return pkt
-
-        @staticmethod
-        def decode_char(x):
-            return (x >> 4) * 10.0 + (x & 0xf)
-
-        @staticmethod
-        def decode_datetime(s):
-            year = 2000 + decode_char(s[])
-            month = decode_char(s[])
-            day = decode_char(s[])
-            hour = decode_char(s[])
-            minute = decode_char(s[])
-            return time.mktime((year, month, day, hour, minute, 0, 0, 0, -1))
-
-        @staticmethod
-        def decode_pressure(s):
-            return decode_char(s[0]) + decode_char(s[1]) / 100.0
-
-        @staticmethod
-        def decode_humidity(s):
-            return decode_char(s)
-
-        @staticmethod
-        def decode_temperature(s):
-            v = s[0] + decode_char(s[1])
-            return v * 0.18030 - 40.15
-
-        @staticmethod
-        def decode_winddir(s):
-            return (s[0] & 0xf) * 22.5
-
-        def decode_windspeed(s):
-            return (s[0] * 255 + s[1]) / 170.0
-
-        @staticmethod
-        def decode_rain(s):
-            return decode_char(s[0]) * 100.0 + decode_char(s[1]) * 10.0 + decode_char(s[2]) * 10.0 + decode_char(s[3]) * 1000.0
+            if sensor_map is None:
+                sensor_map = GW1000U.Parser.DEFAULT_SENSOR_MAP
+            return Consumer.Parser.map_to_fields(sensor_map)
 
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
