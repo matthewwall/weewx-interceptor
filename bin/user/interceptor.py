@@ -504,6 +504,8 @@ class LW30x(Consumer):
 
 class GW1000U(Consumer):
 
+    station_serial = 0
+
     def __init__(self, server_address):
         super(GW1000U, self).__init__(
             server_address, GW1000U.Handler, GW1000U.Parser())
@@ -538,16 +540,16 @@ class GW1000U(Consumer):
                 elif pkt_type == '7F:10':
                     # station registration packet
                     sn = self._extract_serial(data)
-                    if sn == self.station_serial:
+                    if sn == GW1000U.station_serial:
                         flags = '14:00'
-                        response = self._create_station_reg_response()
+                        response = self._create_station_reg_response(sn)
                 elif pkt_type == '00:14' or pkt_type == '01:14':
                     # reply after 7f:10 packet
                     flags = '1C:00'
                 elif pkt_type == '01:00':
                     # weather station ping
                     flags = '14:01'
-                    response = self._create_station_ping_response()
+                    response = self._create_station_ping_response(GW1000U.station_serial)
                 elif pkt_type == '01:01':
                     # data packet - current or history
                     Consumer.queue.put(data)
@@ -569,10 +571,62 @@ class GW1000U(Consumer):
             self.send_header('X-Powered-By', 'ASP.NET')
             self.send_header('X-ApsNet-Version', '2.0.50727')
             self.send_header('Cache-Control', 'private')
+            self.send_header('Content-Length', len(response))
             if ctype:
                 self.send_header('Content-Type', 'application/octet-stream')
             self.end_headers()
             self.wfile.write(response)
+
+        def _extract_serial(self, data):
+            if data and len(data) >= 8:
+                return data[0:8]
+            return None
+
+        def _create_gateway_reg_response(self):
+            server = 'box.weatherdirect.com'
+            return ''.join(
+                [chr(0) * 8,
+                 server.ljust(0x98, chr(0)),
+                 ("%s%s%s" % (server, chr(0), server)).ljust(0x56, chr(0)),
+                 chr(0) * 5,
+                 chr(0xff)])
+
+        def _create_gateway_ping_response(self):
+            # 0xf0 = 240 seconds
+            return ''.join([chr(0xff) * 4, chr(0) * 12, chr(0), chr(0xf0)])
+
+        def _create_station_reg_response(self, serial):
+            now = int(time.time())
+            payload = ''.join(
+                [chr(1),
+                 serial,
+                 chr(0) + chr(0x30) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x77) + chr(0) + chr(0xe) + chr(0xff),
+                 chr(bin2bcd(date('h', now))) + chr(bin2bcd(date('i', now))) + chr(bin2bcd(date('s', now))), # hour, minute, second
+                 chr(bin2bcd(date('d', now))) + chr(bin2bcd(date('m', now))) + chr(bin2bcd(date('y', now))), # day, month, year                 
+                 chr(0x53),
+                 chr(0x7), # unknown
+                 chr(0x5), # LCD brightness
+                 chr(0) + chr(0), # beep weather station
+                 chr(0), # unknown
+                 chr(0x7)]) # unknown
+            cs = self.checksum8(payload))
+            return payload + chr(cs)
+
+        def _create_station_ping_response(self, serial):
+            now = int(time.time())
+            payload = ''.join(
+                [chr(1),
+                 serial,
+                 chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x3) + chr(0) + chr(0xe) + chr(0xde),
+                 chr(bin2bcd(date('h', now))) + chr(bin2bcd(date('i', now))) + chr(bin2bcd(date('s', now))), # hour, minute, second
+                 chr(bin2bcd(date('d', now))) + chr(bin2bcd(date('m', now))) + chr(bin2bcd(date('y', now))), # day, month, year                 
+                 chr(0x53),
+                 chr(0x7), # unknown
+                 chr(0x4), # LCD brightness
+                 chr(0) + chr(0), # beep weather station
+                 chr(0)]) # unknown
+            cs = self.checksum16(payload) + 7
+            return payload + chr(cs >> 8) + chr(cs & 0xff)
 
     class Parser(Consumer.Parser):
 
@@ -595,22 +649,22 @@ class GW1000U(Consumer):
 
         def parse(self, s):
             pkt = dict()
-            pkt['record_type'] = bin2hex(s[0]) # always 01
-            pkt['rf_signal_strength'] = hexdec(s[1]) # %
-            pkt['status'] = bin2hex(s[2]) # 0x10, 0x20, 0x30
-            pkt['forecast'] = bin2hex(s[3]) # 0x11, 0x12, 0x20, 0x21
-            pkt['in_temperature'] = hex2degF(h[39:3]) # C
-            pkt['out_temperature'] = hex2degF(h[75:3]) # C
+            pkt['record_type'] = s[0] # always 01
+            pkt['rf_signal_strength'] = int(s[1], 16) # %
+            pkt['status'] = s[2] # 0x10, 0x20, 0x30
+            pkt['forecast'] = s[3] # 0x11, 0x12, 0x20, 0x21
+            pkt['in_temperature'] = self.hex2degC(s[39:3]) # C
+            pkt['out_temperature'] = self.hex2degC(s[75:3]) # C
             ok = h[114:1] == 0 # 0=ok, 0xa=err
-            pkt['windchill'] = hex2degF(h[111:3]) if ok else None # C
-            pkt['in_humidity'] = bcd2int(s[70]) # %
-            pkt['out_humidity'] = bcd2int(s[83]) # %
-            pkt['rain_count'] = intval(h[267:7])/1000 # 0.001 mm
+            pkt['windchill'] = self.hex2degC(s[111:3]) if ok else None # C
+            pkt['in_humidity'] = int(s[70], 16) # %
+            pkt['out_humidity'] = int(s[83], 16) # %
+            pkt['rain_count'] = int(s[267:7], 16) / 1000.0 # 0.001 mm
             ok = h[297:1] == 0 # 0=ok, 5=err
-            pkt['wind_speed'] = hexdec(h[290:4])/100 if ok else None # 0.01km/h
+            pkt['wind_speed'] = int(s[290:4], 16) / 100.0 if ok else None # 0.01km/h
             pkt['wind_dir'] = 0 # FIXME: figure out wind dir
             pkt['wind_gust'] = 0 # FIXME: figure out wind gust
-            pkt['pressure'] = intval(h[339:5])/10 # mbar
+            pkt['pressure'] = int(s[339:5], 16) / 10.0 # mbar
 
             # now tag each value with identifiers
             packet = {'dateTime': int(time.time() + 0.5),
@@ -626,13 +680,34 @@ class GW1000U(Consumer):
                 sensor_map = GW1000U.Parser.DEFAULT_SENSOR_MAP
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
+        @staticmethod
+        def hex2degC(x):
+            if x == 'AAA':
+                return None
+            if len(x) != 3:
+                return None
+            return int(x, 16) / 10 - 40.0
+
+        @staticmethod
+        def checksum8(x):
+            sum = 0
+            for c in x:
+                sum += int(c, 16)
+            return sum & 0xff
+
+        @staticmethod
+        def checksum16(x):
+            sum = 0
+            for c in x:
+                sum += ord(c)
+            return sum & 0xffff
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
     def default_stanza(self):
         return """
 [Interceptor]
-    # This section is for the network traffic nterceptor driver.
+    # This section is for the network traffic interceptor driver.
 
     # Specify the hardware device to capture.  Options include:
     #   acurite-bridge - acurite internet bridge
