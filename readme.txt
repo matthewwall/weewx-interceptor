@@ -44,16 +44,18 @@ Configure the driver to listen on port 80 and configure the internet bridge to
 send to the host 'pi' instead of the cloud.
 
 Example 2: weewx is running on host 'pi', nothing is listening on port 80, and
-the internet bridge cannot be configured.  Add a DNS entry so that traffic from
-the internet bridge is send to 'pi' instead of the cloud.
+the internet bridge cannot be configured.  Configure the driver to listen on
+port 80.  Add a DNS entry so that traffic from the internet bridge is sent to
+'pi' instead of the cloud.
 
 Example 3: weewx is running on host 'pi', which has a web server on port 80
-to display weewx reports.  Add a reverse proxy to the web server configuration
-so that the bridge data go to port 80, the driver listens on port 9999, and
-the reverse proxy sends traffic from port 80 to port 9999.
+to display weewx reports.  Configure the driver to listen on port 9999.  Add a
+reverse proxy to the web server configuration to direct traffic on port 80 from
+the device to port 9999.  Add a DNS entry so that traffic from the device is
+sent to 'pi' instead of the cloud.
 
 These are strategies for getting data to the driver when the simple approach
-is not possible:
+(direct from device to driver) is not possible:
 
   1) Hijack DNS
      use a local DNS entry to make the internet bridge send directly to weewx
