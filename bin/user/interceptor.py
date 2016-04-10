@@ -159,6 +159,10 @@ class Consumer(object):
                 return None
             return rain - last_rain
 
+        @staticmethod
+        def decode_float(x):
+            return None if x is None else float(x)
+
 
 class AcuriteBridge(Consumer):
 
@@ -351,20 +355,20 @@ class ObserverIP(Consumer):
             try:
                 parts = s.split('&')
                 data = dict([x.split('=') for x in parts])
-                pkt['dateTime'] = decode_datetime(data['dateutc'])
+                pkt['dateTime'] = self.decode_datetime(data['dateutc'])
                 pkt['usUnits'] = weewx.US
-                pkt['inTemp'] = decode_float(data['indoortempf'])
-                pkt['inHumidity'] = decode_float(data['indoorhumidity'])
-                pkt['outTemp'] = decode_float(data['tempf'])
-                pkt['outHumidity'] = decode_float(data['humidity'])
-                pkt['barometer'] = decode_float(data['baromin'])
+                pkt['inTemp'] = self.decode_float(data['indoortempf'])
+                pkt['inHumidity'] = self.decode_float(data['indoorhumidity'])
+                pkt['outTemp'] = self.decode_float(data['tempf'])
+                pkt['outHumidity'] = self.decode_float(data['humidity'])
+                pkt['barometer'] = self.decode_float(data['baromin'])
                 pkt['rain'] = self._delta_rain(data['rainin'], self._last_rain)
                 self._last_rain = data['rainin']
-                pkt['windDir'] = decode_float(data['windDir'])
-                pkt['windSpeed'] = decode_float(data['windSpeed'])
-                pkt['windGust'] = decode_float(data['windgustmph'])
-                pkt['radiation'] = decode_float(data['solarradiation'])
-                pkt['txBatteryStatus'] = decode_float(data['lowbatt'])
+                pkt['windDir'] = self.decode_float(data['windDir'])
+                pkt['windSpeed'] = self.decode_float(data['windSpeed'])
+                pkt['windGust'] = self.decode_float(data['windgustmph'])
+                pkt['radiation'] = self.decode_float(data['solarradiation'])
+                pkt['txBatteryStatus'] = self.decode_float(data['lowbatt'])
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
@@ -378,10 +382,6 @@ class ObserverIP(Consumer):
             s = s.replace("%20", " ")
             ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
             return calendar.timegm(ts)
-
-        @staticmethod
-        def decode_float(x):
-            return None if x is None else float(x)
 
 
 class LW30x(Consumer):
@@ -444,21 +444,21 @@ class LW30x(Consumer):
                 # wind sensor
                 pkt['gw'] = data['gw']
                 pkt['av'] = data['av']
-                pkt['winddir'] = decode_float(data['wd']) # compass degrees
-                pkt['windgust'] = decode_float(data['wg']) # m/s
-                pkt['windspeed'] = decode_float(data['ws']) # m/s
+                pkt['winddir'] = self.decode_float(data['wd']) # compass degrees
+                pkt['windgust'] = self.decode_float(data['wg']) # m/s
+                pkt['windspeed'] = self.decode_float(data['ws']) # m/s
 
                 # temperature/humidity sensor
                 pkt['htr'] = data['htr']
                 pkt['cz'] = data['cz']
-                pkt['humidity'] = decode_float(data['oh']) # %
+                pkt['humidity'] = self.decode_float(data['oh']) # %
                 pkt['ttr'] = data['ttr']
-                pkt['temperature'] = decode_float(data['ot']) # C
+                pkt['temperature'] = self.decode_float(data['ot']) # C
 
                 # rain sensor
                 pkt['rro'] = data['rro']
-                pkt['rainRate'] = decode_float(data['rr']) # mm/hr ?
-                pkt['rain'] = decode_float(data['rfa']) # mm
+                pkt['rainRate'] = self.decode_float(data['rr']) # mm/hr ?
+                pkt['rain'] = self.decode_float(data['rfa']) # mm
 
                 # pressure sensor
                 pkt['pv'] = data['pv']
@@ -470,7 +470,7 @@ class LW30x(Consumer):
                 pkt['reg'] = data['reg']
                 # lost contact?
                 pkt['lost'] = data['lost']
-                pkt['barometer'] = decode_float(data['baro']) # mbar
+                pkt['barometer'] = self.decode_float(data['baro']) # mbar
                 pkt['ptr'] = data['ptr']
                 # forecast:
                 # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
@@ -490,16 +490,6 @@ class LW30x(Consumer):
             if sensor_map is None:
                 sensor_map = LW30x.Parser.DEFAULT_SENSOR_MAP
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
-
-        @staticmethod
-        def decode_datetime(s):
-            s = s.replace("%20", " ")
-            ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
-            return calendar.timegm(ts)
-
-        @staticmethod
-        def decode_float(x):
-            return None if x is None else float(x)
 
 
 class GW1000U(Consumer):
@@ -577,12 +567,14 @@ class GW1000U(Consumer):
             self.end_headers()
             self.wfile.write(response)
 
-        def _extract_serial(self, data):
+        @staticmethod
+        def _extract_serial(data):
             if data and len(data) >= 8:
                 return data[0:8]
             return None
 
-        def _create_gateway_reg_response(self):
+        @staticmethod
+        def _create_gateway_reg_response():
             server = 'box.weatherdirect.com'
             return ''.join(
                 [chr(0) * 8,
@@ -591,59 +583,68 @@ class GW1000U(Consumer):
                  chr(0) * 5,
                  chr(0xff)])
 
-        def _create_gateway_ping_response(self):
+        @staticmethod
+        def _create_gateway_ping_response():
             # 0xf0 = 240 seconds
             return ''.join([chr(0xff) * 4, chr(0) * 12, chr(0), chr(0xf0)])
 
-        def _create_station_reg_response(self, serial):
-            now = int(time.time())
+        @staticmethod
+        def _create_station_reg_response(serial):
             payload = ''.join(
                 [chr(1),
-                 serial,
+                 GW1000U.Handler.encode_serial(serial), # 8 bytes
                  chr(0) + chr(0x30) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x77) + chr(0) + chr(0xe) + chr(0xff),
-                 chr(bin2bcd(date('h', now))) + chr(bin2bcd(date('i', now))) + chr(bin2bcd(date('s', now))), # hour, minute, second
-                 chr(bin2bcd(date('d', now))) + chr(bin2bcd(date('m', now))) + chr(bin2bcd(date('y', now))), # day, month, year                 
+                 GW1000U.Handler.encode_ts(int(time.time())), # 6 bytes
                  chr(0x53),
                  chr(0x7), # unknown
                  chr(0x5), # LCD brightness
                  chr(0) + chr(0), # beep weather station
                  chr(0), # unknown
                  chr(0x7)]) # unknown
-            cs = self.checksum8(payload))
+            cs = GW1000U.Handler.checksum8(payload)
             return payload + chr(cs)
 
-        def _create_station_ping_response(self, serial):
-            now = int(time.time())
+        @staticmethod
+        def _create_station_ping_response(serial):
             payload = ''.join(
                 [chr(1),
-                 serial, # 8 bytes
+                 GW1000U.Handler.encode_serial(serial), # 8 bytes
                  chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
                  sensor_interval, # byte 0x14 (0x3)
                  chr(0),
                  last_history_address, # 2 bytes (0x3e 0xde)
-                 chr(bin2bcd(date('h', now))) + chr(bin2bcd(date('i', now))) + chr(bin2bcd(date('s', now))), # 3 bytes: hour, minute, second
-                 chr(bin2bcd(date('d', now))) + chr(bin2bcd(date('m', now))) + chr(bin2bcd(date('y', now))), # 3 bytes: day, month, year                 
+                 GW1000U.Handler.encode_ts(int(time.time())), # 6 bytes
                  chr(0x53),
                  history_interval, # byte 0x1f (0x7)
                  chr(0x4),
                  chr(0) + chr(0),
                  chr(0)])
-            cs = self.checksum16(payload) + 7
+            cs = GW1000U.Handler.checksum16(payload) + 7
             return payload + chr(cs >> 8) + chr(cs & 0xff)
 
         @staticmethod
         def checksum8(x):
-            sum = 0
+            n = 0
             for c in x:
-                sum += int(c, 16)
-            return sum & 0xff
+                n += int(c, 16)
+            return n & 0xff
 
         @staticmethod
         def checksum16(x):
-            sum = 0
+            n = 0
             for c in x:
-                sum += ord(c)
-            return sum & 0xffff
+                n += ord(c)
+            return n & 0xffff
+
+        @staticmethod
+        def encode_ts(ts):
+            # FIXME
+            return bin2bcd(time.strftime("%H%M%S%d%m%y", time.localtime(ts)))
+
+        @staticmethod
+        def encode_serial(sn):
+            # FIXME
+            return ''.join([chr(x) for x in str(sn)])
 
     class Parser(Consumer.Parser):
 
@@ -796,6 +797,7 @@ if __name__ == '__main__':
     parser.add_option('--version', dest='version', action='store_true',
                       help='display driver version')
     parser.add_option('--debug', dest='debug', action='store_true',
+                      default=False,
                       help='display diagnostic information while running')
     parser.add_option('--port', dest='port', metavar='PORT',
                       default=DEFAULT_PORT,
@@ -810,7 +812,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     debug = False
-    if options.debug is not None:
+    if options.debug:
         syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
         debug = True
 
@@ -829,14 +831,13 @@ if __name__ == '__main__':
     while True:
         try:
             data = device.get_queue().get(True, 10)
-            if debug:
-                print 'raw data: %s' % data
-            if debug:
-                pkt = device.parser.parse(data)
-                print 'raw packet: %s' % pkt
-#                pkt = device.parser.map_to_fields(pkt, obs_map)
-#                print 'mapped packet: %s' % pkt
             ids = device.parser.parse_identifiers(data)
             print "bridge_id: %s sensor_id: %s sensor_type: %s" % ids
+            if debug:
+                print 'raw data: %s' % data
+                pkt = device.parser.parse(data)
+                print 'raw packet: %s' % pkt
+                pkt = device.parser.map_to_fields(pkt, None)
+                print 'mapped packet: %s' % pkt
         except Queue.Empty:
             pass
