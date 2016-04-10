@@ -240,7 +240,7 @@ class AcuriteBridge(Consumer):
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
                 sensor_map = AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(sensor_map)
+            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
         def decode_battery(s):
@@ -489,7 +489,7 @@ class LW30x(Consumer):
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
                 sensor_map = LW30x.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(sensor_map)
+            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
         def decode_datetime(s):
@@ -624,7 +624,7 @@ class GW1000U(Consumer):
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
                 sensor_map = GW1000U.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(sensor_map)
+            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
