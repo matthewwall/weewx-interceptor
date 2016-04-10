@@ -2,8 +2,8 @@ weewx-interceptor
 
 This is a driver for weewx that receives and parses network traffic.  It can
 be used with a variety of "internet bridge" devices such as the Acurite
-Internet Bridge, the Oregon Scientific LW301/302, or the Fine Offset
-ObserverIP.
+Internet Bridge, the Oregon Scientific LW301/302, the Fine Offset ObserverIP,
+or the LaCross GW1000U.
 
 
 Installation
@@ -48,7 +48,12 @@ the internet bridge cannot be configured.  Configure the driver to listen on
 port 80.  Add a DNS entry so that traffic from the internet bridge is sent to
 'pi' instead of the cloud.
 
-Example 3: weewx is running on host 'pi', which has a web server on port 80
+Example 3: weewx is running on host 'pi', nothing is listening on port 80, and
+the internet bridge cannot be configured.  Configure the driver to listen on
+port 80.  Configure the router to redirect traffic from the internet bridge
+and send it to 'pi' instead of the cloud.
+
+Example 4: weewx is running on host 'pi', which has a web server on port 80
 to display weewx reports.  Configure the driver to listen on port 9999.  Add a
 reverse proxy to the web server configuration to direct traffic on port 80 from
 the device to port 9999.  Add a DNS entry so that traffic from the device is
@@ -61,19 +66,14 @@ These are strategies for getting data to the driver when the simple approach
      use a local DNS entry to make the internet bridge send directly to weewx
      internet_bridge ---> driver ( ---> web_service )
 
-  2) HTTP proxy
+  2) HTTP proxy/redirect
      configure the internet bridge to send to an HTTP proxy that you control
      internet_bridge ---> proxy ---> driver ( ---> web_service )
 
-  3) DNS hijack plus HTTP redirect
-     use a local DNS entry to direct traffic to a local HTTP relay
-     internet_bridge ---> web_server ---> driver
-                                    ( \-> web_service )
-
-  4) Packet capture
+  3) Packet capture
      listen to traffic on the network and capture anything from the bridge
      internet_bridge ---> tap ( ---> web_service )
-                           \-> driver
+                           \-> driver ( ---> web_service )
 
 Which one you choose depends on your network configuration, network hardware,
 and your ability to add and configure devices on the network.
@@ -128,7 +128,7 @@ This will redirect any requests to www.acu-link.com, but it will not redirect
 any requests to acu-link.com.
 
 
-2) HTTP proxy
+2) HTTP proxy/redirect
 
 Use a proxy to capture HTTP traffic and redirect it to the driver.
 
@@ -159,14 +159,7 @@ server {
 }
 
 
-3) DNS hijack plus HTTP redirect
-
-First hijack the DNS so that traffic goes to a local web server.  Then
-configure the web server so that it redirects the requests to the driver.
-This can be done using a reverse proxy configuration or CGI.
-
-
-4) Packet capture configurations
+3) Packet capture configurations
 
 There are many ways to capture traffic.  In each case, traffic is intercepted
 then sent to the driver.  The capture and the driver might run on the same
