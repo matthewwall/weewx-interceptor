@@ -504,7 +504,7 @@ class LW30x(Consumer):
 
 class GW1000U(Consumer):
 
-    station_serial = 0
+    station_serial = '0000000000000000'
 
     def __init__(self, server_address):
         super(GW1000U, self).__init__(
@@ -631,6 +631,20 @@ class GW1000U(Consumer):
             cs = self.checksum16(payload) + 7
             return payload + chr(cs >> 8) + chr(cs & 0xff)
 
+        @staticmethod
+        def checksum8(x):
+            sum = 0
+            for c in x:
+                sum += int(c, 16)
+            return sum & 0xff
+
+        @staticmethod
+        def checksum16(x):
+            sum = 0
+            for c in x:
+                sum += ord(c)
+            return sum & 0xffff
+
     class Parser(Consumer.Parser):
 
         DEFAULT_SENSOR_MAP = {
@@ -648,11 +662,6 @@ class GW1000U(Consumer):
         def __init__(self):
             self._last_rain = None
 
-        @staticmethod
-        def parse_identifiers(s):
-            bridge_id = 'mac' # FIXME
-            return bridge_id, None, None
-
         def parse(self, s):
             pkt = dict()
             pkt['record_type'] = s[0] # always 01
@@ -665,11 +674,11 @@ class GW1000U(Consumer):
             pkt['windchill'] = self.hex2degC(s[111:3]) if ok else None # C
             pkt['in_humidity'] = int(s[70], 16) # %
             pkt['out_humidity'] = int(s[83], 16) # %
-            pkt['rain_count'] = int(s[267:7], 16) / 1000.0 # 0.001 mm
+            pkt['rain_count'] = int(s[267:7], 16) / 1000.0 # mm
             pkt['rain'] = self._delta_rain(data['rain_count'], self._last_rain)
             self._last_rain = data['rain_count']
             ok = h[297:1] == 0 # 0=ok, 5=err
-            pkt['wind_speed'] = int(s[290:4], 16) / 100.0 if ok else None # 0.01km/h
+            pkt['wind_speed'] = int(s[290:4], 16) / 100.0 if ok else None # kph
             pkt['wind_dir'] = 0 # FIXME: figure out wind dir
             pkt['wind_gust'] = 0 # FIXME: figure out wind gust
             pkt['pressure'] = int(s[339:5], 16) / 10.0 # mbar
@@ -690,25 +699,10 @@ class GW1000U(Consumer):
 
         @staticmethod
         def hex2degC(x):
-            if x == 'AAA':
+            if x.upper() == 'AAA':
                 return None
-            if len(x) != 3:
-                return None
-            return int(x, 16) / 10 - 40.0
+            return int(x, 16) / 10.0 - 40.0
 
-        @staticmethod
-        def checksum8(x):
-            sum = 0
-            for c in x:
-                sum += int(c, 16)
-            return sum & 0xff
-
-        @staticmethod
-        def checksum16(x):
-            sum = 0
-            for c in x:
-                sum += ord(c)
-            return sum & 0xffff
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
