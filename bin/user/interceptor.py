@@ -616,15 +616,18 @@ class GW1000U(Consumer):
             now = int(time.time())
             payload = ''.join(
                 [chr(1),
-                 serial,
-                 chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x3) + chr(0) + chr(0xe) + chr(0xde),
-                 chr(bin2bcd(date('h', now))) + chr(bin2bcd(date('i', now))) + chr(bin2bcd(date('s', now))), # hour, minute, second
-                 chr(bin2bcd(date('d', now))) + chr(bin2bcd(date('m', now))) + chr(bin2bcd(date('y', now))), # day, month, year                 
+                 serial, # 8 bytes
+                 chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
+                 sensor_interval, # byte 0x14 (0x3)
+                 chr(0),
+                 last_history_address, # 2 bytes (0x3e 0xde)
+                 chr(bin2bcd(date('h', now))) + chr(bin2bcd(date('i', now))) + chr(bin2bcd(date('s', now))), # 3 bytes: hour, minute, second
+                 chr(bin2bcd(date('d', now))) + chr(bin2bcd(date('m', now))) + chr(bin2bcd(date('y', now))), # 3 bytes: day, month, year                 
                  chr(0x53),
-                 chr(0x7), # unknown
-                 chr(0x4), # LCD brightness
-                 chr(0) + chr(0), # beep weather station
-                 chr(0)]) # unknown
+                 history_interval, # byte 0x1f (0x7)
+                 chr(0x4),
+                 chr(0) + chr(0),
+                 chr(0)])
             cs = self.checksum16(payload) + 7
             return payload + chr(cs >> 8) + chr(cs & 0xff)
 
