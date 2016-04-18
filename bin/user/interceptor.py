@@ -137,6 +137,16 @@ class Consumer(object):
             self.end_headers()
             self.wfile.write(response)
 
+        def do_GET(self):
+            data = str(self.path)
+            logdbg('GET: %s' % data)
+            Consumer.queue.put(data)
+            response = bytes(self.get_response())
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+
         # do not spew messages on every connection
         def log_message(self, format, *args):
             pass

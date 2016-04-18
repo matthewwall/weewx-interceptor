@@ -1,6 +1,7 @@
 0.5 18apr2016
 * ensure that port is int
 * include UV in observerip packets
+* handle http GET
 
 0.4 09apr2016
 * added firewall rules as options in readme.txt
