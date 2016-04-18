@@ -742,7 +742,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
         self._addr = stn_dict.get('address', DEFAULT_ADDR)
-        self._port = stn_dict.get('port', DEFAULT_PORT)
+        self._port = int(stn_dict.get('port', DEFAULT_PORT))
         loginf('server will listen on %s:%s' % (self._addr, self._port))
         self._obs_map = stn_dict.get('sensor_map', None)
         loginf('sensor map: %s' % self._obs_map)
