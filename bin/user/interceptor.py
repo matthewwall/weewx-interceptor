@@ -5,12 +5,12 @@ This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
 LaCross GW1000U, the Oregon Scientific LW301/302, or the FineOffset ObserverIP.
 
-Thanks to Pat at obrienlabs.net for the observerip parsing
-  http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
-
 Thanks to rich of modern toil and george nincehelser for acurite parsing
   http://moderntoil.com/?p=794
   http://nincehelser.com/ipwx/
+
+Thanks to Pat at obrienlabs.net for the observerip parsing
+  http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
 
 Thanks to sergei and weibi for the LW301/LW302 samples
   http://www.silent-gardens.com/blog/shark-hunt-lw301/
@@ -19,6 +19,39 @@ Thanks to skydvrz, mycal, kennkong for publishing results of their lacross work
   http://www.wxforum.net/index.php?topic=14299.0
   https://github.com/lowerpower/LaCrosse
   https://github.com/kennkong/Weather-ERF-Gateway-1000U
+
+About the stations
+
+Acurite Bridge
+
+The Acurite bridge communicates with Acurite 5-in-1, 3-in-1, temperature, and
+temperature/humidity sensors.  It receives signals from any number of sensors,
+even though Acurite's web interface is limited to 3 devices.
+
+By default, the bridge transmits data to www.acu-link.com.  Acurite requires
+registration of the bridge's MAC address in order to use acu-link.com.
+However, the bridge will function even if it is not registered, as long as it
+receives the proper response.
+
+ObserverIP
+
+Manufactured by Fine Offset as the WH2600, HP1000, and HP1003.
+
+WH2600: bridge (wifi), cluster, THP
+HP1000: console (wifi), cluster, THP
+HP1003: console (no wifi), cluster, THP
+
+Sold by Ambient as the 'Observer' including WS1001, WS1200IP, and WS1400IP.
+
+WS0800: bridge, THP, TH
+WS1400: bridge (wifi), cluster, THP
+WS1200: bridge (wifi), console, cluster, THP
+WS1001: console (wifi), cluster, THP
+
+Ambient also sells 'AirBridge' and 'WeatherBridge' variants, but these use a
+meteostick and meteohub/plug instead of the Fine Offset bridge.
+
+It looks like this hardware simply sends data in weather underground format.
 """
 
 # FIXME: automatically detect the traffic type
@@ -38,7 +71,7 @@ import time
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.4'
+DRIVER_VERSION = '0.5'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -162,6 +195,10 @@ class Consumer(object):
         @staticmethod
         def decode_float(x):
             return None if x is None else float(x)
+
+        @staticmethod
+        def decode_float(x):
+            return None if x is None else int(x)
 
 
 class AcuriteBridge(Consumer):
@@ -368,7 +405,8 @@ class ObserverIP(Consumer):
                 pkt['windSpeed'] = self.decode_float(data['windSpeed'])
                 pkt['windGust'] = self.decode_float(data['windgustmph'])
                 pkt['radiation'] = self.decode_float(data['solarradiation'])
-                pkt['txBatteryStatus'] = self.decode_float(data['lowbatt'])
+                pkt['UV'] = self.decode_int(data['UV'])
+                pkt['txBatteryStatus'] = self.decode_int(data['lowbatt'])
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
