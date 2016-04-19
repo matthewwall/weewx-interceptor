@@ -235,6 +235,7 @@ class AcuriteBridge(Consumer):
         # id=X&sensor=05961&mt=tower&humidity=A0300&temperature=A017400000&battery=normal&rssi=3
         # id=X&sensor=14074&mt=tower&humidity=A0300&temperature=A021500000&battery=normal&rssi=4
 
+        # FIXME: report battery and rssi
         DEFAULT_SENSOR_MAP = {
             'pressure..*': 'pressure',
             'temperature..*': 'inTemp',
@@ -259,24 +260,35 @@ class AcuriteBridge(Consumer):
             pkt = dict()
             parts = s.split('&')
             for x in parts:
-                (n, v) = x.split('=')
-                if n == 'id':
-                    pkt['bridge_id'] = v
-                elif n == 'sensor':
-                    pkt['sensor_id'] = v
-                elif n == 'mt':
-                    pkt['sensor_type'] = v
-                elif hasattr(AcuriteBridge.Parser, 'decode_%s' % n):
-                    try:
-                        func = 'decode_%s' % n
-                        pkt[n] = getattr(AcuriteBridge.Parser, func)(v)
-                    except (ValueError, IndexError), e:
-                        logerr("decode failed for %s '%s': %s" % (n, v, e))
-                elif n in ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7',
-                           'A', 'B', 'C', 'D', 'PR', 'TR']:
-                    pkt[n] = v
-                else:
-                    loginf("unknown element '%s' with value '%s'" % (n, v))
+                try:
+                    (n, v) = x.split('=')
+                    if n == 'id':
+                        pkt['bridge_id'] = v
+                    elif n == 'sensor':
+                        pkt['sensor_id'] = v
+                    elif n == 'mt':
+                        pkt['sensor_type'] = v
+                    elif n == 'battery':
+                        pkt['battery'] = 1 if v == 'normal' else 0
+                    elif n == 'rssi':
+                        pkt['rssi'] = int(v)
+                    elif n == 'humidity':
+                        pkt['humidity'] = float(v[2:5]) / 10.0 # %
+                    elif n == 'temperature':
+                        pkt['temperature'] = float(v[1:5]) / 10.0 # C
+                    elif n == 'windspeed':
+                        pkt['windspeed'] = float(v[2:5]) / 10.0 # m/s
+                    elif n == 'winddir':
+                        pkt['winddir'] = AcuriteBridge.Parser.IDX_TO_DEG.get(int(v, 16))
+                    elif n == 'rainfall':
+                        pkt['rainfall'] = float(v[2:8]) / 1000.0 # mm (delta)
+                    elif n in ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7',
+                               'A', 'B', 'C', 'D', 'PR', 'TR']:
+                        pkt[n] = int(v, 16)
+                    else:
+                        loginf("unknown element '%s' with value '%s'" % (n, v))
+                except (ValueError, IndexError), e:
+                    logerr("decode failed for %s '%s': %s" % (n, v, e))
 
             # if this is a pressure packet, calculate the pressure
             if pkt['sensor_type'] == 'pressure':
@@ -298,65 +310,21 @@ class AcuriteBridge(Consumer):
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
-        def decode_battery(s):
-            return 1 if s != 'normal' else 0
-
-        @staticmethod
-        def decode_rssi(s):
-            return int(s)
-
-        @staticmethod
-        def decode_humidity(s):
-            # humidity in [0, 100]
-            return float(s[2:5]) / 10.0
-
-        @staticmethod
-        def decode_temperature(s):
-            # temperature in degree C
-            return float(s[1:5]) / 10.0
-
-        @staticmethod
-        def decode_windspeed(s):
-            # wind speed in meters per second
-            return float(s[2:5]) / 10.0
-
-        @staticmethod
-        def decode_winddir(s):
-            # wind direction in compass degrees [0, 360]
-            return AcuriteBridge.Parser.IDX_TO_DEG.get(int(s, 16))
-
-        @staticmethod
-        def decode_rainfall(s):
-            # rainfall since last report, in mm
-            return float(s[2:8]) / 1000.0
-
-        @staticmethod
         def decode_pressure(pkt):
             # pressure in mbar, temperature in degree C
-            c1 = int(pkt['C1'], 16)
-            c2 = int(pkt['C2'], 16)
-            c3 = int(pkt['C3'], 16)
-            c4 = int(pkt['C4'], 16)
-            c5 = int(pkt['C5'], 16)
-            c6 = int(pkt['C6'], 16)
-            c7 = int(pkt['C7'], 16)
-            a = int(pkt['A'], 16)
-            b = int(pkt['B'], 16)
-            c = int(pkt['C'], 16)
-            d = int(pkt['D'], 16)
-            pr = int(pkt['PR'], 16)
-            tr = int(pkt['TR'], 16)
-            if (0x100 <= c1 <= 0xffff and
-                0x0 <= c2 <= 0x1fff and
-                0x0 <= c3 <= 0x400 and
-                0x0 <= c4 <= 0x1000 and
-                0x1000 <= c5 <= 0xffff and
-                0x0 <= c6 <= 0x4000 and
-                0x960 <= c7 <= 0xa28 and
-                0x01 <= a <= 0x3f and 0x01 <= b <= 0x3f and
-                0x01 <= c <= 0x0f and 0x01 <= d <= 0x0f):
+            if (0x100 <= pkt['C1'] <= 0xffff and
+                0x0 <= pkt['C2'] <= 0x1fff and
+                0x0 <= pkt['C3'] <= 0x400 and
+                0x0 <= pkt['C4'] <= 0x1000 and
+                0x1000 <= pkt['C5'] <= 0xffff and
+                0x0 <= pkt['C6'] <= 0x4000 and
+                0x960 <= pkt['C7'] <= 0xa28 and
+                0x01 <= pkt['A'] <= 0x3f and 0x01 <= pkt['B'] <= 0x3f and
+                0x01 <= pkt['C'] <= 0x0f and 0x01 <= pkt['D'] <= 0x0f):
                 return AcuriteBridge.Parser.decode_HP03S(
-                    c1, c2, c3, c4, c5, c6, c7, a, b, c, d, pr, tr)
+                    pkt['C1'], pkt['C2'], pkt['C3'], pkt['C4'], pkt['C5'],
+                    pkt['C6'], pkt['C7'], pkt['A'], pkt['B'], pkt['C'],
+                    pkt['D'], pkt['PR'], pkt['TR'])
             logerr("one or more bogus constants in pressure packet: %s" % pkt)
             return None, None
 
