@@ -440,23 +440,16 @@ class ObserverIP(Consumer):
                 data = dict(x.split('=') for x in s.split('&'))
                 # FIXME: add option to use computer time instead of station
                 pkt['dateTime'] = self.decode_datetime(data['dateutc'])
-
+                pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRICWX
                 for n in data:
                     if n in self.LABEL_MAP:
                         pkt[LABEL_MAP[n]] = self.decode_float(data[n])
                     else:
                         logdbg("unrecognized parameter %s=%s" % (n, data[n]))
-
-                if 'tempf' in data:
-                    pkt['usUnits'] = weewx.US
-                else:
-                    pkt['usUnits'] = weewx.METRICWX
-
                 if 'rain' in pkt:
                     newtot = pkt['rain']
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
-
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
@@ -507,7 +500,6 @@ class LW30x(Consumer):
             pkt = dict()
             try:
                 data = dict(x.split('=') for x in s.split('&'))
-                pkt['dateTime'] = int(time.time() + 0.5)
                 pkt['mac'] = data['mac']
                 pkt['id'] = data['id']
                 pkt['rid'] = data['rid']
@@ -558,7 +550,8 @@ class LW30x(Consumer):
                 logerr("parse failed for %s: %s" % (s, e))
 
             # now tag each value identifiers
-            packet = {'dateTime': pkt['dateTime'], 'usUnits': weewx.METRICWX}
+            packet = {'dateTime': int(time.time() + 0.5),
+                      'usUnits': weewx.METRICWX}
             label_id = '%s.%s' % (pkt.get('rid', ''), pkt.get('mac', ''))
             for n in pkt:
                 packet["%s.%s" % (n, label_id)] = pkt[n]
@@ -854,7 +847,10 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
                 logdbg('raw packet: %s' % pkt)
                 pkt = self._device.parser.map_to_fields(pkt, self._obs_map)
                 logdbg('mapped packet: %s' % pkt)
-                yield pkt
+                if pkt:
+                    yield pkt
+                else:
+                    logdbg('skipping bogus packet %s' % pkt)
             except Queue.Empty:
                 logdbg('empty queue')
 
