@@ -67,6 +67,7 @@ import calendar
 import syslog
 import threading
 import time
+import urlparse
 
 import weewx.drivers
 
@@ -124,28 +125,31 @@ class Consumer(object):
     class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
         def get_response(self):
+            # default reply is a simple 'OK' string
             return 'OK'
 
+        def reply(self, data):
+            # standard reply is HTTP code of 200 and the response string
+            response = bytes(self.get_response())
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)            
+
         def do_POST(self):
+            # get the payload from an HTTP POST
             length = int(self.headers["Content-Length"])
             data = str(self.rfile.read(length))
             logdbg('POST: %s' % data)
             Consumer.queue.put(data)
-            response = bytes(self.get_response())
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(response)))
-            self.end_headers()
-            self.wfile.write(response)
+            self.reply(data)
 
         def do_GET(self):
-            data = str(self.path)
+            # get the query string from an HTTP GET
+            data = urlparse.urlparse(self.path).query
             logdbg('GET: %s' % data)
             Consumer.queue.put(data)
-            response = bytes(self.get_response())
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(response)))
-            self.end_headers()
-            self.wfile.write(response)
+            self.reply(data)
 
         # do not spew messages on every connection
         def log_message(self, format, *args):
@@ -400,8 +404,7 @@ class ObserverIP(Consumer):
         def parse(self, s):
             pkt = dict()
             try:
-                parts = s.split('&')
-                data = dict([x.split('=') for x in parts])
+                data = dict(qc.split('=') for qc in s.split('&'))
                 pkt['dateTime'] = self.decode_datetime(data['dateutc'])
                 pkt['usUnits'] = weewx.US
                 pkt['inTemp'] = self.decode_float(data['indoortempf'])
