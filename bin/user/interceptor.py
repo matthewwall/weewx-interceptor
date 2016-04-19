@@ -284,9 +284,9 @@ class AcuriteBridge(Consumer):
         @staticmethod
         def parse_identifiers(s):
             data = dict(qc.split('=') for qc in s.split('&'))
-            return {'bridge_id': data.get('id'),
+            return {'sensor_type': data.get('mt'),
                     'sensor_id': data.get('sensor'),
-                    'sensor_type': data.get('mt')}
+                    'bridge_id': data.get('id')}
 
         def parse(self, s):
             pkt = dict()
@@ -501,47 +501,47 @@ class LW30x(Consumer):
         # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
         #
         # all packets
-        # mac - mac address of the bridge
-        # id - sensor type identifier?
-        # ch - channel
+        #  mac - mac address of the bridge
+        #  id - sensor type identifier?
+        #  ch - channel
+        #
+        # base station packets
+        #  pv
+        #  lb
+        #  ac
+        #  reg - registered sensors?
+        #  lost - lost contact?
+        #  baro - barometer mbar
+        #  ptr
+        #  wfor - weather forecast?
         #
         # all non-base packets
-        # rid - sensor identifier
-        # pwr - battery status?
+        #  rid - sensor identifier
+        #  pwr - battery status?
         #
         # uv sensor
-        # or
-        # uvh
-        # uv - index? what is range?
+        #  or
+        #  uvh
+        #  uv - index? what is range?
         #
         # wind sensor
-        # gw
-        # av
-        # wd - wind direction in compass degrees
-        # wg - wind gust m/s
-        # ws - wind speed m/s
+        #  gw
+        #  av
+        #  wd - wind direction in compass degrees
+        #  wg - wind gust m/s
+        #  ws - wind speed m/s
         #
         # temperature/humidity sensor
-        # htr
-        # cz
-        # oh - humidity %
-        # ttr
-        # ot - temperature C
+        #  htr
+        #  cz
+        #  oh - humidity %
+        #  ttr
+        #  ot - temperature C
         #
         # rain sensor
-        # rro
-        # rr - rain rate? mm/hr
-        # rfa - rain fall accumulated? mm
-        #
-        # base station
-        # pv
-        # lb
-        # ac
-        # reg - registered sensors?
-        # lost - lost contact?
-        # baro - barometer mbar
-        # ptr
-        # wfor - weather forecast?
+        #  rro
+        #  rr - rain rate? mm/hr
+        #  rfa - rain fall accumulated? mm
 
         FLOATS = ['wd', 'wg', 'ws', 'oh', 'ot', 'rr', 'rfa', 'baro']
 
@@ -558,10 +558,10 @@ class LW30x(Consumer):
         @staticmethod
         def parse_identifiers(s):
             data = dict(qc.split('=') for qc in s.split('&'))
-            return {'bridge_id': data.get('mac'),
+            return {'sensor_type': data.get('id'),
+                    'channel': data.get('ch'),
                     'sensor_id': data.get('rid'),
-                    'sensor_type': data.get('id'),
-                    'channel': data.get('ch')}
+                    'bridge_id': data.get('mac')}
 
         def parse(self, s):
             pkt = dict()
