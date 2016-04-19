@@ -251,17 +251,9 @@ class AcuriteBridge(Consumer):
 
         @staticmethod
         def parse_identifiers(s):
-            bridge_id = sensor_id = sensor_type = None
-            parts = s.split('&')
-            for x in parts:
-                (n, v) = x.split('=')
-                if n == 'id':
-                    bridge_id = v
-                if n == 'sensor':
-                    sensor_id = v
-                if n == 'mt':
-                    sensor_type = v
-            return bridge_id, sensor_id, sensor_type
+            # returns bridge_id, sensor_id, sensor_type
+            data = dict(qc.split('=') for qc in s.split('&'))
+            return data.get('id'), data.get('sensor'), data.get('mt')
 
         def parse(self, s):
             pkt = dict()
@@ -404,7 +396,7 @@ class ObserverIP(Consumer):
         def parse(self, s):
             pkt = dict()
             try:
-                data = dict(qc.split('=') for qc in s.split('&'))
+                data = dict(x.split('=') for x in s.split('&'))
                 pkt['dateTime'] = self.decode_datetime(data['dateutc'])
                 pkt['usUnits'] = weewx.US
                 pkt['inTemp'] = self.decode_float(data['indoortempf'])
@@ -462,23 +454,14 @@ class LW30x(Consumer):
 
         @staticmethod
         def parse_identifiers(s):
-            bridge_id = sensor_id = sensor_type = None
-            parts = s.split('&')
-            for x in parts:
-                (n, v) = x.split('=')
-                if n == 'mac':
-                    bridge_id = v
-                if n == 'rid':
-                    sensor_id = v
-                if n == 'id':
-                    sensor_type = v
-            return bridge_id, sensor_id, sensor_type
+            # returns bridge_id, sensor_id, sensor_type
+            data = dict(qc.split('=') for qc in s.split('&'))
+            return data.get('mac'), data.get('rid'), data.get('id')
 
         def parse(self, s):
             pkt = dict()
-            parts = s.split('&')
-            data = dict([x.split('=') for x in parts])
             try:
+                data = dict(x.split('=') for x in s.split('&'))
                 pkt['dateTime'] = int(time.time() + 0.5)
                 pkt['mac'] = data['mac']
                 pkt['id'] = data['id']
