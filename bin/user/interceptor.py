@@ -847,10 +847,10 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
                 logdbg('raw packet: %s' % pkt)
                 pkt = self._device.parser.map_to_fields(pkt, self._obs_map)
                 logdbg('mapped packet: %s' % pkt)
-                if pkt:
+                if pkt and 'dateTime' in pkt and 'usUnits' in pkt:
                     yield pkt
                 else:
-                    logdbg('skipping bogus packet %s' % pkt)
+                    logdbg("skipping bogus packet %s ('%s')" % (pkt, data))
             except Queue.Empty:
                 logdbg('empty queue')
 
