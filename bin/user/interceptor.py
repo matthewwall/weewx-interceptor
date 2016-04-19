@@ -211,7 +211,7 @@ class Consumer(object):
             return None if x is None else float(x)
 
         @staticmethod
-        def decode_float(x):
+        def decode_int(x):
             return None if x is None else int(x)
 
 
@@ -433,6 +433,13 @@ class ObserverIP(Consumer):
         # .5&monthlyrain=10.5&yearlyrain=10.5&light=1724.9&UV=38&dateutc=2016-4
         # -19%204:42:35&softwaretype=HP1001%20V2.2.2&action=updateraw&realtime=
         # 1&rtfreq=5
+        #
+        # ID=XXXX&PASSWORD=PPPPPPPP&intemp=23.2&outtemp=10.1&dewpoint=2.0&windc
+        # hill=10.1&inhumi=32&outhumi=57&windspeed=0.0&windgust=0.0&winddir=212
+        # &absbaro=1010.1&relbaro=1034.0&rainrate=0.0&dailyrain=0.0&weeklyrain=
+        # 10.5&monthlyrain=10.5&yearlyrain=10.5&light=31892.0&UV=919&dateutc=20
+        # 16-4-19%207:54:4&softwaretype=HP1001%20V2.2.2&action=updateraw&realti
+        # me=1&rtfreq=5
 
         def parse(self, s):
             pkt = dict()
