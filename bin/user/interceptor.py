@@ -128,7 +128,7 @@ class Consumer(object):
             # default reply is a simple 'OK' string
             return 'OK'
 
-        def reply(self, data):
+        def reply(self):
             # standard reply is HTTP code of 200 and the response string
             response = bytes(self.get_response())
             self.send_response(200)
@@ -142,14 +142,14 @@ class Consumer(object):
             data = str(self.rfile.read(length))
             logdbg('POST: %s' % data)
             Consumer.queue.put(data)
-            self.reply(data)
+            self.reply()
 
         def do_GET(self):
             # get the query string from an HTTP GET
             data = urlparse.urlparse(self.path).query
             logdbg('GET: %s' % data)
             Consumer.queue.put(data)
-            self.reply(data)
+            self.reply()
 
         # do not spew messages on every connection
         def log_message(self, _format, *_args):
