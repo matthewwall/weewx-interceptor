@@ -260,8 +260,8 @@ class AcuriteBridge(Consumer):
             pkt = dict()
             parts = s.split('&')
             for x in parts:
+                (n, v) = x.split('=')
                 try:
-                    (n, v) = x.split('=')
                     if n == 'id':
                         pkt['bridge_id'] = v
                     elif n == 'sensor':
