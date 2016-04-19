@@ -190,7 +190,7 @@ class Consumer(object):
 
         @staticmethod
         def parse_identifiers(s):
-            return None, None, None
+            return dict()
 
         def parse(self, s):
             return dict()
@@ -283,9 +283,10 @@ class AcuriteBridge(Consumer):
 
         @staticmethod
         def parse_identifiers(s):
-            # returns bridge_id, sensor_id, sensor_type
             data = dict(qc.split('=') for qc in s.split('&'))
-            return data.get('id'), data.get('sensor'), data.get('mt')
+            return {'bridge_id': data.get('id'),
+                    'sensor_id': data.get('sensor'),
+                    'sensor_type': data.get('mt')}
 
         def parse(self, s):
             pkt = dict()
@@ -325,13 +326,14 @@ class AcuriteBridge(Consumer):
             if pkt['sensor_type'] == 'pressure':
                 pkt['pressure'], pkt['temperature'] = AcuriteBridge.Parser.decode_pressure(pkt)
 
-            # now tag each value with identifiers
+            # tag each observation with identifiers:
+            #   observation.<sensor_id>.<bridge_id>
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
-            label_id = '%s.%s' % (
+            _id = '%s.%s' % (
                 pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
             for n in pkt:
-                packet["%s.%s" % (n, label_id)] = pkt[n]
+                packet["%s.%s" % (n, _id)] = pkt[n]
             return packet
 
         @staticmethod
@@ -478,6 +480,10 @@ class LW30x(Consumer):
             server_address, Consumer.Handler, LW30x.Parser())
 
     class Parser(Consumer.Parser):
+
+        def __init__(self):
+            self._last_rain = None
+
         # sample output from a LW301
         # mac=XX&id=8e&rid=af&pwr=0&or=0&uvh=0&uv=125&ch=1&p=1
         # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=315&wg=1.9&ws=1.1&ch=1&p=1
@@ -485,82 +491,103 @@ class LW30x(Consumer):
         # mac=XX&id=82&rid=1d&pwr=0&rro=0&rr=0.00&rfa=5.114&ch=1&p=1
         # mac=XX&id=c2&pv=0&lb=0&ac=0&reg=1803&lost=0000&baro=806&ptr=0&wfor=3&p=1
         # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=247&wg=1.9&ws=1.1&ch=1&p=1
+        #
+        # observed values for lost:
+        # 0000: ?
+        # 0803: wind, t/h, rain
+        # 1803: wind, t/h, rain, uv
+        #
+        # observed values for wfor:
+        # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
+        #
+        # all packets
+        # mac - mac address of the bridge
+        # id - sensor type identifier?
+        # ch - channel
+        #
+        # all non-base packets
+        # rid - sensor identifier
+        # pwr - battery status?
+        #
+        # uv sensor
+        # or
+        # uvh
+        # uv - index? what is range?
+        #
+        # wind sensor
+        # gw
+        # av
+        # wd - wind direction in compass degrees
+        # wg - wind gust m/s
+        # ws - wind speed m/s
+        #
+        # temperature/humidity sensor
+        # htr
+        # cz
+        # oh - humidity %
+        # ttr
+        # ot - temperature C
+        #
+        # rain sensor
+        # rro
+        # rr - rain rate? mm/hr
+        # rfa - rain fall accumulated? mm
+        #
+        # base station
+        # pv
+        # lb
+        # ac
+        # reg - registered sensors?
+        # lost - lost contact?
+        # baro - barometer mbar
+        # ptr
+        # wfor - weather forecast?
+
+        FLOATS = ['wd', 'wg', 'ws', 'oh', 'ot', 'rr', 'rfa', 'baro']
 
         DEFAULT_SENSOR_MAP = {
-            'baro..*': 'barometer',
+            'baro..*': 'barometer', # FIXME: should this be pressure?
             'ot.*.*': 'outTemp',
             'oh.*.*': 'outHumidity',
             'ws.*.*': 'windSpeed',
             'wg.*.*': 'windGust',
             'wd.*.*': 'windDir',
-            'rfa.*.*': 'rain',
+            'rain.*.*': 'rain',
             'uv.*.*': 'uv'}
 
         @staticmethod
         def parse_identifiers(s):
-            # returns bridge_id, sensor_id, sensor_type
             data = dict(qc.split('=') for qc in s.split('&'))
-            return data.get('mac'), data.get('rid'), data.get('id')
+            return {'bridge_id': data.get('mac'),
+                    'sensor_id': data.get('rid'),
+                    'sensor_type': data.get('id'),
+                    'channel': data.get('ch')}
 
         def parse(self, s):
             pkt = dict()
             try:
                 data = dict(x.split('=') for x in s.split('&'))
-                pkt['mac'] = data['mac']
-                pkt['id'] = data['id']
-                pkt['rid'] = data['rid']
-                pkt['pwr'] = data['pwr']
-                pkt['channel'] = data['ch']
-                pkt['p'] = data['p']
-
-                # uv sensor
-                pkt['or'] = data['or']
-                pkt['uvh'] = data['uvh']
-                pkt['uv'] = data['uv'] # index? what is range?
-
-                # wind sensor
-                pkt['gw'] = data['gw']
-                pkt['av'] = data['av']
-                pkt['winddir'] = self.decode_float(data['wd']) # degrees
-                pkt['windgust'] = self.decode_float(data['wg']) # m/s
-                pkt['windspeed'] = self.decode_float(data['ws']) # m/s
-
-                # temperature/humidity sensor
-                pkt['htr'] = data['htr']
-                pkt['cz'] = data['cz']
-                pkt['humidity'] = self.decode_float(data['oh']) # %
-                pkt['ttr'] = data['ttr']
-                pkt['temperature'] = self.decode_float(data['ot']) # C
-
-                # rain sensor
-                pkt['rro'] = data['rro']
-                pkt['rainrate'] = self.decode_float(data['rr']) # mm/hr ?
-                pkt['rain'] = self.decode_float(data['rfa']) # mm
-
-                # pressure sensor
-                pkt['pv'] = data['pv']
-                pkt['lb'] = data['lb']
-                pkt['ac'] = data['ac']
-                # known sensors
-                # 0803: wind, t/h, rain
-                # 1803: wind, t/h, rain, uv
-                pkt['reg'] = data['reg']
-                # lost contact?
-                pkt['lost'] = data['lost']
-                pkt['barometer'] = self.decode_float(data['baro']) # mbar
-                pkt['ptr'] = data['ptr']
-                # forecast:
-                # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
-                pkt['forecast'] = data['wfor']
+                for n in data:
+                    if n in LW30x.Parser.FLOATS:
+                        pkt[n] = self.decode_float(data[n])
+                    else:
+                        pkt[n] = data[n]
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
 
-            # now tag each value identifiers
+            # convert accumulated rain to rain delta
+            if 'rfa' in pkt:
+                pkt['rain'] = self._delta_rain(pkt['rfa'], self._last_rain)
+                self._last_rain = pkt['rfa']
+
+            # tag each observation with identifiers:
+            #   observation.<channel><sensor_id>.<bridge_id>
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
-            label_id = '%s.%s' % (pkt.get('rid', ''), pkt.get('mac', ''))
+            _id = '%s%s.%s' % (pkt.get('ch', ''), pkt.get('rid', ''),
+                               pkt.get('mac', ''))
             for n in pkt:
-                packet["%s.%s" % (n, label_id)] = pkt[n]
+                packet["%s.%s" % (n, _id)] = pkt[n]
             return packet
 
         @staticmethod
@@ -912,8 +939,7 @@ if __name__ == '__main__':
     while True:
         try:
             _data = device.get_queue().get(True, 10)
-            _ids = device.parser.parse_identifiers(_data)
-            print "bridge_id: %s sensor_id: %s sensor_type: %s" % _ids
+            print device.parser.parse_identifiers(_data)
             if debug:
                 print 'raw data: %s' % _data
                 _pkt = device.parser.parse(_data)
