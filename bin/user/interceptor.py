@@ -12,7 +12,7 @@ Thanks to rich of modern toil and george nincehelser for acurite parsing
 Thanks to Pat at obrienlabs.net for the observerip parsing
   http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
 
-Thanks to sergei and weibi for the LW301/LW302 samples
+Thanks to sergei and waebi for the LW301/LW302 samples
   http://www.silent-gardens.com/blog/shark-hunt-lw301/
 
 Thanks to skydvrz, mycal, kennkong for publishing results of their lacross work
@@ -33,6 +33,8 @@ registration of the bridge's MAC address in order to use acu-link.com.
 However, the bridge will function even if it is not registered, as long as it
 receives the proper response.
 
+The bridge sends data as soon as it receives an observation from the sensors.
+
 ObserverIP
 
 Manufactured by Fine Offset as the WH2600, HP1000, and HP1003.
@@ -52,6 +54,35 @@ Ambient also sells 'AirBridge' and 'WeatherBridge' variants, but these use a
 meteostick and meteohub/plug instead of the Fine Offset bridge.
 
 It looks like this hardware simply sends data in weather underground format.
+
+The bridge sends data every 5 minutes.
+
+Oregon Scientific LW301/LW302
+
+The "Anywhere Weather Kit" comes in two packages, the LW301 with a full set
+of sensors, and the LW302 with only inside and outside temperature/humidity
+sensors.  Both kits include the LW300 "Internet connected hub" which is
+connected to the sensor base station via USB (for power only?) and to the
+network via wired ethernet.
+
+LW301: bridge (ethernet), base, rain, wind, TH
+LW302: bridge (ethernet), base, TH
+
+The base communicates with many different OS sensors, not just those included
+in the Anywhere Weather Kit.  For example, the THGR810 temperature/humidity
+sensors (up to 10 channels!) and the sensors included with the WMR86 stations
+are recognized by the LW30x base receivers.
+
+By default, the bridge communicates with www.osanywhereweather.com
+
+LaCross GW1000U
+
+The LaCross gateway communicates via radio with the C84612 display, which in
+turn communicates with the rain, wind, and TH sensors.  The gateway has a
+wired ethernet connection.
+
+The gateway communicates with weatherdirect.com.  LaCross alerts is a fee-
+based system for receiving alerts from the gateway via lacrossealertsmobile.com
 """
 
 # FIXME: automatically detect the traffic type
@@ -490,7 +521,7 @@ class LW30x(Consumer):
                 # wind sensor
                 pkt['gw'] = data['gw']
                 pkt['av'] = data['av']
-                pkt['winddir'] = self.decode_float(data['wd']) # compass degrees
+                pkt['winddir'] = self.decode_float(data['wd']) # degrees
                 pkt['windgust'] = self.decode_float(data['wg']) # m/s
                 pkt['windspeed'] = self.decode_float(data['ws']) # m/s
 
@@ -503,7 +534,7 @@ class LW30x(Consumer):
 
                 # rain sensor
                 pkt['rro'] = data['rro']
-                pkt['rainRate'] = self.decode_float(data['rr']) # mm/hr ?
+                pkt['rainrate'] = self.decode_float(data['rr']) # mm/hr ?
                 pkt['rain'] = self.decode_float(data['rfa']) # mm
 
                 # pressure sensor
