@@ -418,7 +418,7 @@ class ObserverIP(Consumer):
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRICWX
                 for n in data:
                     if n in self.LABEL_MAP:
-                        pkt[LABEL_MAP[n]] = self.decode_float(data[n])
+                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     else:
                         logdbg("unrecognized parameter %s=%s" % (n, data[n]))
                 if 'rain' in pkt:
