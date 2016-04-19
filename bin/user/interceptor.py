@@ -152,7 +152,7 @@ class Consumer(object):
             self.reply(data)
 
         # do not spew messages on every connection
-        def log_message(self, format, *args):
+        def log_message(self, _format, *_args):
             pass
 
     class Parser(object):
@@ -382,6 +382,40 @@ class ObserverIP(Consumer):
 
     class Parser(Consumer.Parser):
 
+        LABEL_MAP = {
+            # for firmware Weather logger V2.1.9
+            'humidity': 'outHumidity',
+            'indoorhumidity': 'inHumidity',
+            'tempf': 'outTemp',
+            'indoortempf': 'inTemp',
+            'baromin': 'barometer',
+            'windspeedmph': 'windSpeed',
+            'windgustmph': 'windGust',
+            'rainin': 'rain',
+            'solarradiation': 'radiation',
+            'dewptf': 'dewpoint',
+            'windchillf': 'windchill',
+
+            # for firmware HP1001 2.2.2
+            'outhumi': 'outHumidity',
+            'inhumi': 'inHumidity',
+            'outtemp': 'outTemp',
+            'intemp': 'inTemp',
+            'absbaro': 'pressure',
+            'windspeed': 'windSpeed',
+            'windgust': 'windGust',
+            'yearlyrain': 'rain', # FIXME: no rain total, so use yearly
+            'light': 'radiation',
+            'dewpoint': 'dewpoint',
+            'windchill': 'windchill',
+            'rainrate': 'rainRate',
+
+            # for all firmware
+            'winddir': 'windDir',
+            'UV': 'UV',
+            'lowbatt': 'txBatteryStatus',
+            }
+
         def __init__(self):
             self._last_rain = None
 
@@ -392,26 +426,37 @@ class ObserverIP(Consumer):
         # &solarradiation=0.00&UV=0&indoortempf=76.5&indoorhumidity=49&baromin=
         # 29.05&lowbatt=0&dateutc=2016-1-4%2021:2:35&softwaretype=Weather%20log
         # ger%20V2.1.9&action=updateraw&realtime=1&rtfreq=5
+        #
+        # ID=XXXX&PASSWORD=PPPPPPPP&intemp=22.8&outtemp=1.4&dewpoint=1.1&windch
+        # ill=1.4&inhumi=36&outhumi=98&windspeed=0.0&windgust=0.0&winddir=193&a
+        # bsbaro=1009.5&relbaro=1033.4&rainrate=0.0&dailyrain=0.0&weeklyrain=10
+        # .5&monthlyrain=10.5&yearlyrain=10.5&light=1724.9&UV=38&dateutc=2016-4
+        # -19%204:42:35&softwaretype=HP1001%20V2.2.2&action=updateraw&realtime=
+        # 1&rtfreq=5
 
         def parse(self, s):
             pkt = dict()
             try:
                 data = dict(x.split('=') for x in s.split('&'))
+                # FIXME: add option to use computer time instead of station
                 pkt['dateTime'] = self.decode_datetime(data['dateutc'])
-                pkt['usUnits'] = weewx.US
-                pkt['inTemp'] = self.decode_float(data['indoortempf'])
-                pkt['inHumidity'] = self.decode_float(data['indoorhumidity'])
-                pkt['outTemp'] = self.decode_float(data['tempf'])
-                pkt['outHumidity'] = self.decode_float(data['humidity'])
-                pkt['barometer'] = self.decode_float(data['baromin'])
-                pkt['rain'] = self._delta_rain(data['rainin'], self._last_rain)
-                self._last_rain = data['rainin']
-                pkt['windDir'] = self.decode_float(data['windDir'])
-                pkt['windSpeed'] = self.decode_float(data['windSpeed'])
-                pkt['windGust'] = self.decode_float(data['windgustmph'])
-                pkt['radiation'] = self.decode_float(data['solarradiation'])
-                pkt['UV'] = self.decode_int(data['UV'])
-                pkt['txBatteryStatus'] = self.decode_int(data['lowbatt'])
+
+                for n in data:
+                    if n in self.LABEL_MAP:
+                        pkt[LABEL_MAP[n]] = decode_float(data[n])
+                    else:
+                        logdbg("unrecognized parameter %s=%s" % (n, data[n]))
+
+                if 'tempf' in data:
+                    pkt['usUnits'] = weewx.US
+                else:
+                    pkt['usUnits'] = weewx.METRICWX
+
+                if 'rain' in pkt:
+                    newtot = pkt['rain']
+                    pkt['rain'] = self._delta_rain(newtot, self._last_rain)
+                    self._last_rain = newtot
+
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
@@ -864,14 +909,14 @@ if __name__ == '__main__':
 
     while True:
         try:
-            data = device.get_queue().get(True, 10)
-            ids = device.parser.parse_identifiers(data)
-            print "bridge_id: %s sensor_id: %s sensor_type: %s" % ids
+            _data = device.get_queue().get(True, 10)
+            _ids = device.parser.parse_identifiers(_data)
+            print "bridge_id: %s sensor_id: %s sensor_type: %s" % _ids
             if debug:
-                print 'raw data: %s' % data
-                pkt = device.parser.parse(data)
-                print 'raw packet: %s' % pkt
-                pkt = device.parser.map_to_fields(pkt, None)
-                print 'mapped packet: %s' % pkt
+                print 'raw data: %s' % _data
+                _pkt = device.parser.parse(_data)
+                print 'raw packet: %s' % _pkt
+                _pkt = device.parser.map_to_fields(_pkt, None)
+                print 'mapped packet: %s' % _pkt
         except Queue.Empty:
             pass
