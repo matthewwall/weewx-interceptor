@@ -414,7 +414,7 @@ class ObserverIP(Consumer):
             'winddir': 'windDir',
             'UV': 'UV',
             'lowbatt': 'txBatteryStatus',
-            }
+        }
 
         def __init__(self):
             self._last_rain = None
@@ -443,7 +443,7 @@ class ObserverIP(Consumer):
 
                 for n in data:
                     if n in self.LABEL_MAP:
-                        pkt[LABEL_MAP[n]] = decode_float(data[n])
+                        pkt[LABEL_MAP[n]] = self.decode_float(data[n])
                     else:
                         logdbg("unrecognized parameter %s=%s" % (n, data[n]))
 
