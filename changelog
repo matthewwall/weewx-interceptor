@@ -1,3 +1,7 @@
+0.6 20apr2016
+* refactor lw30x code so it should work now
+* fix units of observerip
+
 0.5 18apr2016
 * ensure that port is int
 * include UV in observerip packets

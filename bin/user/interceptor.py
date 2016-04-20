@@ -88,7 +88,6 @@ based system for receiving alerts from the gateway via lacrossealertsmobile.com
 # FIXME: automatically detect the traffic type
 # FIXME: handle traffic from multiple types of devices
 # FIXME: default acurite mapping confuses multiple tower sensors
-# FIXME: does observerip ever post in non-us units?
 
 from __future__ import with_statement
 import BaseHTTPServer
@@ -103,7 +102,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.5'
+DRIVER_VERSION = '0.6'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -448,16 +447,19 @@ class ObserverIP(Consumer):
                 data = dict(x.split('=') for x in s.split('&'))
                 # FIXME: add option to use computer time instead of station
                 pkt['dateTime'] = self.decode_datetime(data['dateutc'])
-                pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRICWX
+                pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
                 for n in data:
                     if n in self.LABEL_MAP:
                         pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     else:
                         logdbg("unrecognized parameter %s=%s" % (n, data[n]))
                 if 'rain' in pkt:
+                    if pkt['usUnits'] == weewx.METRIC and pkt['rain']:
+                        pkt['rain'] /= 10.0 # METRIC wants cm, not mm
                     newtot = pkt['rain']
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
+                if 
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
