@@ -231,8 +231,11 @@ class Consumer(object):
         @staticmethod
         def _delta_rain(rain, last_rain):
             if last_rain is None:
+                loginf("skipping rain measurement of %s: no last rain" % rain)
                 return None
             if rain < last_rain:
+                loginf("rain counter wraparound detected: new=%s last=%s" %
+                       (rain, last_rain))
                 return None
             return rain - last_rain
 
