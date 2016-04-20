@@ -71,7 +71,7 @@ LW302: bridge (ethernet), base, TH
 The base communicates with many different OS sensors, not just those included
 in the Anywhere Weather Kit.  For example, the THGR810 temperature/humidity
 sensors (up to 10 channels!) and the sensors included with the WMR86 stations
-are recognized by the LW30x base receivers.
+are recognized by the LW300 base receivers.
 
 By default, the bridge communicates with www.osanywhereweather.com
 
