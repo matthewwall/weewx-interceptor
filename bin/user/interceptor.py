@@ -248,6 +248,15 @@ class Consumer(object):
             return None if x is None else int(x)
 
 
+# sample output from a bridge with 3 t/h sensors and 1 5-in-1
+#
+# id=X&mt=pressure&C1=452D&C2=0D7F&C3=010D&C4=0330&C5=8472&C6=1858&C7=09C4&A=07&B=1B&C=06&D=09&PR=91CA&TR=8270
+# id=X&sensor=02004&mt=5N1x31&windspeed=A001660000&winddir=8&rainfall=A0000000&battery=normal&rssi=3
+# id=X&sensor=02004&mt=5N1x38&windspeed=A001890000&humidity=A0280&temperature=A014722222&battery=normal&rssi=3
+# id=X&sensor=06022&mt=tower&humidity=A0270&temperature=A020100000&battery=normal&rssi=3
+# id=X&sensor=05961&mt=tower&humidity=A0300&temperature=A017400000&battery=normal&rssi=3
+# id=X&sensor=14074&mt=tower&humidity=A0300&temperature=A021500000&battery=normal&rssi=4
+
 class AcuriteBridge(Consumer):
 
     def __init__(self, server_address):
@@ -260,14 +269,6 @@ class AcuriteBridge(Consumer):
             return '{ "success": 1, "checkversion": "126" }'
 
     class Parser(Consumer.Parser):
-        # sample output from a bridge with 3 t/h sensors and 1 5-in-1
-        # id=X&mt=pressure&C1=452D&C2=0D7F&C3=010D&C4=0330&C5=8472&C6=1858&C7=09C4&A=07&B=1B&C=06&D=09&PR=91CA&TR=8270
-        # id=X&sensor=02004&mt=5N1x31&windspeed=A001660000&winddir=8&rainfall=A0000000&battery=normal&rssi=3
-        # id=X&sensor=02004&mt=5N1x38&windspeed=A001890000&humidity=A0280&temperature=A014722222&battery=normal&rssi=3
-        # id=X&sensor=06022&mt=tower&humidity=A0270&temperature=A020100000&battery=normal&rssi=3
-        # id=X&sensor=05961&mt=tower&humidity=A0300&temperature=A017400000&battery=normal&rssi=3
-        # id=X&sensor=14074&mt=tower&humidity=A0300&temperature=A021500000&battery=normal&rssi=4
-
         # FIXME: report battery and rssi
         DEFAULT_SENSOR_MAP = {
             'pressure..*': 'pressure',
@@ -377,6 +378,29 @@ class AcuriteBridge(Consumer):
             return p, t
 
 
+# sample output from an observer ip
+#
+# ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
+# lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
+# ilyrainin=0.04&weeklyrainin=0.04&monthlyrainin=0.91&yearlyrainin=0.91
+# &solarradiation=0.00&UV=0&indoortempf=76.5&indoorhumidity=49&baromin=
+# 29.05&lowbatt=0&dateutc=2016-1-4%2021:2:35&softwaretype=Weather%20log
+# ger%20V2.1.9&action=updateraw&realtime=1&rtfreq=5
+#
+# ID=XXXX&PASSWORD=PPPPPPPP&intemp=22.8&outtemp=1.4&dewpoint=1.1&windch
+# ill=1.4&inhumi=36&outhumi=98&windspeed=0.0&windgust=0.0&winddir=193&a
+# bsbaro=1009.5&relbaro=1033.4&rainrate=0.0&dailyrain=0.0&weeklyrain=10
+# .5&monthlyrain=10.5&yearlyrain=10.5&light=1724.9&UV=38&dateutc=2016-4
+# -19%204:42:35&softwaretype=HP1001%20V2.2.2&action=updateraw&realtime=
+# 1&rtfreq=5
+#
+# ID=XXXX&PASSWORD=PPPPPPPP&intemp=23.2&outtemp=10.1&dewpoint=2.0&windc
+# hill=10.1&inhumi=32&outhumi=57&windspeed=0.0&windgust=0.0&winddir=212
+# &absbaro=1010.1&relbaro=1034.0&rainrate=0.0&dailyrain=0.0&weeklyrain=
+# 10.5&monthlyrain=10.5&yearlyrain=10.5&light=31892.0&UV=919&dateutc=20
+# 16-4-19%207:54:4&softwaretype=HP1001%20V2.2.2&action=updateraw&realti
+# me=1&rtfreq=5
+
 class ObserverIP(Consumer):
 
     def __init__(self, server_address):
@@ -422,28 +446,6 @@ class ObserverIP(Consumer):
         def __init__(self):
             self._last_rain = None
 
-        # sample output from an observer ip
-        # ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
-        # lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
-        # ilyrainin=0.04&weeklyrainin=0.04&monthlyrainin=0.91&yearlyrainin=0.91
-        # &solarradiation=0.00&UV=0&indoortempf=76.5&indoorhumidity=49&baromin=
-        # 29.05&lowbatt=0&dateutc=2016-1-4%2021:2:35&softwaretype=Weather%20log
-        # ger%20V2.1.9&action=updateraw&realtime=1&rtfreq=5
-        #
-        # ID=XXXX&PASSWORD=PPPPPPPP&intemp=22.8&outtemp=1.4&dewpoint=1.1&windch
-        # ill=1.4&inhumi=36&outhumi=98&windspeed=0.0&windgust=0.0&winddir=193&a
-        # bsbaro=1009.5&relbaro=1033.4&rainrate=0.0&dailyrain=0.0&weeklyrain=10
-        # .5&monthlyrain=10.5&yearlyrain=10.5&light=1724.9&UV=38&dateutc=2016-4
-        # -19%204:42:35&softwaretype=HP1001%20V2.2.2&action=updateraw&realtime=
-        # 1&rtfreq=5
-        #
-        # ID=XXXX&PASSWORD=PPPPPPPP&intemp=23.2&outtemp=10.1&dewpoint=2.0&windc
-        # hill=10.1&inhumi=32&outhumi=57&windspeed=0.0&windgust=0.0&winddir=212
-        # &absbaro=1010.1&relbaro=1034.0&rainrate=0.0&dailyrain=0.0&weeklyrain=
-        # 10.5&monthlyrain=10.5&yearlyrain=10.5&light=31892.0&UV=919&dateutc=20
-        # 16-4-19%207:54:4&softwaretype=HP1001%20V2.2.2&action=updateraw&realti
-        # me=1&rtfreq=5
-
         def parse(self, s):
             pkt = dict()
             try:
@@ -478,6 +480,66 @@ class ObserverIP(Consumer):
             return calendar.timegm(ts)
 
 
+# sample output from a LW301
+#
+# mac=XX&id=8e&rid=af&pwr=0&or=0&uvh=0&uv=125&ch=1&p=1
+# mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=315&wg=1.9&ws=1.1&ch=1&p=1
+# mac=XX&id=84&rid=20&pwr=0&htr=0&cz=3&oh=90&ttr=0&ot=18.9&ch=1&p=1
+# mac=XX&id=82&rid=1d&pwr=0&rro=0&rr=0.00&rfa=5.114&ch=1&p=1
+# mac=XX&id=c2&pv=0&lb=0&ac=0&reg=1803&lost=0000&baro=806&ptr=0&wfor=3&p=1
+# mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=247&wg=1.9&ws=1.1&ch=1&p=1
+#
+# observed values for lost:
+# 0000: ?
+# 0803: wind, t/h, rain
+# 1803: wind, t/h, rain, uv
+#
+# observed values for wfor:
+# 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
+#
+# all packets
+#  mac - mac address of the bridge
+#  id - sensor type identifier?
+#
+# base station packets
+#  pv
+#  lb
+#  ac
+#  reg - registered sensors?
+#  lost - lost contact?
+#  baro - barometer mbar
+#  ptr
+#  wfor - weather forecast?
+#
+# all non-base packets
+#  rid - sensor identifier
+#  pwr - battery status?
+#  ch - channel
+#
+# uv sensor
+#  or
+#  uvh
+#  uv - index? what is range?
+#
+# wind sensor
+#  gw
+#  av
+#  wd - wind direction in compass degrees
+#  wg - wind gust m/s
+#  ws - wind speed m/s
+#
+# temperature/humidity sensor
+#  htr
+#  cz
+#  oh - humidity %
+#  ttr
+#  ot - temperature C
+#
+# rain sensor
+#  rro
+#  rr - rain rate? mm/hr
+#  rfa - rain fall accumulated? mm
+
 class LW30x(Consumer):
 
     def __init__(self, server_address):
@@ -488,65 +550,6 @@ class LW30x(Consumer):
 
         def __init__(self):
             self._last_rain = None
-
-        # sample output from a LW301
-        # mac=XX&id=8e&rid=af&pwr=0&or=0&uvh=0&uv=125&ch=1&p=1
-        # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=315&wg=1.9&ws=1.1&ch=1&p=1
-        # mac=XX&id=84&rid=20&pwr=0&htr=0&cz=3&oh=90&ttr=0&ot=18.9&ch=1&p=1
-        # mac=XX&id=82&rid=1d&pwr=0&rro=0&rr=0.00&rfa=5.114&ch=1&p=1
-        # mac=XX&id=c2&pv=0&lb=0&ac=0&reg=1803&lost=0000&baro=806&ptr=0&wfor=3&p=1
-        # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=247&wg=1.9&ws=1.1&ch=1&p=1
-        #
-        # observed values for lost:
-        # 0000: ?
-        # 0803: wind, t/h, rain
-        # 1803: wind, t/h, rain, uv
-        #
-        # observed values for wfor:
-        # 0=partly_cloudy, 1=sunny, 2=cloudy, 3=rainy, 4=snowy
-        #
-        # all packets
-        #  mac - mac address of the bridge
-        #  id - sensor type identifier?
-        #
-        # base station packets
-        #  pv
-        #  lb
-        #  ac
-        #  reg - registered sensors?
-        #  lost - lost contact?
-        #  baro - barometer mbar
-        #  ptr
-        #  wfor - weather forecast?
-        #
-        # all non-base packets
-        #  rid - sensor identifier
-        #  pwr - battery status?
-        #  ch - channel
-        #
-        # uv sensor
-        #  or
-        #  uvh
-        #  uv - index? what is range?
-        #
-        # wind sensor
-        #  gw
-        #  av
-        #  wd - wind direction in compass degrees
-        #  wg - wind gust m/s
-        #  ws - wind speed m/s
-        #
-        # temperature/humidity sensor
-        #  htr
-        #  cz
-        #  oh - humidity %
-        #  ttr
-        #  ot - temperature C
-        #
-        # rain sensor
-        #  rro
-        #  rr - rain rate? mm/hr
-        #  rfa - rain fall accumulated? mm
 
         FLOATS = ['wd', 'wg', 'ws', 'oh', 'ot', 'rr', 'rfa', 'baro']
 
