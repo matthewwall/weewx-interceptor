@@ -443,6 +443,14 @@ class Observer(Consumer):
             'lowbatt': 'txBatteryStatus',
         }
 
+        IGNORED_LABELS = ['relbaro',
+                          'dailyrain', 'weeklyrain', 'monthlyrain',
+                          'dailyrainin', 'weeklyrainin', 'monthlyrainin',
+                          'yearlyrainin',
+                          'realtime', 'rtfreq',
+                          'action', 'ID', 'PASSWORD', 'dateutc',
+                          'softwaretype']
+
         def __init__(self):
             self._last_rain = None
 
@@ -455,9 +463,11 @@ class Observer(Consumer):
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
                 for n in data:
                     if n in self.LABEL_MAP:
-                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                              pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                    elif n in self.IGNORED_LABELS:
+                        logdbg("ignored parameter %s=%s" % (n, data[n]))
                     else:
-                        logdbg("unrecognized parameter %s=%s" % (n, data[n]))
+                        loginf("unrecognized parameter %s=%s" % (n, data[n]))
                 if 'rain' in pkt:
                     if pkt['usUnits'] == weewx.METRIC and pkt['rain']:
                         pkt['rain'] /= 10.0 # METRIC wants cm, not mm
