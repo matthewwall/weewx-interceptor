@@ -464,7 +464,6 @@ class Observer(Consumer):
                     newtot = pkt['rain']
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
-                if 
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
