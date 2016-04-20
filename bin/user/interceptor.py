@@ -3,13 +3,13 @@
 """
 This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
-LaCross GW1000U, the Oregon Scientific LW301/302, or the FineOffset ObserverIP.
+LaCross GW1000U, the Oregon Scientific LW301/302, or the FineOffset Observer.
 
 Thanks to rich of modern toil and george nincehelser for acurite parsing
   http://moderntoil.com/?p=794
   http://nincehelser.com/ipwx/
 
-Thanks to Pat at obrienlabs.net for the observerip parsing
+Thanks to Pat at obrienlabs.net for the observer parsing
   http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
 
 Thanks to sergei and waebi for the LW301/LW302 samples
@@ -35,7 +35,7 @@ receives the proper response.
 
 The bridge sends data as soon as it receives an observation from the sensors.
 
-ObserverIP
+Observer
 
 Manufactured by Fine Offset as the WH2600, HP1000, and HP1003.
 
@@ -378,7 +378,7 @@ class AcuriteBridge(Consumer):
             return p, t
 
 
-# sample output from an observer ip
+# sample output from an observer
 #
 # ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
 # lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
@@ -401,11 +401,11 @@ class AcuriteBridge(Consumer):
 # 16-4-19%207:54:4&softwaretype=HP1001%20V2.2.2&action=updateraw&realti
 # me=1&rtfreq=5
 
-class ObserverIP(Consumer):
+class Observer(Consumer):
 
     def __init__(self, server_address):
-        super(ObserverIP, self).__init__(
-            server_address, Consumer.Handler, ObserverIP.Parser())
+        super(Observer, self).__init__(
+            server_address, Consumer.Handler, Observer.Parser())
 
     class Parser(Consumer.Parser):
 
@@ -827,9 +827,9 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
 
     # Specify the hardware device to capture.  Options include:
     #   acurite-bridge - acurite internet bridge
-    #   observerip - fine offset ObserverIP or WH140x/WH120x
+    #   observer - fine offset WH2600/HP1000/HP1003, aka 'observer'
     #   lw30x - oregon scientific LW301/LW302
-    #   lacross-bridge - lacross C84612 internet bridge
+    #   lacross-bridge - lacross GW1000U/C84612 internet bridge
     #   netatmo - netatmo weather stations
     device_type = acurite-bridge
 
@@ -840,7 +840,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     def prompt_for_settings(self):
         print "Specify the type of device whose data will be captured"
         device_type = self._prompt('device_type', 'acurite-bridge',
-                                   ['acurite-bridge', 'observerip', 'lw30x',
+                                   ['acurite-bridge', 'observer', 'lw30x',
                                     'lacross-bridge', 'netatmo'])
         return {'device_type': device_type}
 
@@ -848,7 +848,8 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
 class InterceptorDriver(weewx.drivers.AbstractDevice):
     DEVICE_TYPES = {
         'acurite-bridge': AcuriteBridge,
-        'observerip': ObserverIP,
+        'observer': Observer,
+        'observerip': Observer,
         'lw30x': LW30x,
         'lacrosse-bridge': GW1000U}
 
