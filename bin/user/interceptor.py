@@ -505,7 +505,6 @@ class LW30x(Consumer):
         # all packets
         #  mac - mac address of the bridge
         #  id - sensor type identifier?
-        #  ch - channel
         #
         # base station packets
         #  pv
@@ -520,6 +519,7 @@ class LW30x(Consumer):
         # all non-base packets
         #  rid - sensor identifier
         #  pwr - battery status?
+        #  ch - channel
         #
         # uv sensor
         #  or
