@@ -2,15 +2,15 @@ weewx-interceptor
 
 This is a driver for weewx that receives and parses network traffic.  It can
 be used with a variety of "internet bridge" devices such as the Acurite
-Internet Bridge, the Oregon Scientific LW301/302, the Fine Offset ObserverIP,
-or the LaCross GW1000U.
+Internet Bridge, the Oregon Scientific LW301/302, the Fine Offset
+HP1000/WH2600, or the LaCross GW1000U.
 
 Warning!  This driver is experimental.  It is fully tested with the Acurite
-bridge, mostly functional with the ObserverIP, mostly functional with the LW
-stations, and not at all tested with the GW1000U.  Feedback from anyone with
-the untested hardware would be greatly appreciated.  My intent is to push
-these components into weewx once all of the different configurations are
-working properly.
+bridge, mostly functional with the Fine Offset HP1000 and WH2600, mostly
+functional with the Oregon Scientific LW stations, and not at all tested with
+the GW1000U.  Feedback from anyone with the untested hardware would be greatly
+appreciated.  My intent is to push these components into weewx once all of the
+different configurations are working properly.
 
 
 Installation

@@ -3,13 +3,14 @@
 """
 This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
-LaCross GW1000U, the Oregon Scientific LW301/302, or the FineOffset Observer.
+LaCross GW1000U internet bridge, the Oregon Scientific LW300 (LW301/LW302)
+internet bridge, or the FineOffset HP1000 console or WH2600 internet bridge.
 
 Thanks to rich of modern toil and george nincehelser for acurite parsing
   http://moderntoil.com/?p=794
   http://nincehelser.com/ipwx/
 
-Thanks to Pat at obrienlabs.net for the observer parsing
+Thanks to Pat at obrienlabs.net for the fine offset parsing
   http://obrienlabs.net/redirecting-weather-station-data-from-observerip/
 
 Thanks to sergei and waebi for the LW301/LW302 samples
@@ -52,6 +53,10 @@ WS1001: console (wifi), cluster, THP
 
 Ambient also sells 'AirBridge' and 'WeatherBridge' variants, but these use a
 meteostick and meteohub/plug instead of the Fine Offset bridge.
+
+Sold by Froggit as the HP1000 Profi Funk Wetterstation.
+
+Sold by Aercus as the WeatherSleuth and WeatherRanger.
 
 It looks like this hardware simply sends data in weather underground format.
 
