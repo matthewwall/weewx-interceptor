@@ -380,26 +380,34 @@ class AcuriteBridge(Consumer):
 
 # sample output from an observer
 #
-# ID=XXXX&PASSWORD=PPPPPPPP&tempf=43.3&humidity=98&dewptf=42.8&windchil
+# ID=XXXX&PASSWORD=PASSWORD&tempf=43.3&humidity=98&dewptf=42.8&windchil
 # lf=43.3&winddir=129&windspeedmph=0.00&windgustmph=0.00&rainin=0.00&da
 # ilyrainin=0.04&weeklyrainin=0.04&monthlyrainin=0.91&yearlyrainin=0.91
 # &solarradiation=0.00&UV=0&indoortempf=76.5&indoorhumidity=49&baromin=
 # 29.05&lowbatt=0&dateutc=2016-1-4%2021:2:35&softwaretype=Weather%20log
 # ger%20V2.1.9&action=updateraw&realtime=1&rtfreq=5
 #
-# ID=XXXX&PASSWORD=PPPPPPPP&intemp=22.8&outtemp=1.4&dewpoint=1.1&windch
+# ID=XXXX&PASSWORD=PASSWORD&intemp=22.8&outtemp=1.4&dewpoint=1.1&windch
 # ill=1.4&inhumi=36&outhumi=98&windspeed=0.0&windgust=0.0&winddir=193&a
 # bsbaro=1009.5&relbaro=1033.4&rainrate=0.0&dailyrain=0.0&weeklyrain=10
 # .5&monthlyrain=10.5&yearlyrain=10.5&light=1724.9&UV=38&dateutc=2016-4
 # -19%204:42:35&softwaretype=HP1001%20V2.2.2&action=updateraw&realtime=
 # 1&rtfreq=5
 #
-# ID=XXXX&PASSWORD=PPPPPPPP&intemp=23.2&outtemp=10.1&dewpoint=2.0&windc
+# ID=XXXX&PASSWORD=PASSWORD&intemp=23.2&outtemp=10.1&dewpoint=2.0&windc
 # hill=10.1&inhumi=32&outhumi=57&windspeed=0.0&windgust=0.0&winddir=212
 # &absbaro=1010.1&relbaro=1034.0&rainrate=0.0&dailyrain=0.0&weeklyrain=
 # 10.5&monthlyrain=10.5&yearlyrain=10.5&light=31892.0&UV=919&dateutc=20
 # 16-4-19%207:54:4&softwaretype=HP1001%20V2.2.2&action=updateraw&realti
 # me=1&rtfreq=5
+#
+# GET /weatherstation/updateweatherstation.asp?ID=XXXXXXXXXXXXX&PASSWOR
+# D=PASSWORD&outtemp=6.3&outhumi=80&dewpoint=3.1&windchill=6.3&winddir=
+# 197&windspeed=0.0&windgust=0.0&rainrate=0.0&dailyrain=0.0&weeklyrain=
+# 0.0&monthlyrain=0.0&yearlyrain=0.0&light=0.00&UV=1&intemp=19.8&inhumi
+# =46&absbaro=1018.30&relbaro=1018.30&lowbatt=0&dateutc=2016-4-30%2021:
+# 5:1&softwaretype=Weather%20logger%20V2.1.9&action=updateraw&realtime=
+# 1&rtfreq=5 HTTP/1.0 
 
 class Observer(Consumer):
 
