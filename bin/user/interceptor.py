@@ -107,7 +107,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.6'
+DRIVER_VERSION = '0.7'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -413,6 +413,14 @@ class AcuriteBridge(Consumer):
 # =46&absbaro=1018.30&relbaro=1018.30&lowbatt=0&dateutc=2016-4-30%2021:
 # 5:1&softwaretype=Weather%20logger%20V2.1.9&action=updateraw&realtime=
 # 1&rtfreq=5 HTTP/1.0 
+#
+# GET /weatherstation/updateweatherstation.php?ID=XXXXXXXXXXXXX&PASSWOR
+# D=PASSWORD&tempf=-9999&humidity=-9999&dewptf=-9999&windchillf=-9999&w
+# inddir=-9999&windspeedmph=-9999&windgustmph=-9999&rainin=0.00&dailyra
+# inin=0.00&weeklyrainin=0.00&monthlyrainin=0.00&yearlyrainin=0.00&sola
+# rradiation=-9999&UV=-9999&indoortempf=66.2&indoorhumidity=47&baromin=
+# 29.94&lowbatt=0&dateutc=2016-5-10%202:34:15&softwaretype=Weather%20lo
+# gger%20V3.0.7&action=updateraw&realtime=1&rtfreq=5
 
 class Observer(Consumer):
 
@@ -476,7 +484,7 @@ class Observer(Consumer):
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
                 for n in data:
                     if n in self.LABEL_MAP:
-                              pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     elif n in self.IGNORED_LABELS:
                         logdbg("ignored parameter %s=%s" % (n, data[n]))
                     else:
@@ -500,6 +508,13 @@ class Observer(Consumer):
             s = s.replace("%20", " ")
             ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
             return calendar.timegm(ts)
+
+        @staticmethod
+        def decode_float(x):
+            # these stations send a value of -9999 to indicate no value, so
+            # convert that to a proper None.
+            x = Consumer.Parser.decode_float(x)
+            return None if x == -9999 else x
 
 
 # sample output from a LW301

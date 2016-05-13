@@ -1,3 +1,7 @@
+0.7 12may2016
+* convert -9999 values to None.  thanks to claudobahn.
+
+
 0.6 20apr2016
 * refactor lw30x code so it should work now
 * fix units of observerip
