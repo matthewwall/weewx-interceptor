@@ -107,7 +107,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.7'
+DRIVER_VERSION = '0.8'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -132,6 +132,14 @@ def loginf(msg):
 
 def logerr(msg):
     logmsg(syslog.LOG_ERR, msg)
+
+
+def _obfuscate_passwords(msg):
+    idx = msg.find('PASSWORD')
+    if idx >= 0:
+        import re
+        msg = re.sub(r'PASSWORD=[^&]+', r'PASSWORD=XXXX', msg)
+    return msg
 
 
 class Consumer(object):
@@ -175,14 +183,14 @@ class Consumer(object):
             # get the payload from an HTTP POST
             length = int(self.headers["Content-Length"])
             data = str(self.rfile.read(length))
-            logdbg('POST: %s' % data)
+            logdbg('POST: %s' % _obfuscate_passwords(data))
             Consumer.queue.put(data)
             self.reply()
 
         def do_GET(self):
             # get the query string from an HTTP GET
             data = urlparse.urlparse(self.path).query
-            logdbg('GET: %s' % data)
+            logdbg('GET: %s' % _obfuscate_passwords(data))
             Consumer.queue.put(data)
             self.reply()
 
@@ -264,7 +272,7 @@ class Consumer(object):
 
 class AcuriteBridge(Consumer):
 
-    def __init__(self, server_address):
+    def __init__(self, server_address, **stn_dict):
         super(AcuriteBridge, self).__init__(
             server_address, AcuriteBridge.Handler, AcuriteBridge.Parser())
 
@@ -424,7 +432,7 @@ class AcuriteBridge(Consumer):
 
 class Observer(Consumer):
 
-    def __init__(self, server_address):
+    def __init__(self, server_address, **stn_dict):
         super(Observer, self).__init__(
             server_address, Consumer.Handler, Observer.Parser())
 
@@ -579,7 +587,7 @@ class Observer(Consumer):
 
 class LW30x(Consumer):
 
-    def __init__(self, server_address):
+    def __init__(self, server_address, **stn_dict):
         super(LW30x, self).__init__(
             server_address, Consumer.Handler, LW30x.Parser())
 
@@ -646,7 +654,7 @@ class GW1000U(Consumer):
 
     station_serial = '0000000000000000'
 
-    def __init__(self, server_address):
+    def __init__(self, server_address, **stn_dict):
         super(GW1000U, self).__init__(
             server_address, GW1000U.Handler, GW1000U.Parser())
 
@@ -892,16 +900,16 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
-        self._addr = stn_dict.get('address', DEFAULT_ADDR)
-        self._port = int(stn_dict.get('port', DEFAULT_PORT))
-        loginf('server will listen on %s:%s' % (self._addr, self._port))
+        addr = stn_dict.get('address', DEFAULT_ADDR)
+        port = int(stn_dict.get('port', DEFAULT_PORT))
+        loginf('driver will listen on %s:%s' % (addr, port))
         self._obs_map = stn_dict.get('sensor_map', None)
         loginf('sensor map: %s' % self._obs_map)
         self._device_type = stn_dict.get('device_type', 'acurite-bridge')
         if not self._device_type in self.DEVICE_TYPES:
             raise Exception("unsupported device type '%s'" % self._device_type)
         self._device = self.DEVICE_TYPES.get(self._device_type)(
-            (self._addr, self._port))
+            (addr, port), **stn_dict)
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
         self._server_thread.setName('ServerThread')
