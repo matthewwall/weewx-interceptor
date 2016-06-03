@@ -447,7 +447,6 @@ class Observer(Consumer):
             'baromin': 'barometer',
             'windspeedmph': 'windSpeed',
             'windgustmph': 'windGust',
-            'rainin': 'rain',
             'solarradiation': 'radiation',
             'dewptf': 'dewpoint',
             'windchillf': 'windchill',
@@ -460,7 +459,6 @@ class Observer(Consumer):
             'absbaro': 'pressure',
             'windspeed': 'windSpeed',
             'windgust': 'windGust',
-            'yearlyrain': 'rain', # FIXME: no rain total, so use yearly
             'light': 'radiation',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
@@ -474,6 +472,8 @@ class Observer(Consumer):
 
         IGNORED_LABELS = ['relbaro',
                           'dailyrain', 'weeklyrain', 'monthlyrain',
+                          'yearlyrain',
+                          'rainin',
                           'dailyrainin', 'weeklyrainin', 'monthlyrainin',
                           'yearlyrainin',
                           'realtime', 'rtfreq',
@@ -497,10 +497,15 @@ class Observer(Consumer):
                         logdbg("ignored parameter %s=%s" % (n, data[n]))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
-                if 'rain' in pkt:
-                    if pkt['usUnits'] == weewx.METRIC and pkt['rain']:
-                        pkt['rain'] /= 10.0 # METRIC wants cm, not mm
-                    newtot = pkt['rain']
+                # get the rain this period from yearly total
+                if 'yearlyrain' in data:
+                    newtot = data['yearlyrain']
+                    if pkt['usUnits'] == weewx.METRIC:
+                        newtot /= 10.0 # METRIC wants cm, not mm
+                    pkt['rain'] = self._delta_rain(newtot, self._last_rain)
+                    self._last_rain = newtot
+                elif 'yearlyrainin' in data:
+                    newtot = data['yearlyrainin']
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
             except ValueError, e:

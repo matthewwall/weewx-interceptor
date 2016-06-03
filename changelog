@@ -1,6 +1,7 @@
 0.8 03jun2016
 * obfuscate passwords when logging
 * pass through station options
+* fix rain calculation for observer that emits rainin parameter
 
 0.7 12may2016
 * convert -9999 values to None.  thanks to claudobahn.
