@@ -450,6 +450,7 @@ class Observer(Consumer):
             'solarradiation': 'radiation',
             'dewptf': 'dewpoint',
             'windchillf': 'windchill',
+            'yearlyrainin': 'rain_total',
 
             # for firmware HP1001 2.2.2
             'outhumi': 'outHumidity',
@@ -463,6 +464,7 @@ class Observer(Consumer):
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
             'rainrate': 'rainRate',
+            'yearlyrain': 'rain_total',
 
             # for all firmware
             'winddir': 'windDir',
@@ -472,10 +474,8 @@ class Observer(Consumer):
 
         IGNORED_LABELS = ['relbaro',
                           'dailyrain', 'weeklyrain', 'monthlyrain',
-                          'yearlyrain',
                           'rainin',
                           'dailyrainin', 'weeklyrainin', 'monthlyrainin',
-                          'yearlyrainin',
                           'realtime', 'rtfreq',
                           'action', 'ID', 'PASSWORD', 'dateutc',
                           'softwaretype']
@@ -498,14 +498,10 @@ class Observer(Consumer):
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
                 # get the rain this period from yearly total
-                if 'yearlyrain' in data:
-                    newtot = data['yearlyrain']
+                if 'rain_total' in pkt:
+                    newtot = pkt['rain_total']
                     if pkt['usUnits'] == weewx.METRIC:
                         newtot /= 10.0 # METRIC wants cm, not mm
-                    pkt['rain'] = self._delta_rain(newtot, self._last_rain)
-                    self._last_rain = newtot
-                elif 'yearlyrainin' in data:
-                    newtot = data['yearlyrainin']
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
             except ValueError, e:
