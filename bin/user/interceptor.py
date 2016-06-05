@@ -275,6 +275,7 @@ class AcuriteBridge(Consumer):
     def __init__(self, server_address, **stn_dict):
         super(AcuriteBridge, self).__init__(
             server_address, AcuriteBridge.Handler, AcuriteBridge.Parser())
+        self._packet = None
 
     class Handler(Consumer.Handler):
 
@@ -282,15 +283,23 @@ class AcuriteBridge(Consumer):
             return '{ "success": 1, "checkversion": "126" }'
 
     class Parser(Consumer.Parser):
-        # FIXME: report battery and rssi
+        # whorfin - cache complete packet contents so rapidfire works nicely
+        # Also add gusts processing
+        def __init__(self):
+            self._packet = None
+            self._gusts = dict()
+
         DEFAULT_SENSOR_MAP = {
             'pressure..*': 'pressure',
-            'temperature..*': 'inTemp',
+            'temperature..*': 'inTemp', # temp w/ no sensor id is from the bridge
             'temperature.*.*': 'outTemp',
             'humidity.*.*': 'outHumidity',
             'windspeed.*.*': 'windSpeed',
             'winddir.*.*': 'windDir',
-            'rainfall.*.*': 'rain'}
+            'rainfall.*.*': 'rain',
+            'wind_gust.*.*': 'windGust',
+            'battery.*.*': 'txBatteryStatus',
+            'rssi.*.*': 'rxCheckPercent'}
 
         # this is *not* the same as the acurite console mapping!
         IDX_TO_DEG = {5: 0.0, 7: 22.5, 3: 45.0, 1: 67.5, 9: 90.0, 11: 112.5,
@@ -304,9 +313,10 @@ class AcuriteBridge(Consumer):
                     'sensor_id': data.get('sensor'),
                     'bridge_id': data.get('id')}
 
-        def parse(self, s):
+        def parse(self, s, gust_window):
             pkt = dict()
             parts = s.split('&')
+            tstamp = time.time()
             for x in parts:
                 (n, v) = x.split('=')
                 try:
@@ -319,13 +329,23 @@ class AcuriteBridge(Consumer):
                     elif n == 'battery':
                         pkt['battery'] = 1 if v == 'normal' else 0
                     elif n == 'rssi':
-                        pkt['rssi'] = int(v)
+                        # whorfin       convert 0-4 range to 0-100
+                        pkt['rssi'] = int(int(v)*25 + .5)
                     elif n == 'humidity':
                         pkt['humidity'] = float(v[2:5]) / 10.0 # %
                     elif n == 'temperature':
                         pkt['temperature'] = float(v[1:5]) / 10.0 # C
                     elif n == 'windspeed':
-                        pkt['windspeed'] = float(v[2:5]) / 10.0 # m/s
+                        windspeed = float(v[2:5]) / 10.0 # m/s
+                        pkt['windspeed'] = windspeed
+                        # now process gusts
+                        if gust_window is not None:
+                            self._gusts[tstamp] = windspeed
+                            # remove all entries earlier than window
+                            for k in self._gusts.keys():
+                                if k < tstamp - gust_window:
+                                    del self._gusts[k]
+                            pkt['wind_gust'] = max(self._gusts.values())
                     elif n == 'winddir':
                         pkt['winddir'] = AcuriteBridge.Parser.IDX_TO_DEG.get(int(v, 16))
                     elif n == 'rainfall':
@@ -344,13 +364,24 @@ class AcuriteBridge(Consumer):
 
             # tag each observation with identifiers:
             #   observation.<sensor_id>.<bridge_id>
-            packet = {'dateTime': int(time.time() + 0.5),
-                      'usUnits': weewx.METRICWX}
+            # whorfin - make _packet cached, for rapidfire
+            if self._packet is None:
+                self._packet = {'dateTime': int(tstamp + 0.5),
+                        'usUnits': weewx.METRICWX}
+            else:
+                self._packet['dateTime'] = int(tstamp + 0.5)
             _id = '%s.%s' % (
                 pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
+
+            # whorfin - clear rain, as that is "over the interval"; needed because caching
+            for n in self._packet.keys():
+                if n.startswith('rainfall.'):
+                    del self._packet[n]
+
             for n in pkt:
-                packet["%s.%s" % (n, _id)] = pkt[n]
-            return packet
+                self._packet["%s.%s" % (n, _id)] = pkt[n]
+
+            return self._packet
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
@@ -879,6 +910,19 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   netatmo - netatmo weather stations
     device_type = acurite-bridge
 
+    #Address on which to listen for connections
+    #address=
+
+    #Port for fake web server for incoming connection
+    #port=80
+
+    # AcuLink only - set to only use data from this sensor [and the bridge itself]
+    #sensor_id=None
+
+    # AcuLink only - set to compute gust as max over a window of this many seconds
+    # default is None
+    #gust_window=300
+
     # The driver to use:
     driver = user.interceptor
 """
@@ -911,6 +955,18 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
             raise Exception("unsupported device type '%s'" % self._device_type)
         self._device = self.DEVICE_TYPES.get(self._device_type)(
             (addr, port), **stn_dict)
+
+        # whorfin additions for sensor_id
+        self._sensor_id = stn_dict.get('sensor_id', None)
+        if self._sensor_id is not None:
+            self._sensor_id = int(self._sensor_id)
+            loginf('server will only accept sensor_id ' + str(self._sensor_id))
+        # whorfin additions for gust processing
+        self._gust_window = stn_dict.get('gust_window', None)
+        if self._gust_window is not None:
+            self._gust_window = float(self._gust_window)
+            loginf('AcuriteBridge gust processing enabled with window %g seconds' % self._gust_window)
+
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
         self._server_thread.setName('ServerThread')
@@ -931,7 +987,19 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
             try:
                 data = self._device.get_queue().get(True, 10)
                 logdbg('raw data: %s' % data)
-                pkt = self._device.parser.parse(data)
+
+                # whorfin - addition for sensor_id handling
+                ids = self._device.parser.parse_identifiers(data)
+                # sensor id of bridge [when reporting pressure as sensor_type 'pressure'] is 'None'
+                sensor_id = ids['sensor_id']
+                if self._sensor_id is not None and sensor_id is not None and int(sensor_id) != int(self._sensor_id):
+                    logdbg("skipping packet from unwanted sensor_id %d" % int(sensor_id))
+                    continue
+
+                if self._device_type == "acurite-bridge":
+                    pkt = self._device.parser.parse(data, self._gust_window)
+                else:
+                    pkt = self._device.parser.parse(data)
                 logdbg('raw packet: %s' % pkt)
                 pkt = self._device.parser.map_to_fields(pkt, self._obs_map)
                 logdbg('mapped packet: %s' % pkt)
@@ -973,6 +1041,8 @@ if __name__ == '__main__':
                       help='type of device for which to listen')
 
     (options, args) = parser.parse_args()
+	# whorfin - fix
+    options.port = int(options.port)
 
     debug = False
     if options.debug:
