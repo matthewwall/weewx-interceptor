@@ -962,7 +962,7 @@ if __name__ == '__main__':
     parser.add_option('--debug', dest='debug', action='store_true',
                       default=False,
                       help='display diagnostic information while running')
-    parser.add_option('--port', dest='port', metavar='PORT',
+    parser.add_option('--port', dest='port', metavar='PORT', type=int,
                       default=DEFAULT_PORT,
                       help='port on which to listen')
     parser.add_option('--address', dest='addr', metavar='ADDRESS',
@@ -984,7 +984,7 @@ if __name__ == '__main__':
                         (options.device_type,
                          ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
     device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
-        (options.addr, options.port))
+        (options.addr, int(options.port)))
 
     server_thread = threading.Thread(target=device.run_server)
     server_thread.setDaemon(True)
