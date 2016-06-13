@@ -734,7 +734,7 @@ start nyb  nybble encoding description
 2dL   5b   10     BCD      Unknown Date/Time 2
 32L   65   10     ???      Unknown
 37L   6f   3      BCD      Copy of outside temp?
-39H   72   2      ???      Status byte—per skydvr 0xA0—error
+39H   72   2      ???      Status byte-per skydvr 0xA0 error
 3aH   74   10     BCD      Date/Time of Max Inside Humidity
 3fH   7e   10     BCD      Date/Time of Min Inside Humidity
 44H   88   2      binary   Max Inside Humidity
@@ -754,19 +754,20 @@ start nyb  nybble encoding description
 75H   ea   10     BCD      Date/Time last 1-hour rain window ended
 7aH   f4   13     ???      Unknown
 80L   101  10     BCD      Date/Time of Last Rain Reset
-85L   10b  23     ???      Unknown — skydvr says rainfall array
+85L   10b  23     ???      Unknown - skydvr says rainfall array
 91H   122  4      binary   Current Ave Wind Speed
+93H   126  4      ???      Unknown
 93H   126  4      ???      Unknown
 95H   12a  6      nybbles  Wind direction history -- One nybble per time period
 98H   130  10     BCD      Time of Max Wind Gust
 9dH   13a  4      binary   Max Wind Gust since reset in 100th of km/h
 9fH   13e  2      ???      Unknown
 a0H   140  4      binary   Max Wind Gust this Cycle in 100th of km/h
-a2H   144  4      ???      Unknown — skydvr says wind status
+a2H   144  4      ???      Unknown - skydvr says wind status
 a4H   148  6      nybbles  Copy of wind direction history?
 a7H   14e  1      ???      Unknown
 a7L   14f  4      BCD      Current barometer in inches Hg
-a9L   153  6      ???      Unknown — skydvr says 0xAA might be pressure delta
+a9L   153  6      ???      Unknown - skydvr says 0xAA might be pressure delta
 acL   159  4      BCD      Min Barometer
 aeL   15d  6      ???      Unknown
 b1L   163  4      BCD      Max Barometer
