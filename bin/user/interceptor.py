@@ -1051,13 +1051,13 @@ class GW1000U(Consumer):
             pkt['rf_signal_strength'] = int(s[2:4], 16) # %
             pkt['status'] = s[4:6] # 0x10, 0x20, 0x30
             pkt['forecast'] = s[6:8] # 0x11, 0x12, 0x20, 0x21
-            pkt['in_temperature'] = self.to_degC(s, 39) # C
-            pkt['out_temperature'] = self.to_degC(s, 75) # C
+            pkt['in_temperature'] = self.to_temperature(s, 39) # C
+            pkt['out_temperature'] = self.to_temperature(s, 75) # C
             ok = int(s[114], 16) == 0 # 0=ok, 0xa=err
-            pkt['windchill'] = self.to_degC(s, 111) if ok else None # C
+            pkt['windchill'] = self.to_temperature(s, 111) if ok else None # C
             pkt['in_humidity'] = self.to_hum(s, 140) # %
             pkt['out_humidity'] = self.to_hum(s, 166) # %
-            pkt['rain_count'] = self.to_rainfall(s, 267) # mm
+            pkt['rain_count'] = self.to_rainfall(s, 267) / 10.0 # cm
             pkt['rain'] = self._delta_rain(pkt['rain_count'], self._last_rain)
             self._last_rain = pkt['rain_count']
             ok = int(s[297], 16) == 0 # 0=ok, 5=err
@@ -1073,7 +1073,7 @@ class GW1000U(Consumer):
 
             # now tag each value with identifiers
             packet = {'dateTime': int(time.time() + 0.5),
-                      'usUnits': weewx.METRICWX}
+                      'usUnits': weewx.METRIC}
             for n in pkt:
                 packet["%s..%s" % (n, mac)] = pkt[n]
             return packet
@@ -1085,7 +1085,8 @@ class GW1000U(Consumer):
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
-        def to_degC(x, idx):
+        def to_temperature(x, idx):
+            # returns temperature in degree C
             s = x[idx:idx+3]
             if s.lower() == 'aaa' or s.lower() == 'aa3':
                 return None
@@ -1093,22 +1094,27 @@ class GW1000U(Consumer):
 
         @staticmethod
         def to_hum(x, idx):
+            # returns humidity in percent
             return GW1000U.Parser.bcd2int(x[idx:idx+2])
 
         @staticmethod
         def to_windspeed(x, idx):
+            # returns windspeed in km per hour
             return GW1000U.Parser.bin2int(x[idx:idx+4]) / 100.0
 
         @staticmethod
         def to_winddir(x, idx):
+            # returns compass degrees in [0,360]
             return int(x[idx:idx+1], 16) * 22.5
 
         @staticmethod
         def to_pressure(x, idx):
+            # returns barometric pressure in mbar
             return GW1000U.Parser.bcd2int(x[idx:idx+5]) / 10.0
 
         @staticmethod
         def to_rainfall(x, idx, n=7):
+            # returns rain total in mm
             v = GW1000U.Parser.bcd2int(x[idx:idx+n])
             if n == 6:
                 v /= 100.0
