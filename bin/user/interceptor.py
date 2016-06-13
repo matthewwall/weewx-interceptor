@@ -98,6 +98,7 @@ from __future__ import with_statement
 import BaseHTTPServer
 import SocketServer
 import Queue
+import binascii
 import calendar
 import syslog
 import threading
@@ -653,32 +654,95 @@ class LW30x(Consumer):
 
 class GW1000U(Consumer):
 
-    station_serial = '0000000000000000'
+    # values for history interval:
+    #  0x00 - 1 minute
+    #  0x01 - 5 minutes
+    #  0x02 - 10 minutes
+    #  0x03 - 15 minutes (default)
+    #  0x04 - 20 minutes
+    #  0x05 - 30 minutes
+    #  0x06 - 1 hour
+    #  0x07 - 2 hours
+    HISTORY_INTERVALS = {
+        0: '1m', 1: '5m', 2: '10m', 3: '15m', 4: '20m', 5: '30m',
+        6: '1h', 7: '2h'}
 
+    station_serial = '0' * 16
+    ping_interval = 300 # how often gateway reports, in seconds
+    sensor_interval = 5 # minutes between data packets (5 is default)
+    history_interval = 3
+    lcd_brightness = 4
+    server_name = 'box.weatherdirect.com'
+    
     def __init__(self, server_address, **stn_dict):
         super(GW1000U, self).__init__(
             server_address, GW1000U.Handler, GW1000U.Parser())
+        GW1000U.station_serial = stn_dict.get('serial', '0' * 16)
+        if len(GW1000U.station_serial) != 16:
+            raise weewx.ViolatedPrecondition("serial number must be 16 characters")
+        loginf('using serial number %s' % GW1000U.station_serial)
+        GW1000U.sensor_interval = stn_dict.get('sensor_interval', 5)
+        loginf('using sensor interval %sm' % GW1000U.sensor_interval)
+        GW1000U.history_interval = stn_dict.get('history_interval', 3)
+        if GW1000U.history_interval not in GW1000U.HISTORY_INTERVALS:
+            raise weewx.ViolatedPrecondition("history interval must be 0-7")
+        loginf('using history interval %s (%s)' %
+               (GW1000U.history_interval,
+                GW1000U.HISTORY_INTERVALS.get(GW1000U.history_interval)))
+
+    @staticmethod
+    def encode_ts(ts):
+        # encode a 12-character time stamp into 6 bytes
+        tstr = time.strftime("%H%M%S%d%m%y", time.localtime(ts))
+        s = ''
+        for x in range(0, 6):
+            s += chr(GW1000U.encode_bcd(tstr[x*2: x*2+2]))
+        return s
+
+    @staticmethod
+    def decode_serial(data):
+        return binascii.hexlify(data)
+
+    @staticmethod
+    def encode_serial(sn):
+        # encode a 16-character serial number into 8 bytes
+        return binascii.unhexlify(sn)
+
+    @staticmethod
+    def encode_bcd(x):
+        x = int(x)
+        msb = x / 10
+        lsb = x % 10
+        if msb > 10:
+            msb = 10
+        return ((msb << 4) | (lsb & 0xf))
+
 
     class Handler(Consumer.Handler):
 
-        def do_POST(self):
+        last_history_address = 0
+        
+        def handle(self):
+            Consumer.Handler.handle(self)
             flags = '00:00'
             response = ''
-            ctype = True
             parts = self.headers.get('HTTP_IDENTIFY', '').split(':')
             if len(parts) == 4:
                 (mac, id1, key, id2) = parts
                 pkt_type = ("%s:%s" % (id1, id2)).upper()
                 length = int(self.headers.get('Content-Length', 0))
-                data = str(self.rfile.read(length)) if length else ''
-                logdbg("POST: %s %s %s:%s: %s" % (mac, key, id1, id2, data))
+                data = self.rfile.read(length) if length else ''
+                logdbg("recv: %s:%s %s %s %s" %
+                       (id1, id2, mac, key, self._fmt_bytes(data)))
                 if pkt_type == '00:10':
-                    # power up packet for unregistered gateway
+                    # power up for unregistered gateway
                     flags = '10:00'
+                    loginf("power up from gateway with mac %s" % mac)
                 elif pkt_type == '00:20':
-                    # push button registration packet
-                    flags = '20:00'
+                    # push button registration
+                    flags = '20:00' # sometimes replies with 20:01
                     response = self._create_gateway_reg_response()
+                    loginf("registration from gateway with mac %s" % mac)
                 elif pkt_type == '00:30':
                     # received after response to 00:70 packet
                     flags = '30:00'
@@ -687,56 +751,63 @@ class GW1000U(Consumer):
                     flags = '70:00'
                     response = self._create_gateway_ping_response()
                 elif pkt_type == '7F:10':
-                    # station registration packet
-                    sn = self._extract_serial(data)
-                    if sn == GW1000U.station_serial:
-                        flags = '14:00'
-                        response = self._create_station_reg_response(sn)
-                elif pkt_type == '00:14' or pkt_type == '01:14':
-                    # reply after 7f:10 packet
+                    # station registration.  station sends its serial number
+                    # as the first 8 digits of the packet.  if it is the
+                    # default serial number, there should be 13 bytes.  ignore
+                    # requests from anything other than the known serial.
+                    if data and len(data) >= 8:
+                        sn = GW1000U.decode_serial(data[0:8])
+                        if sn == GW1000U.station_serial:
+                            flags = '14:00'
+                            response = self._create_station_reg_response()
+                        else:
+                            loginf("ignore registration from serial %s" % sn)
+                    else:
+                        loginf('cannot extract serial from packet: %s'
+                               % self._fmt_bytes(data))
+                elif pkt_type == '00:14':
+                    # reply after 7f:10 packet.  station sends 14 bytes.
+                    flags = '1C:00'
+                elif pkt_type == '01:14':
+                    # station sends 14 bytes of data.  data is new serial in
+                    # same format as 7f:10 with one extra byte on the end.
                     flags = '1C:00'
                 elif pkt_type == '01:00':
-                    # weather station ping
+                    # weather station ping.  station sends 5 bytes.
                     flags = '14:01'
-                    response = self._create_station_ping_response(GW1000U.station_serial)
+                    response = self._create_station_ping_response()
                 elif pkt_type == '01:01':
                     # data packet - current or history
-                    Consumer.queue.put(data)
+                    if len(data) == 197:
+                        Consumer.queue.put({'mac': mac,
+                                            'data': binascii.b2a_hex(data)})
+                    else:
+                        loginf('unexpected data length %s' % len(data))
                 else:
                     loginf("unknown packet type %s" % pkt_type)
-                    ctype = False
             elif 'HTTP_IDENTIFY' not in self.headers:
                 logdbg('no HTTP_IDENTIFY in headers')
             else:
                 logdbg("unknown format for HTTP_IDENTIFY: '%s'" %
                        self.headers.get('HTTP_IDENTIFY', ''))
 
-            logdbg("http_flags: %s" % flags)
-            logdbg("response: %s" % response)
-
-            #self.send_response(200) # FIXME: is this necessary?
+            logdbg("send: %s %s" % (flags, self._fmt_bytes(response)))
+            
             self.send_header('HTTP_FLAGS', flags)
             self.send_header('Server', 'Microsoft-II/6.0')
             self.send_header('X-Powered-By', 'ASP.NET')
             self.send_header('X-ApsNet-Version', '2.0.50727')
             self.send_header('Cache-Control', 'private')
             self.send_header('Content-Length', len(response))
-            if ctype:
-                self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Type', 'application/octet-stream')
             self.end_headers()
             self.wfile.write(response)
 
         @staticmethod
-        def _extract_serial(data):
-            if data and len(data) >= 8:
-                return data[0:8]
-            return None
-
-        @staticmethod
         def _create_gateway_reg_response():
-            server = 'box.weatherdirect.com'
+            server = GW1000U.server_name
             return ''.join(
-                [chr(0) * 8,
+                [chr(0) * 8, # used to generate a new key
                  server.ljust(0x98, chr(0)),
                  ("%s%s%s" % (server, chr(0), server)).ljust(0x56, chr(0)),
                  chr(0) * 5,
@@ -744,38 +815,56 @@ class GW1000U(Consumer):
 
         @staticmethod
         def _create_gateway_ping_response():
-            # 0xf0 = 240 seconds
-            return ''.join([chr(0xff) * 4, chr(0) * 12, chr(0), chr(0xf0)])
+            # 18-byte reply.  last two bytes are the ping interval in seconds.
+            interval = GW1000U.ping_interval
+            hi = interval / 256
+            lo = interval % 256
+            return ''.join([chr(0xff) * 4, chr(0) * 12, chr(hi), chr(lo)])
 
+        # FIXME: the reg_response and ping_response look awfully similar.
+        # can they be replaced with a single response?
+        
         @staticmethod
-        def _create_station_reg_response(serial):
+        def _create_station_reg_response():
+            # reply to station registration request with 38 bytes of data.
+            # this reply can set the serial number of the weather station if
+            # the station has the default serial number of 0102030405060708.
+            # once changed, the serial number cannot be modified, so it might
+            # be advisable to register with lacrosse first so that if you ever
+            # want to go back to the lacross service you could.
+            sn = GW1000U.station_serial
             payload = ''.join(
                 [chr(1),
-                 GW1000U.Handler.encode_serial(serial), # 8 bytes
-                 chr(0) + chr(0x30) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x77) + chr(0) + chr(0xe) + chr(0xff),
-                 GW1000U.Handler.encode_ts(int(time.time())), # 6 bytes
+                 GW1000U.encode_serial(sn), # 8 bytes
+                 chr(0) + chr(0x30) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x77) + chr(0),
+                 chr(0xe) + chr(0xff), # skydriver calls this epoch
+                 GW1000U.encode_ts(int(time.time())), # 6 bytes
                  chr(0x53),
                  chr(0x7), # unknown
-                 chr(0x5), # LCD brightness
+                 chr(GW1000U.lcd_brightness), # LCD brightness
                  chr(0) + chr(0), # beep weather station
                  chr(0), # unknown
-                 chr(0x7)]) # unknown
+                 chr(0x7)]) # unknown - 0x7 is from lacrosse alerts
             cs = GW1000U.Handler.checksum8(payload)
             return payload + chr(cs)
 
         @staticmethod
-        def _create_station_ping_response(serial):
+        def _create_station_ping_response():
+            # reply with 38 bytes of data
+            sn = GW1000U.station_serial
+            hi = GW1000U.Handler.last_history_address / 256
+            lo = GW1000U.Handler.last_history_address % 256
             payload = ''.join(
                 [chr(1),
-                 GW1000U.Handler.encode_serial(serial), # 8 bytes
+                 GW1000U.encode_serial(sn), # 8 bytes
                  chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
-                 sensor_interval, # byte 0x14 (0x3)
+                 chr(GW1000U.sensor_interval - 1), # byte 0x14 (0x3)
                  chr(0),
-                 last_history_address, # 2 bytes (0x3e 0xde)
-                 GW1000U.Handler.encode_ts(int(time.time())), # 6 bytes
+                 chr(hi) + chr(lo), # last_history_address 2 bytes (0x3e 0xde)
+                 GW1000U.encode_ts(int(time.time())), # 6 bytes
                  chr(0x53),
-                 history_interval, # byte 0x1f (0x7)
-                 chr(0x4),
+                 chr(GW1000U.history_interval), # byte 0x1f (0x7)
+                 chr(GW1000U.lcd_brightness), # byte 0x20 (0x4)
                  chr(0) + chr(0),
                  chr(0)])
             cs = GW1000U.Handler.checksum16(payload) + 7
@@ -796,15 +885,10 @@ class GW1000U(Consumer):
             return n & 0xffff
 
         @staticmethod
-        def encode_ts(ts):
-            # FIXME
-            return bin2bcd(time.strftime("%H%M%S%d%m%y", time.localtime(ts)))
-
-        @staticmethod
-        def encode_serial(sn):
-            # FIXME
-            return ''.join([chr(x) for x in str(sn)])
-
+        def _fmt_bytes(data):
+            return ' '.join(['%02x' % ord(x) for x in data])
+        
+        
     class Parser(Consumer.Parser):
 
         DEFAULT_SENSOR_MAP = {
@@ -822,33 +906,47 @@ class GW1000U(Consumer):
         def __init__(self):
             self._last_rain = None
 
-        def parse(self, s):
+        @staticmethod
+        def parse_identifiers(payload):
+            return {'bridge_id': payload.get('mac')}
+
+        def parse(self, payload):
+            mac = payload.get('mac')
+            s = payload.get('data', '')
+            # this expects a string of hex characters.  the data packet length
+            # is 197, so the hex string should be 394 characters.
             pkt = dict()
-            pkt['record_type'] = s[0] # always 01
+            if len(s) != 394:
+                return pkt
+            pkt['record_type'] = int(s[0], 16) # always 01
             pkt['rf_signal_strength'] = int(s[1], 16) # %
             pkt['status'] = s[2] # 0x10, 0x20, 0x30
             pkt['forecast'] = s[3] # 0x11, 0x12, 0x20, 0x21
-            pkt['in_temperature'] = self.hex2degC(s[39:3]) # C
-            pkt['out_temperature'] = self.hex2degC(s[75:3]) # C
-            ok = h[114:1] == 0 # 0=ok, 0xa=err
-            pkt['windchill'] = self.hex2degC(s[111:3]) if ok else None # C
-            pkt['in_humidity'] = int(s[70], 16) # %
-            pkt['out_humidity'] = int(s[83], 16) # %
-            pkt['rain_count'] = int(s[267:7], 16) / 1000.0 # mm
-            pkt['rain'] = self._delta_rain(data['rain_count'], self._last_rain)
-            self._last_rain = data['rain_count']
-            ok = h[297:1] == 0 # 0=ok, 5=err
-            pkt['wind_speed'] = int(s[290:4], 16) / 100.0 if ok else None # kph
-            pkt['wind_dir'] = 0 # FIXME: figure out wind dir
-            pkt['wind_gust'] = 0 # FIXME: figure out wind gust
-            pkt['pressure'] = int(s[339:5], 16) / 10.0 # mbar
+            pkt['in_temperature'] = self.to_degC(s, 39) # C
+            pkt['out_temperature'] = self.to_degC(s, 75) # C
+            ok = int(s[114], 16) == 0 # 0=ok, 0xa=err
+            pkt['windchill'] = self.to_degC(s, 111) if ok else None # C
+            pkt['in_humidity'] = self.to_hum(s, 140) # %
+            pkt['out_humidity'] = self.to_hum(s, 166) # %
+            pkt['rain_count'] = self.to_rainfall(s, 267) # mm
+            pkt['rain'] = self._delta_rain(pkt['rain_count'], self._last_rain)
+            self._last_rain = pkt['rain_count']
+            ok = int(s[297], 16) == 0 # 0=ok, 5=err
+            if ok:
+                pkt['wind_speed'] = self.to_windspeed(s, 290) # kph
+                pkt['wind_dir'] = self.to_winddir(s, 298) # degrees
+                pkt['wind_gust'] = self.to_windgust(s, 320) # kph
+            else:
+                pkt['wind_speed'] = None
+                pkt['wind_dir'] = None
+                pkt['wind_gust'] = None
+            pkt['pressure'] = self.to_pressure(s, 339) # mbar
 
             # now tag each value with identifiers
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
-            label_id = pkt.get('mac') # FIXME
             for n in pkt:
-                packet["%s..%s" % (n, label_id)] = pkt[n]
+                packet["%s..%s" % (n, mac)] = pkt[n]
             return packet
 
         @staticmethod
@@ -858,11 +956,45 @@ class GW1000U(Consumer):
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
-        def hex2degC(x):
-            if x.upper() == 'AAA':
+        def to_degC(x, idx):
+            s = x[idx:idx+3]
+            if s.lower() == 'aaa' or s.lower() == 'aa3':
                 return None
-            return int(x, 16) / 10.0 - 40.0
+            return GW1000U.Parser.bcd2int(s) / 10.0 - 40.0
 
+        @staticmethod
+        def to_hum(x, idx):
+            return GW1000U.Parser.bcd2int(x[idx:idx+2])
+
+        @staticmethod
+        def to_windspeed(x, idx):
+            return GW1000U.Parser.bcd2int(x[idx:idx+4]) / 100.0
+
+        @staticmethod
+        def to_winddir(x, idx):
+            return GW1000U.Parser.bcd2int(x[idx:idx+1]) * 22.5
+
+        @staticmethod
+        def to_pressure(x, idx):
+            return GW1000U.Parser.bcd2int(x[idx:idx+4]) / 100.0
+
+        @staticmethod
+        def to_rainfall(x, idx, n=7):
+            v = GW1000U.Parser.bcd2int(x[idx:idx+n])
+            if n == 6:
+                v /= 100.0
+            else:
+                v /= 1000.0
+            v *= 0.0391904
+            return v
+                
+        @staticmethod
+        def bcd2int(x):
+            v = 0
+            for y in x:
+                v = v * 10 + int(y)
+            return v
+        
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
@@ -993,7 +1125,7 @@ if __name__ == '__main__':
     while True:
         try:
             _data = device.get_queue().get(True, 10)
-            print device.parser.parse_identifiers(_data)
+            print 'identifiers:', device.parser.parse_identifiers(_data)
             if debug:
                 print 'raw data: %s' % _data
                 _pkt = device.parser.parse(_data)
@@ -1001,4 +1133,4 @@ if __name__ == '__main__':
                 _pkt = device.parser.map_to_fields(_pkt, None)
                 print 'mapped packet: %s' % _pkt
         except Queue.Empty:
-            pass
+            logdbg("empty queue")
