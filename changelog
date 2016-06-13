@@ -1,3 +1,7 @@
+0.9 12jun2016
+* use lacrosse everywhere, eliminate lacross
+* eliminate netatmo support for now
+
 0.8 03jun2016
 * obfuscate passwords when logging
 * pass through station options

@@ -3,7 +3,7 @@
 """
 This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
-LaCross GW1000U internet bridge, the Oregon Scientific LW300 (LW301/LW302)
+LaCrosse GW1000U internet bridge, the Oregon Scientific LW300 (LW301/LW302)
 internet bridge, or the FineOffset HP1000 console or WH2600 internet bridge.
 
 Thanks to rich of modern toil and george nincehelser for acurite parsing
@@ -16,7 +16,7 @@ Thanks to Pat at obrienlabs.net for the fine offset parsing
 Thanks to sergei and waebi for the LW301/LW302 samples
   http://www.silent-gardens.com/blog/shark-hunt-lw301/
 
-Thanks to skydvrz, mycal, kennkong for publishing results of their lacross work
+Thanks to skydvrz, mycal, kennkong for publishing their lacrosse work
   http://www.wxforum.net/index.php?topic=14299.0
   https://github.com/lowerpower/LaCrosse
   https://github.com/kennkong/Weather-ERF-Gateway-1000U
@@ -80,13 +80,13 @@ are recognized by the LW300 base receivers.
 
 By default, the bridge communicates with www.osanywhereweather.com
 
-LaCross GW1000U
+LaCrosse GW1000U
 
-The LaCross gateway communicates via radio with the C84612 display, which in
+The LaCrosse gateway communicates via radio with the C84612 display, which in
 turn communicates with the rain, wind, and TH sensors.  The gateway has a
 wired ethernet connection.
 
-The gateway communicates with weatherdirect.com.  LaCross alerts is a fee-
+The gateway communicates with weatherdirect.com.  LaCrosse alerts is a fee-
 based system for receiving alerts from the gateway via lacrossealertsmobile.com
 """
 
@@ -107,7 +107,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.8'
+DRIVER_VERSION = '0.9'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -875,8 +875,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   acurite-bridge - acurite internet bridge
     #   observer - fine offset WH2600/HP1000/HP1003, aka 'observer'
     #   lw30x - oregon scientific LW301/LW302
-    #   lacross-bridge - lacross GW1000U/C84612 internet bridge
-    #   netatmo - netatmo weather stations
+    #   lacrosse-bridge - lacrosse GW1000U/C84612 internet bridge
     device_type = acurite-bridge
 
     # The driver to use:
@@ -887,7 +886,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
         print "Specify the type of device whose data will be captured"
         device_type = self._prompt('device_type', 'acurite-bridge',
                                    ['acurite-bridge', 'observer', 'lw30x',
-                                    'lacross-bridge', 'netatmo'])
+                                    'lacrosse-bridge'])
         return {'device_type': device_type}
 
 
