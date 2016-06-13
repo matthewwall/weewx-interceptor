@@ -661,27 +661,100 @@ class LW30x(Consumer):
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
 
-# The output from a GW1000U is more complicated that a simply http GET/POST.
-# What follows is the dissection using conventions from mycal.
-#
-# Each request has a header HTTP_IDENTIFY that specifys the request type,
-# gateway identification, and key.  For example:
-#
-# HTTP_IDENTIFY: 8009E3A7:00:45A49CAF5B9ED7E2:70
-#                ^^^^^^^^ ^^ ^^^^^^^^^^^^^^^^ ^^
-#                A B      C  D                E
-#
-# A - always 80 (2 characters)
-# B - MAC address less vendor ID (6 characters)
-# C - packet code (2 characters)
-# D - registration code (16 characters)
-# E - packet code (2 characters)
-#
-# Some packets have data, many do not.
-# The packet code C:E is used to identify incoming packet types.
-#
-# Some replies have data, many do not.
-# Each reply includes a HTTP_FLAGS header in the form 00:00.
+"""
+The output from a GW1000U is more complicated that a simply http GET/POST.
+What follows is the dissection using conventions from mycal.
+
+Each request has a header HTTP_IDENTIFY that specifys the request type,
+gateway identification, and key.  For example:
+
+  HTTP_IDENTIFY: 8009E3A7:00:45A49CAF5B9ED7E2:70
+                 ^^^^^^^^ ^^ ^^^^^^^^^^^^^^^^ ^^
+                 A B      C  D                E
+
+  A - always 80 (2 characters)
+  B - MAC address less vendor ID (6 characters)
+  C - packet code (2 characters)
+  D - registration code (16 characters)
+  E - packet code (2 characters)
+
+Some packets have data, many do not.
+The packet code C:E is used to identify incoming packet types.
+
+Some replies have data, many do not.
+Each reply includes a HTTP_FLAGS header in the form 00:00.
+
+Data packets
+
+This is the decoding of the data, based on mycal description:
+
+start nyb  nybble encoding description
+00H   0    2      byte     Record type, always 01
+01H   2    4      ???      Unknown
+03H   6    3      byte     status?
+04L   9    10     BDC      Date/Time of Max Inside Temp
+09L   13   10     BCD      Date/Time of Min Inside Temp
+0eL   1d   3      BCD      Max Inside Temp
+10H   20   2      ???      Unknown
+11H   22   3      BCD      Min Inside Temp
+12L   25   2      ???      Unknown
+13L   27   3      BCD      Current Inside Temp
+15H   2a   3      ???      Unknown
+16L   2d   10     BCD      Date/Time of Max Outside Temp
+1bL   37   10     BCD      Date/Time of Min Outside Temp
+20L   41   3      BCD      Max Outside Temp
+22H   44   2      ???      Unknown
+23H   46   3      BCD      Min Outside Temp
+24L   49   2      ???      Unknown
+25L   4b   3      BCD      Current Outside Temp
+27H   4e   3      ???      Unknown
+28L   51   10     BCD      Unknown Date/Time 1
+2dL   5b   10     BCD      Unknown Date/Time 2
+32L   65   10     ???      Unknown
+37L   6f   3      BCD      Copy of outside temp?
+39H   72   2      ???      Status byte—per skydvr 0xA0—error
+3aH   74   10     BCD      Date/Time of Max Inside Humidity
+3fH   7e   10     BCD      Date/Time of Min Inside Humidity
+44H   88   2      binary   Max Inside Humidity
+45H   8a   2      binary   Min Inside Humidity
+46H   8c   2      binary   Current Inside Humidity
+47H   8e   10     BCD      Date/Time of Max Outside Humidity
+4cH   98   10     BCD      Date/Time of Min Outside Humidity
+51H   a2   2      binary   Max Outside Humidity
+52H   a4   2      binary   Min Outside Humidity
+53H   a6   2      binary   Current Outside Humidity
+54H   a8   18     ???      Unknown all 0s
+5dH   ba   4      ???      Unknown
+5fH   be   20     ???      Unknown all 0s
+69H   d2   2      ???      Unknown
+6aH   d4   10     BCD      Unknown Date/Time 3
+6fH   de   12     ???      Unknown
+75H   ea   10     BCD      Date/Time last 1-hour rain window ended
+7aH   f4   13     ???      Unknown
+80L   101  10     BCD      Date/Time of Last Rain Reset
+85L   10b  23     ???      Unknown — skydvr says rainfall array
+91H   122  4      binary   Current Ave Wind Speed
+93H   126  4      ???      Unknown
+95H   12a  6      nybbles  Wind direction history -- One nybble per time period
+98H   130  10     BCD      Time of Max Wind Gust
+9dH   13a  4      binary   Max Wind Gust since reset in 100th of km/h
+9fH   13e  2      ???      Unknown
+a0H   140  4      binary   Max Wind Gust this Cycle in 100th of km/h
+a2H   144  4      ???      Unknown — skydvr says wind status
+a4H   148  6      nybbles  Copy of wind direction history?
+a7H   14e  1      ???      Unknown
+a7L   14f  4      BCD      Current barometer in inches Hg
+a9L   153  6      ???      Unknown — skydvr says 0xAA might be pressure delta
+acL   159  4      BCD      Min Barometer
+aeL   15d  6      ???      Unknown
+b1L   163  4      BCD      Max Barometer
+b3L   167  5      ???      Unknown
+b6H   16c  10     BCD      Unknown Date/Time 5
+bbH   176  10     BCD      Unknown Date/Time 6
+c0H   180  6      ???      Unknown
+c3H   186  2      binary   Checksum1
+c4H   188  2      binary   Checksum2 May be one 16-bit checksum
+"""
 
 class GW1000U(Consumer):
 
