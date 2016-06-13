@@ -684,6 +684,28 @@ The packet code C:E is used to identify incoming packet types.
 Some replies have data, many do not.
 Each reply includes a HTTP_FLAGS header in the form 00:00.
 
+Packet types
+
+00:01 ?
+
+00:10 gateway power up
+
+00:20 gateway unregistered
+
+00:30 gateway finished registration
+
+00:70 gateway ping
+
+01:00 weather station ping
+
+01:01 weather station data
+
+01:14 weather station registration verification
+
+7f:10 weather station registration
+
+00:14 ?
+
 Data packets
 
 This is the decoding of the data, based on mycal description:
@@ -886,7 +908,8 @@ class GW1000U(Consumer):
                         Consumer.queue.put({'mac': mac,
                                             'data': binascii.b2a_hex(data)})
                     else:
-                        loginf('unexpected data length %s' % len(data))
+                        loginf('ignore data packet: unexpected length %s'
+                               % len(data))
                 else:
                     loginf("unknown packet type %s" % pkt_type)
             elif 'HTTP_IDENTIFY' not in self.headers:
@@ -997,7 +1020,7 @@ class GW1000U(Consumer):
     class Parser(Consumer.Parser):
 
         DEFAULT_SENSOR_MAP = {
-            'pressure..*': 'pressure',
+            'barometer..*': 'barometer',
             'in_temperature..*': 'inTemp',
             'out_temperature..*': 'outTemp',
             'in_humidity..*': 'inHumidity',
@@ -1045,7 +1068,7 @@ class GW1000U(Consumer):
                 pkt['wind_speed'] = None
                 pkt['wind_dir'] = None
                 pkt['wind_gust'] = None
-            pkt['pressure'] = self.to_pressure(s, 339) # mbar
+            pkt['barometer'] = self.to_pressure(s, 339) # mbar
 
             # now tag each value with identifiers
             packet = {'dateTime': int(time.time() + 0.5),
