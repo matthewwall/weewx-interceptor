@@ -669,7 +669,7 @@ class GW1000U(Consumer):
 
     station_serial = '0' * 16
     ping_interval = 300 # how often gateway reports, in seconds
-    sensor_interval = 5 # minutes between data packets (5 is default)
+    sensor_interval = 300 # seconds between data packets (5m is default)
     history_interval = 3
     lcd_brightness = 4
     server_name = 'box.weatherdirect.com'
@@ -681,8 +681,8 @@ class GW1000U(Consumer):
         if len(GW1000U.station_serial) != 16:
             raise weewx.ViolatedPrecondition("serial number must be 16 characters")
         loginf('using serial number %s' % GW1000U.station_serial)
-        GW1000U.sensor_interval = stn_dict.get('sensor_interval', 5)
-        loginf('using sensor interval %sm' % GW1000U.sensor_interval)
+        GW1000U.sensor_interval = stn_dict.get('sensor_interval', 300)
+        loginf('using sensor interval %ss' % GW1000U.sensor_interval)
         GW1000U.history_interval = stn_dict.get('history_interval', 3)
         if GW1000U.history_interval not in GW1000U.HISTORY_INTERVALS:
             raise weewx.ViolatedPrecondition("history interval must be 0-7")
@@ -854,11 +854,12 @@ class GW1000U(Consumer):
             sn = GW1000U.station_serial
             hi = GW1000U.Handler.last_history_address / 256
             lo = GW1000U.Handler.last_history_address % 256
+            interval = GW1000U.sensor_interval / 60
             payload = ''.join(
                 [chr(1),
                  GW1000U.encode_serial(sn), # 8 bytes
                  chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
-                 chr(GW1000U.sensor_interval - 1), # byte 0x14 (0x3)
+                 chr(interval - 1), # byte 0x14 (0x3)
                  chr(0),
                  chr(hi) + chr(lo), # last_history_address 2 bytes (0x3e 0xde)
                  GW1000U.encode_ts(int(time.time())), # 6 bytes
@@ -918,10 +919,10 @@ class GW1000U(Consumer):
             pkt = dict()
             if len(s) != 394:
                 return pkt
-            pkt['record_type'] = int(s[0], 16) # always 01
-            pkt['rf_signal_strength'] = int(s[1], 16) # %
-            pkt['status'] = s[2] # 0x10, 0x20, 0x30
-            pkt['forecast'] = s[3] # 0x11, 0x12, 0x20, 0x21
+            pkt['record_type'] = int(s[0:2], 16) # always 01
+            pkt['rf_signal_strength'] = int(s[2:4], 16) # %
+            pkt['status'] = s[4:6] # 0x10, 0x20, 0x30
+            pkt['forecast'] = s[6:8] # 0x11, 0x12, 0x20, 0x21
             pkt['in_temperature'] = self.to_degC(s, 39) # C
             pkt['out_temperature'] = self.to_degC(s, 75) # C
             ok = int(s[114], 16) == 0 # 0=ok, 0xa=err
@@ -935,7 +936,7 @@ class GW1000U(Consumer):
             if ok:
                 pkt['wind_speed'] = self.to_windspeed(s, 290) # kph
                 pkt['wind_dir'] = self.to_winddir(s, 298) # degrees
-                pkt['wind_gust'] = self.to_windgust(s, 320) # kph
+                pkt['wind_gust'] = self.to_windspeed(s, 320) # kph
             else:
                 pkt['wind_speed'] = None
                 pkt['wind_dir'] = None
@@ -968,15 +969,15 @@ class GW1000U(Consumer):
 
         @staticmethod
         def to_windspeed(x, idx):
-            return GW1000U.Parser.bcd2int(x[idx:idx+4]) / 100.0
+            return GW1000U.Parser.bin2int(x[idx:idx+4]) / 100.0
 
         @staticmethod
         def to_winddir(x, idx):
-            return GW1000U.Parser.bcd2int(x[idx:idx+1]) * 22.5
+            return int(x[idx:idx+1], 16) * 22.5
 
         @staticmethod
         def to_pressure(x, idx):
-            return GW1000U.Parser.bcd2int(x[idx:idx+4]) / 100.0
+            return GW1000U.Parser.bcd2int(x[idx:idx+5]) / 10.0
 
         @staticmethod
         def to_rainfall(x, idx, n=7):
@@ -993,6 +994,13 @@ class GW1000U(Consumer):
             v = 0
             for y in x:
                 v = v * 10 + int(y)
+            return v
+                
+        @staticmethod
+        def bin2int(x):
+            v = 0
+            for y in x:
+                v = (v << 4) + int(y, 16)
             return v
         
 
