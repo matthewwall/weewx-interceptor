@@ -88,6 +88,15 @@ wired ethernet connection.
 
 The gateway communicates with weatherdirect.com.  LaCrosse alerts is a fee-
 based system for receiving alerts from the gateway via lacrossealertsmobile.com
+
+If you have any intention of using LaCrosse's alerts service, you should
+register your station with LaCrosse before using this driver.
+
+The bridge attempts to upload to /request.breq
+
+The easiest way to use this driver is to use the Gateway Advance Setup (GAS)
+utility from LaCrosse to configure the gateway to send to the computer with
+this driver.
 """
 
 # FIXME: automatically detect the traffic type
@@ -652,6 +661,28 @@ class LW30x(Consumer):
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
 
+# The output from a GW1000U is more complicated that a simply http GET/POST.
+# What follows is the dissection using conventions from mycal.
+#
+# Each request has a header HTTP_IDENTIFY that specifys the request type,
+# gateway identification, and key.  For example:
+#
+# HTTP_IDENTIFY: 8009E3A7:00:45A49CAF5B9ED7E2:70
+#                ^^^^^^^^ ^^ ^^^^^^^^^^^^^^^^ ^^
+#                A B      C  D                E
+#
+# A - always 80 (2 characters)
+# B - MAC address less vendor ID (6 characters)
+# C - packet code (2 characters)
+# D - registration code (16 characters)
+# E - packet code (2 characters)
+#
+# Some packets have data, many do not.
+# The packet code C:E is used to identify incoming packet types.
+#
+# Some replies have data, many do not.
+# Each reply includes a HTTP_FLAGS header in the form 00:00.
+
 class GW1000U(Consumer):
 
     # values for history interval:
@@ -668,7 +699,7 @@ class GW1000U(Consumer):
         6: '1h', 7: '2h'}
 
     station_serial = '0' * 16
-    ping_interval = 300 # how often gateway reports, in seconds
+    ping_interval = 60 # how often gateway should ping the server, in seconds
     sensor_interval = 300 # seconds between data packets (5m is default)
     history_interval = 3
     lcd_brightness = 4
