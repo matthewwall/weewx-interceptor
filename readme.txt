@@ -7,7 +7,7 @@ HP1000/WH2600, or the LaCrosse GW1000U.
 
 Warning!  This driver is experimental.  It is fully tested with the Acurite
 bridge, mostly functional with the Fine Offset HP1000 and WH2600, mostly
-functional with the Oregon Scientific LW stations, and not at all tested with
+functional with the Oregon Scientific LW stations, and mostly functional with
 the GW1000U.  Feedback from anyone with the untested hardware would be greatly
 appreciated.  My intent is to push these components into weewx once all of the
 different configurations are working properly.
