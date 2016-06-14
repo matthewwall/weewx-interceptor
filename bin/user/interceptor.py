@@ -1114,13 +1114,12 @@ class GW1000U(Consumer):
 
         @staticmethod
         def to_rainfall(x, idx, n=7):
-            # returns rain total in mm
+            # each tip is 0.01", returns rain total in mm
             v = GW1000U.Parser.bcd2int(x[idx:idx+n])
             if n == 6:
                 v /= 100.0
             else:
                 v /= 1000.0
-            v *= 0.0391904
             return v
                 
         @staticmethod
