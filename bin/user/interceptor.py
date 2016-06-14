@@ -300,7 +300,9 @@ class AcuriteBridge(Consumer):
             'humidity.*.*': 'outHumidity',
             'windspeed.*.*': 'windSpeed',
             'winddir.*.*': 'windDir',
-            'rainfall.*.*': 'rain'}
+            'rainfall.*.*': 'rain',
+            'battery.*.*': 'txBatteryStatus',
+            'rssi.*.*': 'rxCheckPercent'}
 
         # this is *not* the same as the acurite console mapping!
         IDX_TO_DEG = {5: 0.0, 7: 22.5, 3: 45.0, 1: 67.5, 9: 90.0, 11: 112.5,
@@ -329,7 +331,7 @@ class AcuriteBridge(Consumer):
                     elif n == 'battery':
                         pkt['battery'] = 1 if v == 'normal' else 0
                     elif n == 'rssi':
-                        pkt['rssi'] = int(v)
+                        pkt['rssi'] = float(v) / 4.0
                     elif n == 'humidity':
                         pkt['humidity'] = float(v[2:5]) / 10.0 # %
                     elif n == 'temperature':

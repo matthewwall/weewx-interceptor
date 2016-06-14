@@ -2,6 +2,7 @@
 * use lacrosse everywhere, eliminate lacross
 * overhaul of lacrosse GW1000U implementation
 * eliminate netatmo support for now
+* added battery and rssi to default acurite mapping
 
 0.8 03jun2016
 * obfuscate passwords when logging
