@@ -320,6 +320,8 @@ class AcuriteBridge(Consumer):
             pkt = dict()
             parts = s.split('&')
             for x in parts:
+                if not x:
+                    continue
                 (n, v) = x.split('=')
                 try:
                     if n == 'id':
@@ -351,7 +353,7 @@ class AcuriteBridge(Consumer):
                     logerr("decode failed for %s '%s': %s" % (n, v, e))
 
             # if this is a pressure packet, calculate the pressure
-            if pkt['sensor_type'] == 'pressure':
+            if 'sensor_type' in pkt and pkt['sensor_type'] == 'pressure':
                 pkt['pressure'], pkt['temperature'] = AcuriteBridge.Parser.decode_pressure(pkt)
 
             # tag each observation with identifiers:
