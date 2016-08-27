@@ -134,6 +134,21 @@ $TTL    604800
 This will redirect any requests to www.acu-link.com, but it will not redirect
 any requests to acu-link.com.
 
+1c) Alternative bind configuration using DNS views.  This configuration sends
+the hijacked DNS entry for queries from the weather station, but the standard
+DNS entry for wunderground for every other DNS client query.  Thanks to Lee H-W
+for this very simple DNS solution.
+
+view "watson" {
+  match-clients { 172.17.1.131/32; }; // weather station
+  recursion yes;
+  // view statements as required
+  zone "rtupdate.wunderground.com" {
+    type master;
+    file "/etc/bind/override1.zone";
+  };
+};
+
 
 2) HTTP proxy/redirect
 
