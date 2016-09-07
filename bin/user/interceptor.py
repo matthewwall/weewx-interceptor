@@ -27,7 +27,8 @@ Acurite Bridge
 
 The Acurite bridge communicates with Acurite 5-in-1, 3-in-1, temperature, and
 temperature/humidity sensors.  It receives signals from any number of sensors,
-even though Acurite's web interface is limited to 3 devices.
+even though Acurite's web interface is limited to 3 devices (or 10 as of the
+July 2016 firmware update).
 
 By default, the bridge transmits data to www.acu-link.com.  Acurite requires
 registration of the bridge's MAC address in order to use acu-link.com.
@@ -35,6 +36,10 @@ However, the bridge will function even if it is not registered, as long as it
 receives the proper response.
 
 The bridge sends data as soon as it receives an observation from the sensors.
+
+Chaney did a firmware update to the bridge in July 2016.  This update made the
+bridge emit data using the weather underground protocol instead of the
+Chaney protocol.
 
 Observer
 
@@ -117,7 +122,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.9'
+DRIVER_VERSION = '0.10rc1'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -270,15 +275,94 @@ class Consumer(object):
         def decode_int(x):
             return None if x is None else int(x)
 
+        @staticmethod
+        def decode_wu_datetime(s):
+            if s == 'now':
+                return int(time.time() + 0.5)
+            s = s.replace("%20", " ")
+            ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
+            return calendar.timegm(ts)
+
 
 # sample output from a bridge with 3 t/h sensors and 1 5-in-1
 #
+# Chaney format (pre-July2016):
 # id=X&mt=pressure&C1=452D&C2=0D7F&C3=010D&C4=0330&C5=8472&C6=1858&C7=09C4&A=07&B=1B&C=06&D=09&PR=91CA&TR=8270
 # id=X&sensor=02004&mt=5N1x31&windspeed=A001660000&winddir=8&rainfall=A0000000&battery=normal&rssi=3
 # id=X&sensor=02004&mt=5N1x38&windspeed=A001890000&humidity=A0280&temperature=A014722222&battery=normal&rssi=3
 # id=X&sensor=06022&mt=tower&humidity=A0270&temperature=A020100000&battery=normal&rssi=3
 # id=X&sensor=05961&mt=tower&humidity=A0300&temperature=A017400000&battery=normal&rssi=3
 # id=X&sensor=14074&mt=tower&humidity=A0300&temperature=A021500000&battery=normal&rssi=4
+#
+# WU format (as of July 2016):
+# GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1&id=X&mt=5N1x31&sensor=00003301&windspeedmph=5&winddir=113&rainin=0.00&dailyrainin=0.00&humidity=45&tempf=95.6&dewptf=76.0&baromin=30.11&battery=normal&rssi=2
+#
+# new format samples from nincehelser (July 2016):
+# dateutc=now&action=updateraw&realtime=1&id=24C86Exxxxxx&mt=tower&sensor=00002719&humidity=15&tempf=83.8&baromin=29.92&battery=normal&rssi=3
+# dateutc=now&action=updateraw&realtime=1&id=24C86Exxxxxx&mt=5N1x31&sensor=00001398&windspeedmph=9&winddir=180&rainin=0.00&dailyrainin=0.03&baromin=29.92&battery=normal&rssi=1
+# dateutc=now&action=updateraw&realtime=1&id=24C86Exxxxxx&mt=5N1x38&sensor=00001398&windspeedmph=9&humidity=76&tempf=84.0&baromin=29.92&battery=normal&rssi=1
+#
+# new format samples from radar on the weewx-user forum 21aug2016
+# (docbee posted about ptempf, probe, and check on wxforum 24aug2016)
+#
+# 5n1
+# &id=MAC&mt=5N1x31&sensor=0000xxxx
+# &windspeedmph=1&winddir=45&rainin=0.00&dailyrainin=0.00
+# &baromin=28.77&battery=normal&rssi=2
+#
+# &id=MAC&mt=5N1x38&sensor=0000xxxx
+# &windspeedmph=1&humidity=53&tempf=73.8
+# &baromin=28.77&battery=normal&rssi=2
+#
+# tower
+# &id=MAC&mt=tower&sensor=0000xxxx
+# &humidity=54&tempf=66.0
+# &baromin=28.77&battery=normal&rssi=2
+#
+# room-montor with one water decetor
+# &id=MAC&mt=ProIn&sensor=0000xxxx
+# &indoorhumidity=61&indoortempf=65.8
+# &probe=1&check=0&water=0
+# &baromin=28.77&battery=normal&rssi=2
+#
+# outside temp and humidity with Liquid and or Soil Temp
+# &id=MAC&mt=ProOut&sensor=0000xxxx
+# &humidity=63&tempf=65.2
+# &probe=2&check=0&ptempf=64.9
+# &baromin=28.77&battery=normal&rssi=3
+#
+# rain gauge
+# &id=MAC&mt=rain899&sensor=000xxxxx
+# &rainin=0.00&dailyrainin=0.00
+# &baromin=28.77&battery=normal&rssi=2
+#
+# ProIn sensor no indicators
+# &id=MAC&mt=ProIn&sensor=0000xxxx
+# &indoorhumidity=61&indoortempf=67.1
+# &baromin=28.69&battery=normal&rssi=2
+#
+# ProIn sensor with one Water Detector
+# &id=MAC&mt=ProIn&sensor=0000xxxx
+# &indoorhumidity=60&indoortempf=67.1
+# &probe=1&check=0&water=0
+# &baromin=28.68&battery=normal&rssi=2
+#
+# ProIn sensor with Liquide and or Soil Temp
+# &id=MAC&mt=ProIn&sensor=0000xxxx
+# &indoorhumidity=58&indoortempf=69.0
+# &probe=2&check=0&ptempf=66.9
+# &baromin=28.68&battery=normal&rssi=3
+#
+# ProIn with water detector when water is detected
+# &id=MAC&mt=ProIn&sensor=0000xxxx
+# &indoorhumidity=59&indoortempf=67.2
+# &probe=1&check=0&water=1
+# &baromin=28.65&battery=normal&rssi=2
+
+# the room monitor with water detector
+#   Model: 00276WD-bundle
+# the outdoor monitor with liquid & soil temperature sensor
+#   Model: 00275LS-bundle
 
 class AcuriteBridge(Consumer):
 
@@ -309,6 +393,20 @@ class AcuriteBridge(Consumer):
                       15: 135.0, 13: 157.5, 12: 180.0, 14: 202.5, 10: 225.0,
                       8: 247.5, 0: 270.0, 2: 292.5, 6: 315.0, 4: 337.5}
 
+        LABEL_MAP = {
+            'humidity': 'humidity',
+            'tempf': 'temperature',
+            'baromin': 'barometer',
+            'windspeedmph': 'windspeed',
+            'winddir': 'winddir',
+            'rainin': 'rainfall'
+        }
+
+        IGNORED_LABELS = ['dailyrainin',
+                          'realtime', 'rtfreq',
+                          'action', 'ID', 'PASSWORD', 'dateutc',
+                          'updateraw', 'sensor', 'mt', 'id']
+
         @staticmethod
         def parse_identifiers(s):
             data = dict(qc.split('=') for qc in s.split('&'))
@@ -316,7 +414,39 @@ class AcuriteBridge(Consumer):
                     'sensor_id': data.get('sensor'),
                     'bridge_id': data.get('id')}
 
+        def __init__(self):
+            self._last_rain = None
+
+        # be ready for either the chaney format or the wu format
         def parse(self, s):
+            if s.find('action') >= 0:
+                return parse_wu(s)
+            return parse_chaney(s)
+
+        # parse packets that are in the weather underground format
+        def parse_wu(self, s):
+            pkt = dict()
+            try:
+                data = dict(x.split('=') for x in s.split('&'))
+                # FIXME: add option to use computer time instead of station
+                pkt['dateTime'] = self.decode_wu_datetime(
+                    data.pop('dateutc', int(time.time() + 0.5)))
+                pkt['usUnits'] = weewx.US
+                for n in data:
+                    if n == 'battery':
+                        pkt[self.LABEL_MAP[n]] = 0 if data[n] == 'normal' else 1
+                    elif n in self.LABEL_MAP:
+                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                    elif n in self.IGNORED_LABELS:
+                        logdbg("ignored parameter %s=%s" % (n, data[n]))
+                    else:
+                        loginf("unrecognized parameter %s=%s" % (n, data[n]))
+            except ValueError, e:
+                logerr("parse failed for %s: %s" % (s, e))
+            return self.add_identifiers(pkt)
+
+        # parse packets that are in the chaney format
+        def parse_chaney(self, s):
             pkt = dict()
             parts = s.split('&')
             for x in parts:
@@ -331,7 +461,7 @@ class AcuriteBridge(Consumer):
                     elif n == 'mt':
                         pkt['sensor_type'] = v
                     elif n == 'battery':
-                        pkt['battery'] = 1 if v == 'normal' else 0
+                        pkt['battery'] = 0 if v == 'normal' else 1
                     elif n == 'rssi':
                         pkt['rssi'] = float(v) / 4.0
                     elif n == 'humidity':
@@ -356,10 +486,17 @@ class AcuriteBridge(Consumer):
             if 'sensor_type' in pkt and pkt['sensor_type'] == 'pressure':
                 pkt['pressure'], pkt['temperature'] = AcuriteBridge.Parser.decode_pressure(pkt)
 
+            # apply timestamp and units
+            pkt['dateTime'] = int(time.time() + 0.5)
+            pkt['usUnits'] = weewx.METRICWX
+
+            return self.add_identifiers(pkt)
+
+        @staticmethod
+        def add_identifiers(pkt):
             # tag each observation with identifiers:
             #   observation.<sensor_id>.<bridge_id>
-            packet = {'dateTime': int(time.time() + 0.5),
-                      'usUnits': weewx.METRICWX}
+            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
             _id = '%s.%s' % (
                 pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
             for n in pkt:
@@ -502,7 +639,8 @@ class Observer(Consumer):
             try:
                 data = dict(x.split('=') for x in s.split('&'))
                 # FIXME: add option to use computer time instead of station
-                pkt['dateTime'] = self.decode_datetime(data['dateutc'])
+                pkt['dateTime'] = self.decode_wu_datetime(
+                    data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
                 for n in data:
                     if n in self.LABEL_MAP:
@@ -525,12 +663,6 @@ class Observer(Consumer):
         @staticmethod
         def map_to_fields(pkt, sensor_map):
             return pkt
-
-        @staticmethod
-        def decode_datetime(s):
-            s = s.replace("%20", " ")
-            ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
-            return calendar.timegm(ts)
 
         @staticmethod
         def decode_float(x):

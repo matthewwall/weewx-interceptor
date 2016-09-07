@@ -1,3 +1,8 @@
+0.10 16jul2016
+* deal with 'now' as a dateutc field
+* added support for new acurite bridge encoding
+* pop dateutc from data when setting the packet timestamp
+
 0.9 12jun2016
 * use lacrosse everywhere, eliminate lacross
 * overhaul of lacrosse GW1000U implementation
