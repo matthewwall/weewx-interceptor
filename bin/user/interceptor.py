@@ -358,6 +358,12 @@ class Consumer(object):
 # &indoorhumidity=59&indoortempf=67.2
 # &probe=1&check=0&water=1
 # &baromin=28.65&battery=normal&rssi=2
+#
+# ProIn sensor with Spot Check Temperature and Humidity Sensor model# 06012RM
+# &id=MAC&mt=ProIn&sensor=0000xxxx
+# &indoorhumidity=63&indoortempf=66.9
+# &probe=3&check=0&ptempf=74.3&phumidity=50
+# &baromin=28.90&battery=normal&rssi=2
 
 # the room monitor with water detector
 #   Model: 00276WD-bundle
