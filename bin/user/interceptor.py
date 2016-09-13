@@ -122,7 +122,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.10rc1'
+DRIVER_VERSION = '0.10rc2'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -420,8 +420,8 @@ class AcuriteBridge(Consumer):
         # be ready for either the chaney format or the wu format
         def parse(self, s):
             if s.find('action') >= 0:
-                return parse_wu(s)
-            return parse_chaney(s)
+                return self.parse_wu(s)
+            return self.parse_chaney(s)
 
         # parse packets that are in the weather underground format
         def parse_wu(self, s):
