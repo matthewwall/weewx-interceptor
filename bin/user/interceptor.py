@@ -122,7 +122,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.10rc1'
+DRIVER_VERSION = '0.10rc2'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -319,7 +319,7 @@ class Consumer(object):
 # &humidity=54&tempf=66.0
 # &baromin=28.77&battery=normal&rssi=2
 #
-# room-montor with one water decetor
+# room-monitor with one water decetor
 # &id=MAC&mt=ProIn&sensor=0000xxxx
 # &indoorhumidity=61&indoortempf=65.8
 # &probe=1&check=0&water=0
@@ -382,7 +382,6 @@ class AcuriteBridge(Consumer):
             return '{ "success": 1, "checkversion": "126" }'
 
     class Parser(Consumer.Parser):
-        # FIXME: report battery and rssi
         DEFAULT_SENSOR_MAP = {
             'pressure..*': 'pressure',
             'temperature..*': 'inTemp',
@@ -399,9 +398,13 @@ class AcuriteBridge(Consumer):
                       15: 135.0, 13: 157.5, 12: 180.0, 14: 202.5, 10: 225.0,
                       8: 247.5, 0: 270.0, 2: 292.5, 6: 315.0, 4: 337.5}
 
+        # map wu names to generic observation names
         LABEL_MAP = {
             'humidity': 'humidity',
             'tempf': 'temperature',
+            'indoorhumidity': 'humidity',
+            'indoortempf': 'temperature',
+            'ptempf': 'probe_temperature',
             'baromin': 'barometer',
             'windspeedmph': 'windspeed',
             'winddir': 'winddir',
@@ -411,7 +414,8 @@ class AcuriteBridge(Consumer):
         IGNORED_LABELS = ['dailyrainin',
                           'realtime', 'rtfreq',
                           'action', 'ID', 'PASSWORD', 'dateutc',
-                          'updateraw', 'sensor', 'mt', 'id']
+                          'updateraw', 'sensor', 'mt', 'id',
+                          'probe', 'check', 'water']
 
         @staticmethod
         def parse_identifiers(s):
@@ -426,8 +430,8 @@ class AcuriteBridge(Consumer):
         # be ready for either the chaney format or the wu format
         def parse(self, s):
             if s.find('action') >= 0:
-                return parse_wu(s)
-            return parse_chaney(s)
+                return self.parse_wu(s)
+            return self.parse_chaney(s)
 
         # parse packets that are in the weather underground format
         def parse_wu(self, s):
@@ -439,8 +443,16 @@ class AcuriteBridge(Consumer):
                     data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US
                 for n in data:
-                    if n == 'battery':
-                        pkt[self.LABEL_MAP[n]] = 0 if data[n] == 'normal' else 1
+                    if n == 'id':
+                        pkt['bridge_id'] = data[n]
+                    elif n == 'sensor':
+                        pkt['sensor_id'] = data[n]
+                    elif n == 'mt':
+                        pkt['sensor_type'] = data[n]
+                    elif n == 'battery':
+                        pkt['battery'] = 0 if data[n] == 'normal' else 1
+                    elif n == 'rssi':
+                        pkt['rssi'] = float(data[n]) / 4.0
                     elif n in self.LABEL_MAP:
                         pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     elif n in self.IGNORED_LABELS:
