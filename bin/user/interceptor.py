@@ -122,7 +122,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.10rc2'
+DRIVER_VERSION = '0.11'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -201,6 +201,9 @@ class Consumer(object):
             logdbg('POST: %s' % _obfuscate_passwords(data))
             Consumer.queue.put(data)
             self.reply()
+
+        def do_PUT(self):
+            pass
 
         def do_GET(self):
             # get the query string from an HTTP GET
@@ -1074,7 +1077,8 @@ class GW1000U(Consumer):
                        self.headers.get('HTTP_IDENTIFY', ''))
 
             logdbg("send: %s %s" % (flags, self._fmt_bytes(response)))
-            
+
+            self.send_response(200)
             self.send_header('HTTP_FLAGS', flags)
             self.send_header('Server', 'Microsoft-II/6.0')
             self.send_header('X-Powered-By', 'ASP.NET')
