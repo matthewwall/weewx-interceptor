@@ -38,6 +38,26 @@ sudo /etc/init.d/weewx start
 5) direct network traffic from the bridge or weather station to weewx
 
 
+Driver options
+
+To configure the driver beyond the default values, set parameters in the
+[Interceptor] section of the weewx configuration file.  For example, to
+listen on port 80 instead of the default port 9999,
+
+[Interceptor]
+    device_type = observer
+    port = 80
+    driver = user.interceptor
+
+To listen on port 8080 on the network interface with address 192.168.0.14:
+
+[Interceptor]
+    device_type = lw30x
+    port = 8080
+    address = 192.168.0.14
+    driver = user.interceptor
+
+
 How it works
 
 The driver runs a web server on a thread separate from the primary weewx
