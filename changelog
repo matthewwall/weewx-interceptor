@@ -1,5 +1,6 @@
 0.12
 * do server_close() not just shutdown() when killing the socket server
+* strip leading and trailing whitespace from cgi args
 
 0.11
 * fixed response in GW1000U replies (thanks to ktry)

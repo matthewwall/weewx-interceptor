@@ -156,6 +156,8 @@ def _obfuscate_passwords(msg):
         msg = re.sub(r'PASSWORD=[^&]+', r'PASSWORD=XXXX', msg)
     return msg
 
+def _cgi_to_dict(s):
+    return dict([y.strip() for y in x.split('=')] for x in s.split('&'))
 
 class Consumer(object):
     queue = Queue.Queue()
@@ -424,7 +426,7 @@ class AcuriteBridge(Consumer):
 
         @staticmethod
         def parse_identifiers(s):
-            data = dict(qc.split('=') for qc in s.split('&'))
+            data = _cgi_to_dict(s)
             return {'sensor_type': data.get('mt'),
                     'sensor_id': data.get('sensor'),
                     'bridge_id': data.get('id')}
@@ -442,7 +444,7 @@ class AcuriteBridge(Consumer):
         def parse_wu(self, s):
             pkt = dict()
             try:
-                data = dict(x.split('=') for x in s.split('&'))
+                data = _cgi_to_dict(s)
                 # FIXME: add option to use computer time instead of station
                 pkt['dateTime'] = self.decode_wu_datetime(
                     data.pop('dateutc', int(time.time() + 0.5)))
@@ -476,6 +478,8 @@ class AcuriteBridge(Consumer):
                 if not x:
                     continue
                 (n, v) = x.split('=')
+                n = n.strip()
+                v = v.strip()
                 try:
                     if n == 'id':
                         pkt['bridge_id'] = v
@@ -660,7 +664,7 @@ class Observer(Consumer):
         def parse(self, s):
             pkt = dict()
             try:
-                data = dict(x.split('=') for x in s.split('&'))
+                data = _cgi_to_dict(s)
                 # FIXME: add option to use computer time instead of station
                 pkt['dateTime'] = self.decode_wu_datetime(
                     data.pop('dateutc', int(time.time() + 0.5)))
@@ -780,7 +784,7 @@ class LW30x(Consumer):
 
         @staticmethod
         def parse_identifiers(s):
-            data = dict(qc.split('=') for qc in s.split('&'))
+            data = _cgi_to_dict(s)
             return {'sensor_type': data.get('id'),
                     'channel': data.get('ch'),
                     'sensor_id': data.get('rid'),
@@ -789,7 +793,7 @@ class LW30x(Consumer):
         def parse(self, s):
             pkt = dict()
             try:
-                data = dict(x.split('=') for x in s.split('&'))
+                data = _cgi_to_dict(s)
                 for n in data:
                     if n in LW30x.Parser.FLOATS:
                         pkt[n] = self.decode_float(data[n])
