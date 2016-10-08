@@ -60,8 +60,8 @@ To listen on port 8080 on the network interface with address 192.168.0.14:
 
 How it works
 
-The driver runs a web server on a thread separate from the primary weewx
-thread.  Data posted to that server are parsed then processed as sensor inputs.
+The driver runs a socket server on a dedicated thread.  Data posted to that
+server are parsed then processed as sensor inputs.
 
 There are many options for getting data to the driver.  Here are some examples,
 from simplest to most complicated.
@@ -229,31 +229,35 @@ ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 #!/bin/sh
 # option 4: redirect traffic using iptables firewall rules
 # driver is running in weewx on the router listening on port PPPP
-ebtables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
+iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
 iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
 
 #!/bin/sh
 # option 4: capture using tcpdump via a secure connection to the router
 ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 
+#!/bin/sh
+# option 5: capture using ngrep, filter with sed, forward with curl
+ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -e 's/T.*//;/^\s*$/d' | curl -s -d @- http://localhost:9999 > /dev/null
+
 
 Here are configurations that use packet capture:
 
-a) Tap-on-Router
-
-Capture traffic on the network's edge router.  This can be done with a script
-that captures traffic from the internet bridge and sends it to the driver.
-
-b) Firewall-on-Router
+a) Firewall-on-Router
 
 Use firewall rules to redirect traffic from the internet bridge to the driver.
 
-c) Bridge
+b) Bridge
 
 Configure a computer or other device with two network interfaces to physically
 bridge between the internet bridge and the regular network.  Plug the internet
 bridge into one port, and connect the other port into the local network.  The
 bridge captures traffic and sends it to the driver.
+
+c) Tap-on-Router
+
+Capture traffic on the network's edge router.  This can be done with a script
+that captures traffic from the internet bridge and sends it to the driver.
 
 d) Tap-on-Hub
 
@@ -268,3 +272,10 @@ Configure a device that is connected to a managed switch.  Unmanaged switches
 will not work.  Configure the switch to mirror the traffic from one port to a
 second port.  Configure a device on the second port to capture traffic from
 the internet bridge then send it to the driver.
+
+f) Tap-on-wireless
+
+Configure a device that is connected to the same wireless network as the
+internet bridge, or on a wireless segment that is between the internet bridge
+and the edge router.  This will probably only work on open, unencrypted
+wireless networks.
