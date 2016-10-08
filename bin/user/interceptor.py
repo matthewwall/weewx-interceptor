@@ -122,7 +122,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.11'
+DRIVER_VERSION = '0.12'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -169,6 +169,8 @@ class Consumer(object):
 
     def shutdown(self):
         self._server.shutdown()
+        self._server.server_close()
+        self._server = None
 
     def get_queue(self):
         return Consumer.queue
