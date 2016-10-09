@@ -723,14 +723,14 @@ class Observer(Consumer):
 #  mac - mac address of the bridge
 #  id - sensor type identifier?
 #
-# base station packets
-#  pv
-#  lb
-#  ac
-#  reg - registered sensors?
-#  lost - lost contact?
+# base station packets (0xc2)
+#  pv - ?                      samples: 0
+#  lb - ?                      samples: 0
+#  ac - ?                      samples: 0
+#  reg - registered sensors?   samples: 1803, 1009
+#  lost - lost contact?        samples: 0000
 #  baro - barometer mbar
-#  ptr
+#  ptr - ?                     samples: 0
 #  wfor - weather forecast?
 #
 # all non-base packets
@@ -739,26 +739,26 @@ class Observer(Consumer):
 #  ch - channel
 #
 # uv sensor (0x8e)
-#  or
-#  uvh
-#  uv - index? what is range?
+#  or - ?              samples: 0
+#  uvh - ?             samples: 0
+#  uv - index? what is range?   samples: 125, 365
 #
 # wind sensor (0x90)
-#  gw
-#  av
+#  gw - ?              samples: 0
+#  av - ?              samples: 0
 #  wd - wind direction in compass degrees
 #  wg - wind gust m/s
 #  ws - wind speed m/s
 #
 # temperature/humidity sensor (0x84)
-#  htr
-#  cz
+#  htr - ?             samples: 0, 1
+#  cz - ?              samples: 3, 2
 #  oh - humidity %
-#  ttr
+#  ttr - ?             samples: 0, 1
 #  ot - temperature C
 #
-# rain sensor
-#  rro
+# rain sensor (0x82)
+#  rro - ?             samples: 0
 #  rr - rain rate? mm/hr
 #  rfa - rain fall accumulated? mm
 
