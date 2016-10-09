@@ -16,6 +16,8 @@ Thanks to Pat at obrienlabs.net for the fine offset parsing
 Thanks to sergei and waebi for the LW301/LW302 samples
   http://www.silent-gardens.com/blog/shark-hunt-lw301/
 
+Thanks to Sam Roza for packet captures from the LW301
+
 Thanks to skydvrz, mycal, kennkong for publishing their lacrosse work
   http://www.wxforum.net/index.php?topic=14299.0
   https://github.com/lowerpower/LaCrosse
@@ -707,6 +709,7 @@ class Observer(Consumer):
 # mac=XX&id=82&rid=1d&pwr=0&rro=0&rr=0.00&rfa=5.114&ch=1&p=1
 # mac=XX&id=c2&pv=0&lb=0&ac=0&reg=1803&lost=0000&baro=806&ptr=0&wfor=3&p=1
 # mac=XX&id=90&rid=9d&pwr=0&gw=0&av=0&wd=247&wg=1.9&ws=1.1&ch=1&p=1
+# mac=XX&id=8e&rid=63&pwr=0&or=0&uvh=0&uv=365&ch=1&p=1
 #
 # observed values for lost:
 # 0000: ?
@@ -735,19 +738,19 @@ class Observer(Consumer):
 #  pwr - battery status?
 #  ch - channel
 #
-# uv sensor
+# uv sensor (0x8e)
 #  or
 #  uvh
 #  uv - index? what is range?
 #
-# wind sensor
+# wind sensor (0x90)
 #  gw
 #  av
 #  wd - wind direction in compass degrees
 #  wg - wind gust m/s
 #  ws - wind speed m/s
 #
-# temperature/humidity sensor
+# temperature/humidity sensor (0x84)
 #  htr
 #  cz
 #  oh - humidity %
@@ -770,7 +773,7 @@ class LW30x(Consumer):
         def __init__(self):
             self._last_rain = None
 
-        FLOATS = ['wd', 'wg', 'ws', 'oh', 'ot', 'rr', 'rfa', 'baro']
+        FLOATS = ['baro', 'ot', 'oh', 'ws', 'wg', 'wd', 'rr', 'rfa', 'uv']
 
         DEFAULT_SENSOR_MAP = {
             'baro..*': 'barometer', # FIXME: should this be pressure?
@@ -779,6 +782,7 @@ class LW30x(Consumer):
             'ws.*.*': 'windSpeed',
             'wg.*.*': 'windGust',
             'wd.*.*': 'windDir',
+            'rr.*.*': 'rainRate',
             'rain.*.*': 'rain',
             'uv.*.*': 'uv'}
 
