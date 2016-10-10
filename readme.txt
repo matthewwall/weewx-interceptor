@@ -238,7 +238,7 @@ ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 
 #!/bin/sh
 # option 5: capture using ngrep, filter with sed, forward with curl
-ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed '/mac=/!d' | xargs -n 1 curl http://localhost:9999 -s -d
+ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://localhost:9999 -s -d
 
 
 Here are configurations that use packet capture:
