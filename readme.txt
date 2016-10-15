@@ -240,6 +240,14 @@ ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 # option 5: capture using ngrep, filter with sed, forward with curl
 ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://localhost:9999 -s -d
 
+#!/bin/sh
+# option 6: use stdbuf and strings to aggregate fragments from tcpdump
+tcpdump | stdbuf -oL strings -n8
+
+#!/bin/sh
+# option 7: use tcpflow in console mode
+tcpflow -c
+
 
 Here are configurations that use packet capture:
 

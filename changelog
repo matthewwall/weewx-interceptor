@@ -1,3 +1,6 @@
+0.13
+* fixed firmware version response for acurite bridge
+
 0.12
 * do server_close() not just shutdown() when killing the socket server
 * strip leading and trailing whitespace from cgi args

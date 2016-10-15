@@ -124,7 +124,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.12'
+DRIVER_VERSION = '0.13a1'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -381,14 +381,26 @@ class Consumer(object):
 
 class AcuriteBridge(Consumer):
 
+    # these are the known firmware versions as of 15oct2016:
+    #
+    # 126 is the version for the chaney format (pre july 2016)
+    # 224 is the version for the wu format (circa july 2016)
+    #
+    # if the firmware version does not match that of the bridge, the bridge
+    # will attempt to download the latest firmware from chaney.
+
+    _firmware_version = 126
+
     def __init__(self, server_address, **stn_dict):
         super(AcuriteBridge, self).__init__(
             server_address, AcuriteBridge.Handler, AcuriteBridge.Parser())
+        if 'firmware_version' in stn_dict:
+            AcuriteBridge._firmware_version = stn_dict['firmware_version']
 
     class Handler(Consumer.Handler):
 
         def get_response(self):
-            return '{ "success": 1, "checkversion": "126" }'
+            return '{ "success": 1, "checkversion": "%s" }' % AcuriteBridge._firmware_version
 
     class Parser(Consumer.Parser):
         DEFAULT_SENSOR_MAP = {
