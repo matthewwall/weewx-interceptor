@@ -1,4 +1,5 @@
 0.13
+* change sensor_map format to output=input
 * fixed firmware version response for acurite bridge
 
 0.12

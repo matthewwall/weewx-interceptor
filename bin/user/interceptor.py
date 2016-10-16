@@ -124,7 +124,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.13a1'
+DRIVER_VERSION = '0.13a2'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -233,32 +233,43 @@ class Consumer(object):
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
+            # the sensor map is a dictionary of database field names as keys,
+            # each with an associated observation identifier.
             if sensor_map is None:
                 return pkt
             packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
             for n in sensor_map:
-                label = Consumer.Parser._find_match(n, pkt.keys())
+                label = Consumer.Parser._find_match(sensor_map[n], pkt.keys())
                 if label:
-                    packet[sensor_map[n]] = pkt.get(label)
+                    packet[n] = pkt.get(label)
             return packet
 
         @staticmethod
         def _find_match(pattern, keylist):
-            pparts = pattern.split('.')
-            if len(pparts) != 3:
-                logerr("bogus pattern '%s'" % pattern)
-                return None
+            # pattern can be a simple label, or an identifier pattern.
+            # keylist is an array of observations, each of which is either
+            # a simple label, or an identifier tuple.
             match = None
-            for k in keylist:
-                kparts = k.split('.')
-                if (Consumer.Parser._part_match(pparts[0], kparts[0]) and
-                    Consumer.Parser._part_match(pparts[1], kparts[1]) and
-                    Consumer.Parser._part_match(pparts[2], kparts[2])):
-                    match = k
+            pparts = pattern.split('.')
+            if len(pparts) == 3:
+                for k in keylist:
+                    kparts = k.split('.')
+                    if (len(kparts) == 3 and
+                        Consumer.Parser._part_match(pparts[0], kparts[0]) and
+                        Consumer.Parser._part_match(pparts[1], kparts[1]) and
+                        Consumer.Parser._part_match(pparts[2], kparts[2])):
+                        match = k
+                    elif pparts[0] == k:
+                        match = k
+            else:
+                for k in keylist:
+                    if pattern == k:
+                        match = k
             return match
 
         @staticmethod
         def _part_match(pattern, value):
+            # see whether the value matches the pattern.
             if pattern == value:
                 return True
             if pattern == '*' and value:
@@ -403,23 +414,25 @@ class AcuriteBridge(Consumer):
             return '{ "success": 1, "checkversion": "%s" }' % AcuriteBridge._firmware_version
 
     class Parser(Consumer.Parser):
+
+        # map database fields to observation identifiers
         DEFAULT_SENSOR_MAP = {
-            'pressure..*': 'pressure',
-            'temperature..*': 'inTemp',
-            'temperature.*.*': 'outTemp',
-            'humidity.*.*': 'outHumidity',
-            'windspeed.*.*': 'windSpeed',
-            'winddir.*.*': 'windDir',
-            'rainfall.*.*': 'rain',
-            'battery.*.*': 'txBatteryStatus',
-            'rssi.*.*': 'rxCheckPercent'}
+            'pressure': 'pressure..*',
+            'inTemp': 'temperature..*',
+            'outTemp': 'temperature.*.*',
+            'outHumidity': 'humidity.*.*',
+            'windSpeed': 'windspeed.*.*',
+            'windDir': 'winddir.*.*',
+            'rain': 'rainfall.*.*',
+            'txBatteryStatus': 'battery.*.*',
+            'rxCheckPercent': 'rssi.*.*'}
 
         # this is *not* the same as the acurite console mapping!
         IDX_TO_DEG = {5: 0.0, 7: 22.5, 3: 45.0, 1: 67.5, 9: 90.0, 11: 112.5,
                       15: 135.0, 13: 157.5, 12: 180.0, 14: 202.5, 10: 225.0,
                       8: 247.5, 0: 270.0, 2: 292.5, 6: 315.0, 4: 337.5}
 
-        # map wu names to generic observation names
+        # map wu names to observation names
         LABEL_MAP = {
             'humidity': 'humidity',
             'tempf': 'temperature',
@@ -630,38 +643,57 @@ class Observer(Consumer):
 
     class Parser(Consumer.Parser):
 
+        # map database fields to observation names
+        DEFAULT_SENSOR_MAP = {
+            'pressure': 'pressure',
+            'barometer': 'barometer',
+            'outHumidity': 'out_humidity',
+            'inHumidity': 'in_humidity',
+            'outTemp': 'out_temperature',
+            'inTemp': 'in_temperature',
+            'windSpeed': 'wind_speed',
+            'windGust': 'wind_gust',
+            'radiation': 'radiation',
+            'dewpoint': 'dewpoint',
+            'windchill': 'windchill',
+            'rain': 'rain',
+            'rainRate': 'rain_rate',
+            'UV': 'uv',
+            'txBatteryStatus': 'battery'}
+
+        # map labels to observation names
         LABEL_MAP = {
             # for firmware Weather logger V2.1.9
-            'humidity': 'outHumidity',
-            'indoorhumidity': 'inHumidity',
-            'tempf': 'outTemp',
-            'indoortempf': 'inTemp',
+            'humidity': 'out_humidity',
+            'indoorhumidity': 'in_humidity',
+            'tempf': 'out_temperature',
+            'indoortempf': 'in_temperature',
             'baromin': 'barometer',
-            'windspeedmph': 'windSpeed',
-            'windgustmph': 'windGust',
+            'windspeedmph': 'wind_speed',
+            'windgustmph': 'wind_gust',
             'solarradiation': 'radiation',
             'dewptf': 'dewpoint',
             'windchillf': 'windchill',
             'yearlyrainin': 'rain_total',
 
             # for firmware HP1001 2.2.2
-            'outhumi': 'outHumidity',
-            'inhumi': 'inHumidity',
-            'outtemp': 'outTemp',
-            'intemp': 'inTemp',
+            'outhumi': 'out_humidity',
+            'inhumi': 'in_humidity',
+            'outtemp': 'out_temperature',
+            'intemp': 'in_temperature',
             'absbaro': 'pressure',
-            'windspeed': 'windSpeed',
-            'windgust': 'windGust',
+            'windspeed': 'wind_speed',
+            'windgust': 'wind_gust',
             'light': 'radiation',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
-            'rainrate': 'rainRate',
+            'rainrate': 'rain_rate',
             'yearlyrain': 'rain_total',
 
             # for all firmware
-            'winddir': 'windDir',
-            'UV': 'UV',
-            'lowbatt': 'txBatteryStatus',
+            'winddir': 'wind_dir',
+            'UV': 'uv',
+            'lowbatt': 'battery',
         }
 
         IGNORED_LABELS = ['relbaro',
@@ -703,7 +735,9 @@ class Observer(Consumer):
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
-            return pkt
+            if sensor_map is None:
+                sensor_map = Observer.Parser.DEFAULT_SENSOR_MAP
+            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
         def decode_float(x):
@@ -787,16 +821,17 @@ class LW30x(Consumer):
 
         FLOATS = ['baro', 'ot', 'oh', 'ws', 'wg', 'wd', 'rr', 'rfa', 'uv']
 
+        # map database fields to sensor tuples
         DEFAULT_SENSOR_MAP = {
-            'baro..*': 'barometer', # FIXME: should this be pressure?
-            'ot.*.*': 'outTemp',
-            'oh.*.*': 'outHumidity',
-            'ws.*.*': 'windSpeed',
-            'wg.*.*': 'windGust',
-            'wd.*.*': 'windDir',
-            'rr.*.*': 'rainRate',
-            'rain.*.*': 'rain',
-            'uv.*.*': 'uv'}
+            'barometer': 'baro..*', # FIXME: should this be pressure?
+            'outTemp': 'ot.*.*',
+            'outHumidity': 'oh.*.*',
+            'windSpeed': 'ws.*.*',
+            'windGust': 'wg.*.*',
+            'windDir': 'wd.*.*',
+            'rainRate': 'rr.*.*',
+            'rain': 'rain.*.*',
+            'UV': 'uv.*.*'}
 
         @staticmethod
         def parse_identifiers(s):
@@ -876,6 +911,7 @@ Packet types
 00:70 gateway ping
 
 01:00 weather station ping
+  41 46 30 67 39
 
 01:01 weather station data
 
@@ -1200,17 +1236,18 @@ class GW1000U(Consumer):
         
     class Parser(Consumer.Parser):
 
+        # map database fields to sensor identifier tuples
         DEFAULT_SENSOR_MAP = {
-            'barometer..*': 'barometer',
-            'in_temperature..*': 'inTemp',
-            'out_temperature..*': 'outTemp',
-            'in_humidity..*': 'inHumidity',
-            'out_humidity..*': 'outHumidity',
-            'wind_speed..*': 'windSpeed',
-            'wind_gust..*': 'windGust',
-            'wind_dir..*': 'windDir',
-            'rain..*': 'rain',
-            'rf_signal_strength..*': 'rxCheckPercent'}
+            'barometer': 'barometer..*',
+            'inTemp': 'in_temperature..*',
+            'outTemp': 'out_temperature..*',
+            'inHumidity': 'in_humidity..*',
+            'outHumidity': 'out_humidity..*',
+            'windSpeed': 'wind_speed..*',
+            'windGust': 'wind_gust..*',
+            'windDir': 'wind_dir..*',
+            'rain': 'rain..*',
+            'rxCheckPercent': 'rf_signal_strength..*'}
 
         def __init__(self):
             self._last_rain = None
