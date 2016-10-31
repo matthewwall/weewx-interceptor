@@ -390,6 +390,9 @@ class Consumer(object):
 # the outdoor monitor with liquid & soil temperature sensor
 #   Model: 00275LS-bundle
 
+# resulting raw packet format:
+#   <observation_name>.<sensor>.<id> : value
+
 class AcuriteBridge(Consumer):
 
     # these are the known firmware versions as of 15oct2016:
@@ -417,7 +420,8 @@ class AcuriteBridge(Consumer):
 
         # map database fields to observation identifiers
         DEFAULT_SENSOR_MAP = {
-            'pressure': 'pressure..*',
+            'barometer': 'barometer..*', # wu foramt uses barometer
+            'pressure': 'pressure..*', # chaney format uses pressure
             'inTemp': 'temperature..*',
             'outTemp': 'temperature.*.*',
             'outHumidity': 'humidity.*.*',
@@ -635,6 +639,9 @@ class AcuriteBridge(Consumer):
 # 29.94&lowbatt=0&dateutc=2016-5-10%202:34:15&softwaretype=Weather%20lo
 # gger%20V3.0.7&action=updateraw&realtime=1&rtfreq=5
 
+# resulting raw packet format:
+#   <observation_name> : value
+
 class Observer(Consumer):
 
     def __init__(self, server_address, **stn_dict):
@@ -807,6 +814,9 @@ class Observer(Consumer):
 #  rro - ?             samples: 0
 #  rr - rain rate? mm/hr
 #  rfa - rain fall accumulated? mm
+
+# resulting raw packet format:
+#   <observation_name>.<ch><rid>.<mac> : value
 
 class LW30x(Consumer):
 
@@ -993,6 +1003,9 @@ c0H   180  6      ???      Unknown
 c3H   186  2      binary   Checksum1
 c4H   188  2      binary   Checksum2 May be one 16-bit checksum
 """
+
+# resulting raw packet format:
+#   <observation_name>..<mac> : value
 
 class GW1000U(Consumer):
 

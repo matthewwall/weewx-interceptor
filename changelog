@@ -1,6 +1,7 @@
 0.13
 * change sensor_map format to output=input
 * fixed firmware version response for acurite bridge
+* include barometer as well as pressure in default acurite bridge sensor map
 
 0.12
 * do server_close() not just shutdown() when killing the socket server
