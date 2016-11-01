@@ -107,7 +107,6 @@ this driver.
 """
 
 # FIXME: automatically detect the traffic type
-# FIXME: handle traffic from multiple types of devices
 # FIXME: default acurite mapping confuses multiple tower sensors
 
 from __future__ import with_statement
@@ -116,6 +115,7 @@ import SocketServer
 import Queue
 import binascii
 import calendar
+import fnmatch
 import syslog
 import threading
 import time
@@ -269,12 +269,9 @@ class Consumer(object):
 
         @staticmethod
         def _part_match(pattern, value):
-            # see whether the value matches the pattern.
-            if pattern == value:
-                return True
-            if pattern == '*' and value:
-                return True
-            return False
+            # use glob matching for parts of the tuple
+            matches = fnmatch.filter([value], pattern)
+            return True if matches else False
 
         @staticmethod
         def _delta_rain(rain, last_rain):
@@ -418,18 +415,25 @@ class AcuriteBridge(Consumer):
 
     class Parser(Consumer.Parser):
 
-        # map database fields to observation identifiers
+        # map database fields to observation identifiers.  this map should work
+        # out-of-the-box for either wu format or chaney format, with a basic
+        # sent of sensors.  if there are more than one remote sensor then a
+        # custom sensor map is necessary to avoid confusion of outputs.
         DEFAULT_SENSOR_MAP = {
-            'barometer': 'barometer..*', # wu foramt uses barometer
-            'pressure': 'pressure..*', # chaney format uses pressure
-            'inTemp': 'temperature..*',
-            'outTemp': 'temperature.*.*',
-            'outHumidity': 'humidity.*.*',
-            'windSpeed': 'windspeed.*.*',
-            'windDir': 'winddir.*.*',
-            'rain': 'rainfall.*.*',
-            'txBatteryStatus': 'battery.*.*',
-            'rxCheckPercent': 'rssi.*.*'}
+            # wu format uses barometer in every packet
+            'barometer': 'barometer.?*.*',
+            # chaney format uses barometer in bridge packets only
+            'pressure': 'pressure..*',
+            # both formats
+            'inTemp': 'temperature_in.*.*',
+            'inHumidity': 'humidity_in.*.*',
+            'outTemp': 'temperature.?*.*',
+            'outHumidity': 'humidity.?*.*',
+            'windSpeed': 'windspeed.?*.*',
+            'windDir': 'winddir.?*.*',
+            'rain': 'rainfall.?*.*',
+            'txBatteryStatus': 'battery.?*.*',
+            'rxCheckPercent': 'rssi.?*.*'}
 
         # this is *not* the same as the acurite console mapping!
         IDX_TO_DEG = {5: 0.0, 7: 22.5, 3: 45.0, 1: 67.5, 9: 90.0, 11: 112.5,
@@ -440,9 +444,9 @@ class AcuriteBridge(Consumer):
         LABEL_MAP = {
             'humidity': 'humidity',
             'tempf': 'temperature',
-            'indoorhumidity': 'humidity',
-            'indoortempf': 'temperature',
-            'ptempf': 'probe_temperature',
+            'indoorhumidity': 'humidity_in',
+            'indoortempf': 'temperature_in',
+            'ptempf': 'temperature_probe',
             'baromin': 'barometer',
             'windspeedmph': 'windspeed',
             'winddir': 'winddir',
@@ -542,7 +546,7 @@ class AcuriteBridge(Consumer):
 
             # if this is a pressure packet, calculate the pressure
             if 'sensor_type' in pkt and pkt['sensor_type'] == 'pressure':
-                pkt['pressure'], pkt['temperature'] = AcuriteBridge.Parser.decode_pressure(pkt)
+                pkt['pressure'], pkt['temperature_in'] = AcuriteBridge.Parser.decode_pressure(pkt)
 
             # apply timestamp and units
             pkt['dateTime'] = int(time.time() + 0.5)
@@ -834,14 +838,14 @@ class LW30x(Consumer):
         # map database fields to sensor tuples
         DEFAULT_SENSOR_MAP = {
             'barometer': 'baro..*', # FIXME: should this be pressure?
-            'outTemp': 'ot.*.*',
-            'outHumidity': 'oh.*.*',
-            'windSpeed': 'ws.*.*',
-            'windGust': 'wg.*.*',
-            'windDir': 'wd.*.*',
-            'rainRate': 'rr.*.*',
-            'rain': 'rain.*.*',
-            'UV': 'uv.*.*'}
+            'outTemp': 'ot.?*.*',
+            'outHumidity': 'oh.?*.*',
+            'windSpeed': 'ws.?*.*',
+            'windGust': 'wg.?*.*',
+            'windDir': 'wd.?*.*',
+            'rainRate': 'rr.?*.*',
+            'rain': 'rain.?*.*',
+            'UV': 'uv.?*.*'}
 
         @staticmethod
         def parse_identifiers(s):

@@ -2,6 +2,8 @@
 * change sensor_map format to output=input
 * fixed firmware version response for acurite bridge
 * include barometer as well as pressure in default acurite bridge sensor map
+* use glob matching for sensor identifier tuple components
+* deal with differences between chaney partial packets and wu full packets
 
 0.12
 * do server_close() not just shutdown() when killing the socket server
