@@ -255,17 +255,12 @@ ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://
 
 option 6: use stdbuf and strings to aggregate fragments from tcpdump
 
-tcpdump | stdbuf -oL strings -n8
+tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings -n8 | combine-lines.pl | curl http://Y.Y.Y.Y:PPPP -s -d
 
 
 option 7: use tcpflow in console mode
 
 tcpflow -c | nc localhost PPPP
-
-
-option 8: tcpdump with curl
-
-tcpdump -i eth0 X.X.X.X and port 80 | combine-lines.pl | curl http://Y.Y.Y.Y:PPPP -s -d
 
 
 ===============================================================================
