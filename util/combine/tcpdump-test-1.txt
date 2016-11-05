@@ -27,7 +27,7 @@ Host:
 hubapi.myacurite.com
 User-Agent: Hub/224
 Connection: close
-GET /weatherstation/updateweatherstation.php?ID=KCATHOUS110&PASSWORD=ofsglckk&dateutc=now&action=updateraw&realtime=1
+GET /weatherstation/updateweatherstation.php?ID=XXX&PASSWORD=XXX&dateutc=now&action=updateraw&realtime=1
 &rtfreq=36
 &id=24C86E06B15C&mt=5N1x31&sensor=00002179
 &windspeedmph=1&winddir=113
