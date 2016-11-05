@@ -1,39 +1,39 @@
 tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
-GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1l_
-&id=24C86E06B15C&mt=tower&sensor=00008384l_
-&humidity=30&tempf=79.3l_
-&baromin=29.29&battery=normal&rssi=2l_
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1
+&id=24C86E06B15C&mt=tower&sensor=00008384
+&humidity=30&tempf=79.3
+&baromin=29.29&battery=normal&rssi=2
  HTTP/1.1
-Host: l_
+Host: 
 hubapi.myacurite.com
-User-Agent: Hub/224l_
+User-Agent: Hub/224
 Connection: close
-GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1o_
-&id=24C86E06B15C&mt=tower&sensor=00012694o_
-&humidity=46&tempf=71.5o_
-&baromin=29.29&battery=normal&rssi=3o_
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1
+&id=24C86E06B15C&mt=tower&sensor=00012694
+&humidity=46&tempf=71.5
+&baromin=29.29&battery=normal&rssi=3
  HTTP/1.1
-Host: o_
+Host: 
 hubapi.myacurite.com
-User-Agent: Hub/224p_
+User-Agent: Hub/224
 Connection: close
-GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1q_
-&id=24C86E06B15C&mt=5N1x31&sensor=00002179q_
-&windspeedmph=1&winddir=113q_
-&rainin=0.00&dailyrainin=0.20&humidity=37&tempf=79.4&dewptf=50q_
-&baromin=29.29&battery=normal&rssi=3q_
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1
+&id=24C86E06B15C&mt=5N1x31&sensor=00002179
+&windspeedmph=1&winddir=113
+&rainin=0.00&dailyrainin=0.20&humidity=37&tempf=79.4&dewptf=50
+&baromin=29.29&battery=normal&rssi=3
  HTTP/1.1
-Host: q_
+Host: 
 hubapi.myacurite.com
-User-Agent: Hub/224q_
+User-Agent: Hub/224
 Connection: close
-GET /weatherstation/updateweatherstation.php?ID=KCATHOUS110&PASSWORD=ofsglckk&dateutc=now&action=updateraw&realtime=1r_
-&rtfreq=36r_
-&id=24C86E06B15C&mt=5N1x31&sensor=00002179r_
-&windspeedmph=1&winddir=113r_
-&rainin=0.00&dailyrainin=0.20&humidity=37&tempf=79.4&dewptf=50r_
-&baromin=29.29&battery=normal&rssi=3r_
+GET /weatherstation/updateweatherstation.php?ID=KCATHOUS110&PASSWORD=ofsglckk&dateutc=now&action=updateraw&realtime=1
+&rtfreq=36
+&id=24C86E06B15C&mt=5N1x31&sensor=00002179
+&windspeedmph=1&winddir=113
+&rainin=0.00&dailyrainin=0.20&humidity=37&tempf=79.4&dewptf=50
+&baromin=29.29&battery=normal&rssi=3
  HTTP/1.1
-Host: r_
-rtupdate.wunderground.comr_
+Host: 
+rtupdate.wunderground.com
 Connection: close
