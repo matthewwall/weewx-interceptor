@@ -124,7 +124,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.13a2'
+DRIVER_VERSION = '0.14'
 
 DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
@@ -437,19 +437,21 @@ class AcuriteBridge(Consumer):
                       8: 247.5, 0: 270.0, 2: 292.5, 6: 315.0, 4: 337.5}
 
         # map wu names to observation names
+        # WARNING: since rainfall is obtained from dailyrainin, there will be
+        # a counter wraparound at 00:00 each day.
         LABEL_MAP = {
             'humidity': 'humidity',
             'tempf': 'temperature',
             'indoorhumidity': 'humidity',
             'indoortempf': 'temperature',
-            'ptempf': 'probe_temperature',
+            'ptempf': 'temperature_probe',
             'baromin': 'barometer',
             'windspeedmph': 'windspeed',
             'winddir': 'winddir',
-            'rainin': 'rainfall'
+            'dailyrainin': 'rainfall'
         }
 
-        IGNORED_LABELS = ['dailyrainin',
+        IGNORED_LABELS = ['rainin',
                           'realtime', 'rtfreq',
                           'action', 'ID', 'PASSWORD', 'dateutc',
                           'updateraw', 'sensor', 'mt', 'id',
@@ -499,6 +501,11 @@ class AcuriteBridge(Consumer):
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
+            # convert rainfall to a delta
+            if 'rainfall' in pkt:
+                rain_total = pkt['rainfall']
+                pkt['rainfall'] = self._delta_rain(rain_total, self._last_rain)
+                self._last_rain = rain_total
             return self.add_identifiers(pkt)
 
         # parse packets that are in the chaney format
@@ -1287,9 +1294,9 @@ class GW1000U(Consumer):
             pkt['windchill'] = self.to_temperature(s, 111) if ok else None # C
             pkt['in_humidity'] = self.to_hum(s, 140) # %
             pkt['out_humidity'] = self.to_hum(s, 166) # %
-            pkt['rain_count'] = self.to_rainfall(s, 267) / 10.0 # cm
-            pkt['rain'] = self._delta_rain(pkt['rain_count'], self._last_rain)
-            self._last_rain = pkt['rain_count']
+            pkt['rain_total'] = self.to_rainfall(s, 267) / 10.0 # cm
+            pkt['rain'] = self._delta_rain(pkt['rain_total'], self._last_rain)
+            self._last_rain = pkt['rain_total']
             ok = int(s[297], 16) == 0 # 0=ok, 5=err
             if ok:
                 pkt['wind_speed'] = self.to_windspeed(s, 290) # kph

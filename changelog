@@ -1,3 +1,6 @@
+0.14
+* fix rain counter for acurite bridge with firmware that uses wu format
+
 0.13
 * change sensor_map format to output=input
 * fixed firmware version response for acurite bridge
