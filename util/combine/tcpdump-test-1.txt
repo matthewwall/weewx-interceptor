@@ -1,0 +1,39 @@
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1l_
+&id=24C86E06B15C&mt=tower&sensor=00008384l_
+&humidity=30&tempf=79.3l_
+&baromin=29.29&battery=normal&rssi=2l_
+ HTTP/1.1
+Host: l_
+hubapi.myacurite.com
+User-Agent: Hub/224l_
+Connection: close
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1o_
+&id=24C86E06B15C&mt=tower&sensor=00012694o_
+&humidity=46&tempf=71.5o_
+&baromin=29.29&battery=normal&rssi=3o_
+ HTTP/1.1
+Host: o_
+hubapi.myacurite.com
+User-Agent: Hub/224p_
+Connection: close
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&realtime=1q_
+&id=24C86E06B15C&mt=5N1x31&sensor=00002179q_
+&windspeedmph=1&winddir=113q_
+&rainin=0.00&dailyrainin=0.20&humidity=37&tempf=79.4&dewptf=50q_
+&baromin=29.29&battery=normal&rssi=3q_
+ HTTP/1.1
+Host: q_
+hubapi.myacurite.com
+User-Agent: Hub/224q_
+Connection: close
+GET /weatherstation/updateweatherstation.php?ID=KCATHOUS110&PASSWORD=ofsglckk&dateutc=now&action=updateraw&realtime=1r_
+&rtfreq=36r_
+&id=24C86E06B15C&mt=5N1x31&sensor=00002179r_
+&windspeedmph=1&winddir=113r_
+&rainin=0.00&dailyrainin=0.20&humidity=37&tempf=79.4&dewptf=50r_
+&baromin=29.29&battery=normal&rssi=3r_
+ HTTP/1.1
+Host: r_
+rtupdate.wunderground.comr_
+Connection: close

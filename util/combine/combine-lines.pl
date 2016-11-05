@@ -1,5 +1,6 @@
 #!/usr/bin/perl
-# 05nov2016 mwall
+# Copyright 2016 Matthew Wall, all rights reserved
+#
 # take CGI arguments split over multiple lines and combine into a single
 # line of CGI arguments suitable for reposting to a web server
 #
@@ -26,6 +27,7 @@
 
 use strict;
 
+my $version = '0.2';
 my $out = q();
 while(my $line=<>) {
     $line =~ s/\s$//g; # punt any trailing whitespace
@@ -41,7 +43,7 @@ while(my $line=<>) {
         # Connection: close
         flush($out);
         $out = q()
-    } else {
+    } elsif($out ne q()) {
         $out .= $line;
     }
 }

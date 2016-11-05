@@ -1,0 +1,14 @@
+GET /weatherstation/updateweatherstation?dateutc=now&action=updateraw&
+realtime=1&id=24C86E06B15C&mt=5N1x31&sensor=00002179&windspeedmph=0&
+winddir=113&rainin=0.00&dailyrainin=0.55&humidity=50&tempf=59.2&dewptf=41&
+baromin=29.35&battery=normal&rssi=3 HTTP/1.1
+Host: hubapi.myacurite.com
+User-Agent: Hub/224
+Connection: close
+
+GET /weatherstation/updateweatherstation.php?ID=KCATHOUS110&PASSWORD=XXXXXXXX&
+dateutc=now&action=updateraw&realtime=1&rtfreq=36&id=24C86E06B15C&mt=5N1x31&
+sensor=00002179&windspeedmph=0&winddir=113&rainin=0.00&dailyrainin=0.55&
+humidity=50&tempf=59.2&dewptf=41&baromin=29.35&battery=normal&rssi=3 HTTP/1.1
+Host: rtupdate.wunderground.com
+Connection: close
