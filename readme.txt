@@ -223,25 +223,21 @@ Here are a number of options for capturing network traffic:
 
 option 1: capture using tcpdump, redirect using nc
 
-#!/bin/sh
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
 
 
 option 2: capture using tcpdump, redirect using nc
 
-#!/bin/sh
 tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
 
 
 option 3: capture using ngrep, redirect using nc
 
-#!/bin/sh
 ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 
 
 option 4: redirect traffic using iptables firewall rules
 
-#!/bin/sh
 # driver is running in weewx on the router listening on port PPPP
 iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
 iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
@@ -249,31 +245,26 @@ iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPP
 
 option 4: capture using tcpdump via a secure connection to the router
 
-#!/bin/sh
 ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 
 
 option 5: capture using ngrep, filter with sed, forward with curl
 
-#!/bin/sh
 ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://localhost:9999 -s -d
 
 
 option 6: use stdbuf and strings to aggregate fragments from tcpdump
 
-#!/bin/sh
 tcpdump | stdbuf -oL strings -n8
 
 
 option 7: use tcpflow in console mode
 
-#!/bin/sh
 tcpflow -c | nc localhost PPPP
 
 
 option 8: tcpdump with curl
 
-#!/bin/sh
 tcpdump -i eth0 X.X.X.X and port 80 | combine-lines.pl | curl http://Y.Y.Y.Y:PPPP -s -d
 
 
