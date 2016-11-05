@@ -455,7 +455,7 @@ class AcuriteBridge(Consumer):
             'dailyrainin': 'rainfall'
         }
 
-        IGNORED_LABELS = ['rainin',
+        IGNORED_LABELS = ['rainin', 'dewptf',
                           'realtime', 'rtfreq',
                           'action', 'ID', 'PASSWORD', 'dateutc',
                           'updateraw', 'sensor', 'mt', 'id',

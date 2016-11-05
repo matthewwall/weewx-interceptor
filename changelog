@@ -1,5 +1,6 @@
 0.14
 * fix rain counter for acurite bridge with firmware that uses wu format
+* ignore dewptf in acurite bridge packets
 
 0.13
 * change sensor_map format to output=input
