@@ -24,10 +24,16 @@
 # sample usage:
 #
 # tcpdump -i eth0 src X.X.X.X and port 80 | combine-lines.pl
+#
+# sample output:
+#
+# dateutc=now&action=updateraw&realtime=1&id=24C86E06B15C&mt=5N1x31&
+# sensor=00002179&windspeedmph=0&winddir=113&rainin=0.00&dailyrainin=0.55&
+# humidity=50&tempf=59.2&dewptf=41&baromin=29.35&battery=normal&rssi=3
 
 use strict;
 
-my $version = '0.2';
+my $version = '0.3';
 my $out = q();
 while(my $line=<>) {
     $line =~ s/\s$//g; # punt any trailing whitespace
@@ -43,7 +49,8 @@ while(my $line=<>) {
         # Connection: close
         flush($out);
         $out = q()
-    } elsif($out ne q()) {
+    } elsif($out ne q() && $line =~ /\&/) {
+        # line must have already begun and must have ampersand
         $out .= $line;
     }
 }
