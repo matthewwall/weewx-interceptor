@@ -13,6 +13,7 @@ appreciated.  My intent is to push these components into weewx once all of the
 different configurations are working properly.
 
 
+===============================================================================
 Installation
 
 0) install weewx, select 'Simulator' driver (see the weewx user guide)
@@ -38,6 +39,7 @@ sudo /etc/init.d/weewx start
 5) direct network traffic from the bridge or weather station to weewx
 
 
+===============================================================================
 Driver options
 
 To configure the driver beyond the default values, set parameters in the
@@ -58,6 +60,7 @@ To listen on port 8080 on the network interface with address 192.168.0.14:
     driver = user.interceptor
 
 
+===============================================================================
 How it works
 
 The driver runs a socket server on a dedicated thread.  Data posted to that
@@ -111,6 +114,7 @@ In the examples that follow,
   PPPP is the port on which the driver is listening
 
 
+===============================================================================
 1) Hijack DNS
 
 Change the DNS entry so that the internet bridge device sends directly to the
@@ -170,6 +174,7 @@ view "watson" {
 };
 
 
+===============================================================================
 2) HTTP proxy/redirect
 
 Use a proxy to capture HTTP traffic and redirect it to the driver.
@@ -201,6 +206,7 @@ server {
 }
 
 
+===============================================================================
 3) Packet capture configurations
 
 There are many ways to capture traffic.  In each case, traffic is intercepted
@@ -213,42 +219,65 @@ capture traffic, then use a tool such as nc to direct the traffic to the
 driver.  Another strategy is to use firewall rules to capture and redirect
 traffic.
 
+Here are a number of options for capturing network traffic:
+
+option 1: capture using tcpdump, redirect using nc
 
 #!/bin/sh
-# option 1: capture using tcpdump, redirect using nc
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
 
+
+option 2: capture using tcpdump, redirect using nc
+
 #!/bin/sh
-# option 2: capture using tcpdump, redirect using nc
 tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
 
-#!/bin/sh
-# option 3: capture using ngrep, redirect using nc
-ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
+
+option 3: capture using ngrep, redirect using nc
 
 #!/bin/sh
-# option 4: redirect traffic using iptables firewall rules
+ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
+
+
+option 4: redirect traffic using iptables firewall rules
+
+#!/bin/sh
 # driver is running in weewx on the router listening on port PPPP
 iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
 iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
 
+
+option 4: capture using tcpdump via a secure connection to the router
+
 #!/bin/sh
-# option 4: capture using tcpdump via a secure connection to the router
 ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 
+
+option 5: capture using ngrep, filter with sed, forward with curl
+
 #!/bin/sh
-# option 5: capture using ngrep, filter with sed, forward with curl
 ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://localhost:9999 -s -d
 
+
+option 6: use stdbuf and strings to aggregate fragments from tcpdump
+
 #!/bin/sh
-# option 6: use stdbuf and strings to aggregate fragments from tcpdump
 tcpdump | stdbuf -oL strings -n8
 
+
+option 7: use tcpflow in console mode
+
 #!/bin/sh
-# option 7: use tcpflow in console mode
-tcpflow -c
+tcpflow -c | nc localhost PPPP
 
 
+option 8: tcpdump with curl
+
+#!/bin/sh
+tcpdump -i eth0 X.X.X.X and port 80 | combine-lines.pl | curl http://Y.Y.Y.Y:PPPP -s -d
+
+
+===============================================================================
 Here are configurations that use packet capture:
 
 a) Firewall-on-Router
