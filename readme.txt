@@ -24,7 +24,7 @@ The 'sniff' mode requires installation of the python pcap module:
 
   OR
 
-  apt-get install libpcap python-libpcap
+  sudo apt-get install libpcap python-libpcap
 
 
 ===============================================================================
