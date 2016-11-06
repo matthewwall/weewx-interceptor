@@ -104,6 +104,28 @@ The bridge attempts to upload to /request.breq
 The easiest way to use this driver is to use the Gateway Advance Setup (GAS)
 utility from LaCrosse to configure the gateway to send to the computer with
 this driver.
+
+SniffServer vs TCPServer
+
+The driver can obtain packets by sniffing network traffic using pcap, or by
+listening for TCP/IP requests.  The pcap approach requires the python pcap
+module - a separate installation on most platforms.
+
+To run a listener, specify an address and port.  This is the default mode.
+For example:
+
+[Interceptor]
+    mode = listen
+    address = localhost
+    port = 9999
+
+To run a sniffer, specify an interface and filter.  For example:
+
+[Interceptor]
+    mode = sniff
+    iface = eth0
+    filter = src host 192.168.1.5 && dst port 80
+
 """
 
 # FIXME: automatically detect the traffic type
@@ -124,10 +146,12 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.14'
+DRIVER_VERSION = '0.15'
 
-DEFAULT_PORT = 80
 DEFAULT_ADDR = ''
+DEFAULT_PORT = 80
+DEFAULT_IFACE = 'eth0'
+DEFAULT_FILTER = 'dst port 80'
 DEFAULT_DEVICE_TYPE = 'acurite-bridge'
 
 def loader(config_dict, _):
@@ -161,30 +185,114 @@ def _obfuscate_passwords(msg):
 def _cgi_to_dict(s):
     return dict([y.strip() for y in x.split('=')] for x in s.split('&'))
 
+
 class Consumer(object):
+    """The Consumer contains two primary parts - a Server and a Parser.  The
+    Server can be a sniff server or a TCP server.  Either type of server
+    is a data sink.  When it receives data, it places a string on a queue.
+    The driver then pops items of the queue and hands them over to the parser.
+    The Parser processes each string and spits out a dictionary that contains
+    the parsed data.
+
+    The handler is only used by the TCP server.  It provides the response to
+    the client requests.
+
+    Sniffing is not available for every type of hardware.
+    """
+
     queue = Queue.Queue()
 
-    def __init__(self, server_address, handler, parser):
+    def __init__(self, parser, mode='listen',
+                 address=DEFAULT_ADDR, port=DEFAULT_PORT, handler=None,
+                 iface=DEFAULT_IFACE, filter=DEFAULT_FILTER):
         self.parser = parser
-        self._server = Consumer.Server(server_address, handler)
+        loginf("mode is %s" % mode)
+        if mode == 'sniff':
+            self._server = Consumer.SniffServer(iface, filter)
+        elif mode == 'listen':
+            self._server = Consumer.TCPServer(address, port, handler)
+        else:
+            raise Exception("unrecognized mode '%s'" % mode)
 
     def run_server(self):
-        self._server.serve_forever()
+        self._server.run()
 
-    def shutdown(self):
-        self._server.shutdown()
-        self._server.server_close()
+    def stop_server(self):
+        self._server.stop()
         self._server = None
 
     def get_queue(self):
         return Consumer.queue
 
-    class Server(SocketServer.TCPServer):
+
+    class Server(object):
+        def run(self):
+            pass
+        def stop(self):
+            pass
+
+
+    class SniffServer(Server):
+        def __init__(self, iface, filter):
+            import pcap
+            self.packet_sniffer = pcap.pcapObject()
+            loginf("sniff iface %s" % iface)
+            self.packet_sniffer.open_live(iface, 1600, 0, 100)
+            loginf("sniff filter '%s'" % filter)
+            self.packet_sniffer.setfilter(filter, 0, 0)
+            self.running = False
+            self.reassembled_string = ''
+            self.sniff_active = False
+
+        def run(self):
+            self.running = True
+            while self.running:
+                self.packet_sniffer.dispatch(1, self.decode_ip_packet)
+
+        def stop(self):
+            self.running = False
+            self.packet_sniffer.close()
+            self.packet_sniffer = None
+
+        def decode_ip_packet(self, _pktlen, data, _timestamp):
+            if data:
+                logdbg("sniff: pktlen=%s timestamp=%s data=%s" %
+                       (_pktlen, _timestamp, _obfuscate_passwords(data)))
+                if data[12:14] == '\x08\x00':
+                    header_len = ord(data[14]) & 0x0f
+                    _data = data[4 * header_len + 34:]
+                    logdbg("sniff: header_len=%s _data=%s" %
+                           (header_len, _obfuscate_passwords(_data)))
+                    if 'GET' in _data:
+                        self.reassembled_string = _data
+                        self.sniff_active = True
+                    elif 'HTTP' in data and self.sniff_active:
+                        self.sniff_active = False
+                        data = urlparse.urlparse(self.reassembled_string).query
+                        logdbg("SNIFF: %s" % _obfuscate_passwords(data))
+                        Consumer.queue.put(data)
+                    elif self.sniff_active:
+                        self.reassembled_string += _data
+
+
+    class TCPServer(Server, SocketServer.TCPServer):
         daemon_threads = True
         allow_reuse_address = True
 
-        def __init__(self, server_address, handler):
-            SocketServer.TCPServer.__init__(self, server_address, handler)
+        def __init__(self, address, port, handler):
+            if handler is None:
+                handler = Consumer.Handler
+            port = int(port)
+            loginf("listen on %s:%s" % (address, port))
+            SocketServer.TCPServer.__init__(self, (address, port), handler)
+
+        def run(self):
+            self.serve_forever()
+
+        def stop(self):
+            self.shutdown()
+            self.server_close()
+
 
     class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -221,6 +329,7 @@ class Consumer(object):
         # do not spew messages on every connection
         def log_message(self, _format, *_args):
             pass
+
 
     class Parser(object):
 
@@ -402,9 +511,9 @@ class AcuriteBridge(Consumer):
 
     _firmware_version = 126
 
-    def __init__(self, server_address, **stn_dict):
+    def __init__(self, **stn_dict):
         super(AcuriteBridge, self).__init__(
-            server_address, AcuriteBridge.Handler, AcuriteBridge.Parser())
+            AcuriteBridge.Parser(), handler=AcuriteBridge.Handler, **stn_dict)
         if 'firmware_version' in stn_dict:
             AcuriteBridge._firmware_version = stn_dict['firmware_version']
 
@@ -441,8 +550,6 @@ class AcuriteBridge(Consumer):
                       8: 247.5, 0: 270.0, 2: 292.5, 6: 315.0, 4: 337.5}
 
         # map wu names to observation names
-        # WARNING: since rainfall is obtained from dailyrainin, there will be
-        # a counter wraparound at 00:00 each day.
         LABEL_MAP = {
             'humidity': 'humidity',
             'tempf': 'temperature',
@@ -453,6 +560,8 @@ class AcuriteBridge(Consumer):
             'windspeedmph': 'windspeed',
             'winddir': 'winddir',
             'dailyrainin': 'rainfall'
+            # WARNING: since rainfall is obtained from dailyrainin, there
+            # will be a counter wraparound at 00:00 each day.
         }
 
         IGNORED_LABELS = ['rainin', 'dewptf',
@@ -655,9 +764,8 @@ class AcuriteBridge(Consumer):
 
 class Observer(Consumer):
 
-    def __init__(self, server_address, **stn_dict):
-        super(Observer, self).__init__(
-            server_address, Consumer.Handler, Observer.Parser())
+    def __init__(self, **stn_dict):
+        super(Observer, self).__init__(Observer.Parser(), **stn_dict)
 
     class Parser(Consumer.Parser):
 
@@ -831,9 +939,8 @@ class Observer(Consumer):
 
 class LW30x(Consumer):
 
-    def __init__(self, server_address, **stn_dict):
-        super(LW30x, self).__init__(
-            server_address, Consumer.Handler, LW30x.Parser())
+    def __init__(self, **stn_dict):
+        super(LW30x, self).__init__(LW30x.Parser(), **stn_dict)
 
     class Parser(Consumer.Parser):
 
@@ -1040,9 +1147,10 @@ class GW1000U(Consumer):
     lcd_brightness = 4
     server_name = 'box.weatherdirect.com'
     
-    def __init__(self, server_address, **stn_dict):
+    def __init__(self, **stn_dict):
+        stn_dict['mode'] = 'listen' # sniffing not supported for this hardware
         super(GW1000U, self).__init__(
-            server_address, GW1000U.Handler, GW1000U.Parser())
+            GW1000U.Parser(), handler=GW1000U.Handler, **stn_dict)
         GW1000U.station_serial = stn_dict.get('serial', '0' * 16)
         if len(GW1000U.station_serial) != 16:
             raise weewx.ViolatedPrecondition("serial number must be 16 characters")
@@ -1385,6 +1493,9 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
 [Interceptor]
     # This section is for the network traffic interceptor driver.
 
+    # The driver to use:
+    driver = user.interceptor
+
     # Specify the hardware device to capture.  Options include:
     #   acurite-bridge - acurite internet bridge
     #   observer - fine offset WH2600/HP1000/HP1003, aka 'observer'
@@ -1392,15 +1503,41 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   lacrosse-bridge - lacrosse GW1000U/C84612 internet bridge
     device_type = acurite-bridge
 
-    # The driver to use:
-    driver = user.interceptor
+    # For acurite, fine offset, and oregon scientific hardware, the driver
+    # can sniff packets directly or run a socket server that listens for
+    # connections.  Packet sniffing requires the installation of the pcap
+    # python module.  The default mode is to listen using a socket server.
+    # Options are 'listen' and 'sniff'.
+    #mode = sniff
+
+    # When listening, specify at least a port on which to bind.
+    #address = 127.0.0.1
+    #port = 80
+
+    # When sniffing, specify a network interface and a pcap filter.
+    #iface = eth0
+    #filter = src 192.168.4.12 and dst port 80
+
+    # Specify a sensor map to associate sensor observations with fields in
+    # the database.  This is most appropriate for hardware that supports
+    # a variable number of sensors.  The values in the tuple on the right
+    # side are hardware-specific, but follow the pattern:
+    #
+    #  <observation_name>.<hardware_id>.<bridge_id>
+    #
+    #[[sensor_map]]
+    #    inTemp = temperature_in.*.*
+    #    inHumidity = humidity_in.*.*
+    #    outTemp = temperature.?*.*
+    #    outHumidity = humidity.?*.*
+
 """
 
     def prompt_for_settings(self):
         print "Specify the type of device whose data will be captured"
-        device_type = self._prompt('device_type', 'acurite-bridge',
-                                   ['acurite-bridge', 'observer', 'lw30x',
-                                    'lacrosse-bridge'])
+        device_type = self._prompt(
+            'device_type', 'acurite-bridge',
+            ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge'])
         return {'device_type': device_type}
 
 
@@ -1414,16 +1551,14 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
-        addr = stn_dict.get('address', DEFAULT_ADDR)
-        port = int(stn_dict.get('port', DEFAULT_PORT))
-        loginf('driver will listen on %s:%s' % (addr, port))
-        self._obs_map = stn_dict.get('sensor_map', None)
-        loginf('sensor map: %s' % self._obs_map)
-        self._device_type = stn_dict.get('device_type', 'acurite-bridge')
+        stn_dict.pop('driver')
+        self._device_type = stn_dict.pop('device_type', 'acurite-bridge')
         if not self._device_type in self.DEVICE_TYPES:
             raise Exception("unsupported device type '%s'" % self._device_type)
-        self._device = self.DEVICE_TYPES.get(self._device_type)(
-            (addr, port), **stn_dict)
+        loginf('device type: %s' % self._device_type)
+        self._obs_map = stn_dict.pop('sensor_map', None)
+        loginf('sensor map: %s' % self._obs_map)
+        self._device = self.DEVICE_TYPES.get(self._device_type)(**stn_dict)
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
         self._server_thread.setName('ServerThread')
@@ -1431,7 +1566,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
     def closePort(self):
         loginf('shutting down server thread')
-        self._device.shutdown()
+        self._device.shutdown_server()
         self._server_thread.join(20.0)
         if self._server_thread.isAlive():
             logerr('unable to shut down server thread')
@@ -1475,12 +1610,21 @@ if __name__ == '__main__':
     parser.add_option('--debug', dest='debug', action='store_true',
                       default=False,
                       help='display diagnostic information while running')
+    parser.add_option('--mode', dest='mode', metavar='MODE',
+                      default='listen',
+                      help='how to capture traffic: listen or sniff')
     parser.add_option('--port', dest='port', metavar='PORT', type=int,
                       default=DEFAULT_PORT,
                       help='port on which to listen')
     parser.add_option('--address', dest='addr', metavar='ADDRESS',
                       default=DEFAULT_ADDR,
                       help='address on which to bind')
+    parser.add_option('--iface', dest='iface', metavar='IFACE',
+                      default=DEFAULT_IFACE,
+                      help='network interface to sniff')
+    parser.add_option('--filter', dest='filter', metavar='FILTER',
+                      default=DEFAULT_FILTER,
+                      help='pcap filter for sniffing')
     parser.add_option('--device', dest='device_type', metavar='DEVICE_TYPE',
                       default=DEFAULT_DEVICE_TYPE,
                       help='type of device for which to listen')
@@ -1497,7 +1641,9 @@ if __name__ == '__main__':
                         (options.device_type,
                          ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
     device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
-        (options.addr, int(options.port)))
+        mode=options.mode,
+        iface=options.iface, filter=options.filter,
+        address=options.addr, port=options.port)
 
     server_thread = threading.Thread(target=device.run_server)
     server_thread.setDaemon(True)

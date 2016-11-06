@@ -1,3 +1,6 @@
+0.15
+* added direct support for sniffing using pcap (thanks to jerome helbert)
+
 0.14
 * fix rain counter for acurite bridge with firmware that uses wu format
 * ignore dewptf in acurite bridge packets
