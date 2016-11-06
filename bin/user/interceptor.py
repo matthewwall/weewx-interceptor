@@ -395,7 +395,7 @@ class Consumer(object):
             if rain < last_rain:
                 loginf("rain counter wraparound detected: new=%s last=%s" %
                        (rain, last_rain))
-                return None
+                return rain
             return rain - last_rain
 
         @staticmethod
