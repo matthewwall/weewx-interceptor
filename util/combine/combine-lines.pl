@@ -33,6 +33,8 @@
 
 use strict;
 
+$| = 1; # ensure line buffering for better behavior when piped
+
 my $version = '0.3';
 my $out = q();
 while(my $line=<>) {
