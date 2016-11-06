@@ -14,6 +14,20 @@ different configurations are working properly.
 
 
 ===============================================================================
+Prerequisites
+
+The 'listen' mode (default) has no pre-requisites.
+
+The 'sniff' mode requires installation of the python pcap module:
+
+  sudo pip install pypcap
+
+  OR
+
+  apt-get install libpcap python-libpcap
+
+
+===============================================================================
 Installation
 
 0) install weewx, select 'Simulator' driver (see the weewx user guide)
@@ -43,28 +57,43 @@ sudo /etc/init.d/weewx start
 Driver options
 
 To configure the driver beyond the default values, set parameters in the
-[Interceptor] section of the weewx configuration file.  For example, to
-listen on port 80 instead of the default port 9999,
+[Interceptor] section of the weewx configuration file.
+
+For example, to listen on port 80 instead of the default port 9999,
 
 [Interceptor]
+    driver = user.interceptor
     device_type = observer
     port = 80
-    driver = user.interceptor
 
 To listen on port 8080 on the network interface with address 192.168.0.14:
 
 [Interceptor]
+    driver = user.interceptor
     device_type = lw30x
     port = 8080
     address = 192.168.0.14
+
+To sniff packets from 192.168.0.14 on network interface eth1:
+
+[Interceptor]
     driver = user.interceptor
+    device_type = acurite-bridge
+    mode = sniff
+    iface = eth1
+    filter = src 192.168.0.14 and dst port 80
 
 
 ===============================================================================
 How it works
 
-The driver runs a socket server on a dedicated thread.  Data posted to that
-server are parsed then processed as sensor inputs.
+There are two modes of operation: listen and sniff.
+
+In listen mode, the driver runs a socket server on a dedicated thread.  Data
+posted to that server are parsed then processed as sensor inputs.
+
+In sniff mode, the driver runs a packet sniffer on a dedicated thread.  Data
+captured by sniffing are parsed then processed as sensor inputs.
 
 There are many options for getting data to the driver.  Here are some examples,
 from simplest to most complicated.
@@ -73,17 +102,22 @@ Example 1: weewx is running on host 'pi' and nothing is listening on port 80.
 Configure the driver to listen on port 80 and configure the internet bridge to
 send to the host 'pi' instead of the cloud.
 
-Example 2: weewx is running on host 'pi', nothing is listening on port 80, and
+Example 2: weewx is running on host 'pi' with two bridged network interfaces,
+eth0 and eth1.  Plug the internet bridge into one interface and the network
+into the other interface.  Configure the driver to sniff traffic from the
+internet bridge.
+
+Example 3: weewx is running on host 'pi', nothing is listening on port 80, and
 the internet bridge cannot be configured.  Configure the driver to listen on
 port 80.  Add a DNS entry so that traffic from the internet bridge is sent to
 'pi' instead of the cloud.
 
-Example 3: weewx is running on host 'pi', nothing is listening on port 80, and
+Example 4: weewx is running on host 'pi', nothing is listening on port 80, and
 the internet bridge cannot be configured.  Configure the driver to listen on
 port 80.  Configure the router to redirect traffic from the internet bridge
 and send it to 'pi' instead of the cloud.
 
-Example 4: weewx is running on host 'pi', which has a web server on port 80
+Example 5: weewx is running on host 'pi', which has a web server on port 80
 to display weewx reports.  Configure the driver to listen on port 9999.  Add a
 reverse proxy to the web server configuration to direct traffic on port 80 from
 the device to port 9999.  Add a DNS entry so that traffic from the device is
