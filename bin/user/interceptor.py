@@ -233,11 +233,17 @@ class Consumer(object):
 
 
     class SniffServer(Server):
+        SNAPLEN = 1600
+        PROMISCUOUS = 0
+        TIMEOUT_MS = 100
+
         def __init__(self, iface, filter):
             import pcap
             self.packet_sniffer = pcap.pcapObject()
             loginf("sniff iface %s" % iface)
-            self.packet_sniffer.open_live(iface, 1600, 0, 100)
+            self.packet_sniffer.open_live(
+                iface, SniffServer.SNAPLEN, SniffServer.PROMISCUOUS,
+                SniffServer.TIMEOUT_MS)
             loginf("sniff filter '%s'" % filter)
             self.packet_sniffer.setfilter(filter, 0, 0)
             self.running = False
