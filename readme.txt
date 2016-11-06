@@ -250,12 +250,12 @@ ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 
 option 5: capture using ngrep, filter with sed, forward with curl
 
-ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://localhost:9999 -s -d
+ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
 
 option 6: use stdbuf and strings to aggregate fragments from tcpdump
 
-tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings -n8 | combine-lines.pl | curl http://Y.Y.Y.Y:PPPP -s -d
+tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings -n8 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
 
 option 7: use tcpflow in console mode
