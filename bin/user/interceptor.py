@@ -591,7 +591,7 @@ class AcuriteBridge(Consumer):
                 return self.parse_wu(s)
             return self.parse_chaney(s)
 
-        # parse packets that are in the weather underground format
+        # parse packets that are in the weather underground -ish format
         def parse_wu(self, s):
             pkt = dict()
             try:
@@ -778,10 +778,10 @@ class Observer(Consumer):
         DEFAULT_SENSOR_MAP = {
             'pressure': 'pressure',
             'barometer': 'barometer',
-            'outHumidity': 'out_humidity',
-            'inHumidity': 'in_humidity',
-            'outTemp': 'out_temperature',
-            'inTemp': 'in_temperature',
+            'outHumidity': 'humidity_out',
+            'inHumidity': 'humidity_in',
+            'outTemp': 'temperature_out',
+            'inTemp': 'temperature_in',
             'windSpeed': 'wind_speed',
             'windGust': 'wind_gust',
             'radiation': 'radiation',
@@ -795,10 +795,10 @@ class Observer(Consumer):
         # map labels to observation names
         LABEL_MAP = {
             # for firmware Weather logger V2.1.9
-            'humidity': 'out_humidity',
-            'indoorhumidity': 'in_humidity',
-            'tempf': 'out_temperature',
-            'indoortempf': 'in_temperature',
+            'humidity': 'humidity_out',
+            'indoorhumidity': 'humidity_in',
+            'tempf': 'temperature_out',
+            'indoortempf': 'temperature_in',
             'baromin': 'barometer',
             'windspeedmph': 'wind_speed',
             'windgustmph': 'wind_gust',
@@ -808,10 +808,10 @@ class Observer(Consumer):
             'yearlyrainin': 'rain_total',
 
             # for firmware HP1001 2.2.2
-            'outhumi': 'out_humidity',
-            'inhumi': 'in_humidity',
-            'outtemp': 'out_temperature',
-            'intemp': 'in_temperature',
+            'outhumi': 'humidity_out',
+            'inhumi': 'humidity_in',
+            'outtemp': 'temperature_out',
+            'intemp': 'temperature_in',
             'absbaro': 'pressure',
             'windspeed': 'wind_speed',
             'windgust': 'wind_gust',
@@ -1376,10 +1376,10 @@ class GW1000U(Consumer):
         # map database fields to sensor identifier tuples
         DEFAULT_SENSOR_MAP = {
             'barometer': 'barometer..*',
-            'inTemp': 'in_temperature..*',
-            'outTemp': 'out_temperature..*',
-            'inHumidity': 'in_humidity..*',
-            'outHumidity': 'out_humidity..*',
+            'inTemp': 'temperature_in..*',
+            'outTemp': 'temperature_out..*',
+            'inHumidity': 'humidity_in..*',
+            'outHumidity': 'humidity_out..*',
             'windSpeed': 'wind_speed..*',
             'windGust': 'wind_gust..*',
             'windDir': 'wind_dir..*',
@@ -1405,12 +1405,12 @@ class GW1000U(Consumer):
             pkt['rf_signal_strength'] = int(s[2:4], 16) # %
             pkt['status'] = s[4:6] # 0x10, 0x20, 0x30
             pkt['forecast'] = s[6:8] # 0x11, 0x12, 0x20, 0x21
-            pkt['in_temperature'] = self.to_temperature(s, 39) # C
-            pkt['out_temperature'] = self.to_temperature(s, 75) # C
+            pkt['temperature_in'] = self.to_temperature(s, 39) # C
+            pkt['temperature_out'] = self.to_temperature(s, 75) # C
             ok = int(s[114], 16) == 0 # 0=ok, 0xa=err
             pkt['windchill'] = self.to_temperature(s, 111) if ok else None # C
-            pkt['in_humidity'] = self.to_hum(s, 140) # %
-            pkt['out_humidity'] = self.to_hum(s, 166) # %
+            pkt['humidity_in'] = self.to_hum(s, 140) # %
+            pkt['humidity_out'] = self.to_hum(s, 166) # %
             pkt['rain_total'] = self.to_rainfall(s, 267) / 10.0 # cm
             pkt['rain'] = self._delta_rain(pkt['rain_total'], self._last_rain)
             self._last_rain = pkt['rain_total']
