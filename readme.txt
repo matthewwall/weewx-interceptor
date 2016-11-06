@@ -253,7 +253,19 @@ capture traffic, then use a tool such as nc to direct the traffic to the
 driver.  Another strategy is to use firewall rules to capture and redirect
 traffic.
 
-Here are a number of options for capturing network traffic:
+Isn't it nice to have options? :)
+
+
+option 0: use the driver in 'sniff' mode on a device that can see the traffic
+          from the internet bridge, i.e., plugged in to a shared hub, plugged
+          in to a switch with mirrored ports, or a device with two network
+          interfaces that are bridged
+
+[Interceptor]
+    mode = sniff
+    iface = eth0
+    filter = src 192.168.1.14 and dst port 80
+
 
 option 1: capture using tcpdump, redirect using nc
 
