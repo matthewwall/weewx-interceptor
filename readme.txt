@@ -284,7 +284,6 @@ ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
 
 option 4: redirect traffic using iptables firewall rules
 
-# driver is running in weewx on the router listening on port PPPP
 iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
 iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
 
@@ -299,14 +298,14 @@ option 5: capture using ngrep, filter with sed, forward with curl
 ngrep -l -q -d eth0 'xxxxxxxxxxxx' | sed -u '/mac=/!d' | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
 
-option 6: use stdbuf and strings to aggregate fragments from tcpdump
+option 6: use stdbuf and strings to extract fragments from tcpdump
 
 tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings -n8 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
 
 option 7: use tcpflow in console mode
 
-tcpflow -c | nc localhost PPPP
+tcpflow -C -i eth0 -s tcp dst port 80 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
 
 ===============================================================================
