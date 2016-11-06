@@ -204,11 +204,11 @@ class Consumer(object):
 
     def __init__(self, parser, mode='listen',
                  address=DEFAULT_ADDR, port=DEFAULT_PORT, handler=None,
-                 iface=DEFAULT_IFACE, filter=DEFAULT_FILTER):
+                 iface=DEFAULT_IFACE, pcap_filter=DEFAULT_FILTER):
         self.parser = parser
         loginf("mode is %s" % mode)
         if mode == 'sniff':
-            self._server = Consumer.SniffServer(iface, filter)
+            self._server = Consumer.SniffServer(iface, pcap_filter)
         elif mode == 'listen':
             self._server = Consumer.TCPServer(address, port, handler)
         else:
@@ -237,15 +237,15 @@ class Consumer(object):
         PROMISCUOUS = 0
         TIMEOUT_MS = 100
 
-        def __init__(self, iface, filter):
+        def __init__(self, iface, pcap_filter):
             import pcap
             self.packet_sniffer = pcap.pcapObject()
             loginf("sniff iface %s" % iface)
             self.packet_sniffer.open_live(
                 iface, SniffServer.SNAPLEN, SniffServer.PROMISCUOUS,
                 SniffServer.TIMEOUT_MS)
-            loginf("sniff filter '%s'" % filter)
-            self.packet_sniffer.setfilter(filter, 0, 0)
+            loginf("sniff filter '%s'" % pcap_filter)
+            self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
             self.reassembled_string = ''
             self.sniff_active = False
@@ -288,9 +288,8 @@ class Consumer(object):
         def __init__(self, address, port, handler):
             if handler is None:
                 handler = Consumer.Handler
-            port = int(port)
             loginf("listen on %s:%s" % (address, port))
-            SocketServer.TCPServer.__init__(self, (address, port), handler)
+            SocketServer.TCPServer.__init__(self, (address, int(port)), handler)
 
         def run(self):
             self.serve_forever()
@@ -532,7 +531,7 @@ class AcuriteBridge(Consumer):
 
         # map database fields to observation identifiers.  this map should work
         # out-of-the-box for either wu format or chaney format, with a basic
-        # sent of sensors.  if there are more than one remote sensor then a
+        # set of sensors.  if there are more than one remote sensor then a
         # custom sensor map is necessary to avoid confusion of outputs.
         DEFAULT_SENSOR_MAP = {
             # wu format uses barometer in every packet
