@@ -183,8 +183,9 @@ def _obfuscate_passwords(msg):
     return msg
 
 def _cgi_to_dict(s):
-    return dict([y.strip() for y in x.split('=')] for x in s.split('&'))
-
+    if '=' in s:
+        return dict([y.strip() for y in x.split('=')] for x in s.split('&'))
+    return dict()
 
 class Consumer(object):
     """The Consumer contains two primary parts - a Server and a Parser.  The
@@ -587,9 +588,13 @@ class AcuriteBridge(Consumer):
 
         # be ready for either the chaney format or the wu format
         def parse(self, s):
-            if s.find('action') >= 0:
-                return self.parse_wu(s)
-            return self.parse_chaney(s)
+            pkt = dict()
+            if '=' in s:
+                if s.find('action') >= 0:
+                    pkt = self.parse_wu(s)
+                else:
+                    pkt = self.parse_chaney(s)
+            return pkt
 
         # parse packets that are in the weather underground -ish format
         def parse_wu(self, s):
@@ -632,6 +637,9 @@ class AcuriteBridge(Consumer):
             parts = s.split('&')
             for x in parts:
                 if not x:
+                    continue
+                if '=' not in x:
+                    loginf("unexpected un-assigned variable '%s'" % x)
                     continue
                 (n, v) = x.split('=')
                 n = n.strip()
