@@ -18,13 +18,14 @@ Prerequisites
 
 The 'listen' mode (default) has no pre-requisites.
 
-The 'sniff' mode requires installation of the python pcap module:
+The 'sniff' mode requires installation of the pypcap module, which in turn
+depends on libpcap.  Install the pcap dependencies using pip:
 
   sudo pip install pypcap
 
-  OR
+or using apt-get on debian systems:
 
-  sudo apt-get install libpcap python-libpcap
+  sudo apt-get install python-libpcap
 
 
 ===============================================================================

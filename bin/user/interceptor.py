@@ -108,8 +108,11 @@ this driver.
 SniffServer vs TCPServer
 
 The driver can obtain packets by sniffing network traffic using pcap, or by
-listening for TCP/IP requests.  The pcap approach requires the python pcap
-module - a separate installation on most platforms.
+listening for TCP/IP requests.  The pcap approach requires the python pypcap
+module, which in turn requires libpcap.  This means a separate installation
+on most platforms.
+
+https://github.com/pynetwork/pypcap
 
 To run a listener, specify an address and port.  This is the default mode.
 For example:
