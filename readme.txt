@@ -82,7 +82,7 @@ To sniff packets from 192.168.0.14 on network interface eth1:
     device_type = acurite-bridge
     mode = sniff
     iface = eth1
-    filter = src 192.168.0.14 and dst port 80
+    pcap_filter = src 192.168.0.14 and dst port 80
 
 
 ===============================================================================
@@ -265,7 +265,7 @@ option 0: use the driver in 'sniff' mode on a device that can see the traffic
 [Interceptor]
     mode = sniff
     iface = eth0
-    filter = src 192.168.1.14 and dst port 80
+    pcap_filter = src 192.168.1.14 and dst port 80
 
 
 option 1: capture using tcpdump, redirect using nc

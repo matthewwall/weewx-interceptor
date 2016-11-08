@@ -139,7 +139,7 @@ To run a sniffer, specify an interface and filter.  For example:
 [Interceptor]
     mode = sniff
     iface = eth0
-    filter = src host 192.168.1.5 && dst port 80
+    pcap_filter = src host 192.168.1.5 && dst port 80
 
 """
 
@@ -204,6 +204,7 @@ def _cgi_to_dict(s):
     if '=' in s:
         return dict([y.strip() for y in x.split('=')] for x in s.split('&'))
     return dict()
+
 
 class Consumer(object):
     """The Consumer contains two primary parts - a Server and a Parser.  The
@@ -1542,7 +1543,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
 
     # When sniffing, specify a network interface and a pcap filter.
     #iface = eth0
-    #filter = src 192.168.4.12 and dst port 80
+    #pcap_filter = src 192.168.4.12 and dst port 80
 
     # Specify a sensor map to associate sensor observations with fields in
     # the database.  This is most appropriate for hardware that supports
@@ -1668,7 +1669,7 @@ if __name__ == '__main__':
                          ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
     device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
         mode=options.mode,
-        iface=options.iface, filter=options.filter,
+        iface=options.iface, pcap_filter=options.filter,
         address=options.addr, port=options.port)
 
     server_thread = threading.Thread(target=device.run_server)
