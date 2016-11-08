@@ -23,6 +23,10 @@ Thanks to skydvrz, mycal, kennkong for publishing their lacrosse work
   https://github.com/lowerpower/LaCrosse
   https://github.com/kennkong/Weather-ERF-Gateway-1000U
 
+Thanks to Jerome Helbert for the pypcap option.
+
+
+===============================================================================
 About the stations
 
 Acurite Bridge
@@ -43,6 +47,8 @@ Chaney did a firmware update to the bridge in July 2016.  This update made the
 bridge emit data using the weather underground protocol instead of the
 Chaney protocol.
 
+
+===============================================================================
 Observer
 
 Manufactured by Fine Offset as the WH2600, HP1000, and HP1003.
@@ -69,6 +75,8 @@ It looks like this hardware simply sends data in weather underground format.
 
 The bridge sends data every 5 minutes.
 
+
+===============================================================================
 Oregon Scientific LW301/LW302
 
 The "Anywhere Weather Kit" comes in two packages, the LW301 with a full set
@@ -87,6 +95,8 @@ are recognized by the LW300 base receivers.
 
 By default, the bridge communicates with www.osanywhereweather.com
 
+
+===============================================================================
 LaCrosse GW1000U
 
 The LaCrosse gateway communicates via radio with the C84612 display, which in
@@ -105,6 +115,8 @@ The easiest way to use this driver is to use the Gateway Advance Setup (GAS)
 utility from LaCrosse to configure the gateway to send to the computer with
 this driver.
 
+
+===============================================================================
 SniffServer vs TCPServer
 
 The driver can obtain packets by sniffing network traffic using pcap, or by
