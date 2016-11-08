@@ -182,6 +182,9 @@ def _obfuscate_passwords(msg):
         msg = re.sub(r'PASSWORD=[^&]+', r'PASSWORD=XXXX', msg)
     return msg
 
+def _fmt_bytes(data):
+    return ' '.join(['%02x' % ord(x) for x in data])
+
 def _cgi_to_dict(s):
     if '=' in s:
         return dict([y.strip() for y in x.split('=')] for x in s.split('&'))
@@ -243,8 +246,7 @@ class Consumer(object):
             self.packet_sniffer = pcap.pcapObject()
             loginf("sniff iface %s" % iface)
             self.packet_sniffer.open_live(
-                iface, SniffServer.SNAPLEN, SniffServer.PROMISCUOUS,
-                SniffServer.TIMEOUT_MS)
+                iface, self.SNAPLEN, self.PROMISCUOUS, self.TIMEOUT_MS)
             loginf("sniff filter '%s'" % pcap_filter)
             self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
@@ -264,12 +266,12 @@ class Consumer(object):
         def decode_ip_packet(self, _pktlen, data, _timestamp):
             if data:
                 logdbg("sniff: pktlen=%s timestamp=%s data=%s" %
-                       (_pktlen, _timestamp, _obfuscate_passwords(data)))
+                       (_pktlen, _timestamp, _fmt_bytes(data)))
                 if data[12:14] == '\x08\x00':
                     header_len = ord(data[14]) & 0x0f
                     _data = data[4 * header_len + 34:]
                     logdbg("sniff: header_len=%s _data=%s" %
-                           (header_len, _obfuscate_passwords(_data)))
+                           (header_len, _fmt_bytes(_data)))
                     if 'GET' in _data:
                         self.reassembled_string = _data
                         self.sniff_active = True
@@ -1220,7 +1222,7 @@ class GW1000U(Consumer):
                 length = int(self.headers.get('Content-Length', 0))
                 data = self.rfile.read(length) if length else ''
                 logdbg("recv: %s:%s %s %s %s" %
-                       (id1, id2, mac, key, self._fmt_bytes(data)))
+                       (id1, id2, mac, key, _fmt_bytes(data)))
                 if pkt_type == '00:10':
                     # power up for unregistered gateway
                     flags = '10:00'
@@ -1251,7 +1253,7 @@ class GW1000U(Consumer):
                             loginf("ignore registration from serial %s" % sn)
                     else:
                         loginf('cannot extract serial from packet: %s'
-                               % self._fmt_bytes(data))
+                               % _fmt_bytes(data))
                 elif pkt_type == '00:14':
                     # reply after 7f:10 packet.  station sends 14 bytes.
                     flags = '1C:00'
@@ -1279,7 +1281,7 @@ class GW1000U(Consumer):
                 logdbg("unknown format for HTTP_IDENTIFY: '%s'" %
                        self.headers.get('HTTP_IDENTIFY', ''))
 
-            logdbg("send: %s %s" % (flags, self._fmt_bytes(response)))
+            logdbg("send: %s %s" % (flags, _fmt_bytes(response)))
 
             self.send_response(200)
             self.send_header('HTTP_FLAGS', flags)
@@ -1373,10 +1375,6 @@ class GW1000U(Consumer):
             for c in x:
                 n += ord(c)
             return n & 0xffff
-
-        @staticmethod
-        def _fmt_bytes(data):
-            return ' '.join(['%02x' % ord(x) for x in data])
         
         
     class Parser(Consumer.Parser):
