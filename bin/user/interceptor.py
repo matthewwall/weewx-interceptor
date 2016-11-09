@@ -810,6 +810,7 @@ class Observer(Consumer):
             'inTemp': 'temperature_in',
             'windSpeed': 'wind_speed',
             'windGust': 'wind_gust',
+            'windDir': 'wind_dir',
             'radiation': 'radiation',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
