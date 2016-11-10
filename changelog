@@ -1,3 +1,6 @@
+0.16 10nov2016
+* added comments and logging for gw1000u
+
 0.15
 * added direct support for sniffing using pcap (thanks to jerome helbert)
 * ignore non-cgi string when parsing for acurite bridge

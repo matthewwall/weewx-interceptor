@@ -161,7 +161,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.15'
+DRIVER_VERSION = '0.16'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1152,6 +1152,34 @@ bbH   176  10     BCD      Unknown Date/Time 6
 c0H   180  6      ???      Unknown
 c3H   186  2      binary   Checksum1
 c4H   188  2      binary   Checksum2 May be one 16-bit checksum
+
+Gateway registration
+
+Gateway can be reset by holding the reset button while the gateway is powered
+up.  It will then attempt to re-register.
+
+Once registered, the gateway periodically sends a ping of 00:70.  The reply to
+this ping determines how often the gateway should ping.
+
+FIXME: verify that this actually works
+
+Weather station registration
+
+To register a station, press the rain button on the weather station to get a
+blinking REG, then push the gateway button.  This should generate the station
+registration packet 7F:10 which includes the station serial number.  A serial
+that starts with 7FFF has been registered, and the driver should respond with
+this serial.  A serial of 0102030405060708 indicates that the station has not
+been registered, and the response from the driver will be set as the station
+serial number.
+
+The station responds to registration with a 01:14 packet.
+
+Once registered, the station sends data packets 01:01 and ping packets 01:00.
+
+Nominal behavior
+
+Press the rain button until beep on a registered station to flush data packets.
 """
 
 # resulting raw packet format:
@@ -1261,7 +1289,7 @@ class GW1000U(Consumer):
                     # as the first 8 digits of the packet.  if it is the
                     # default serial number, there should be 13 bytes.  ignore
                     # requests from anything other than the known serial.
-                    if data and len(data) >= 8:
+                    if data and len(data) != 8:
                         sn = GW1000U.decode_serial(data[0:8])
                         if sn == GW1000U.station_serial:
                             flags = '14:00'
@@ -1278,6 +1306,7 @@ class GW1000U(Consumer):
                     # station sends 14 bytes of data.  data is new serial in
                     # same format as 7f:10 with one extra byte on the end.
                     flags = '1C:00'
+                    # FIXME: verify that the serial number matches
                 elif pkt_type == '01:00':
                     # weather station ping.  station sends 5 bytes.
                     flags = '14:01'
