@@ -633,7 +633,7 @@ class AcuriteBridge(Consumer):
                     elif n == 'battery':
                         pkt['battery'] = 0 if data[n] == 'normal' else 1
                     elif n == 'rssi':
-                        pkt['rssi'] = float(data[n]) / 4.0
+                        pkt['rssi'] = float(data[n]) * 25 # [0,100]
                     elif n in self.LABEL_MAP:
                         pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     elif n in self.IGNORED_LABELS:
@@ -672,7 +672,7 @@ class AcuriteBridge(Consumer):
                     elif n == 'battery':
                         pkt['battery'] = 0 if v == 'normal' else 1
                     elif n == 'rssi':
-                        pkt['rssi'] = float(v) / 4.0
+                        pkt['rssi'] = float(v) * 25 # [0,100]
                     elif n == 'humidity':
                         pkt['humidity'] = float(v[2:5]) / 10.0 # %
                     elif n == 'temperature':
