@@ -244,13 +244,11 @@ class Consumer(object):
     def get_queue(self):
         return Consumer.queue
 
-
     class Server(object):
         def run(self):
             pass
         def stop(self):
             pass
-
 
     class SniffServer(Server):
         SNAPLEN = 1600
@@ -270,11 +268,13 @@ class Consumer(object):
             self.sniff_active = False
 
         def run(self):
+            logdbg("start sniff server");
             self.running = True
             while self.running:
                 self.packet_sniffer.dispatch(1, self.decode_ip_packet)
 
         def stop(self):
+            logdbg("stop sniff server");
             self.running = False
             self.packet_sniffer.close()
             self.packet_sniffer = None
@@ -299,7 +299,6 @@ class Consumer(object):
                     elif self.sniff_active:
                         self.reassembled_string += _data
 
-
     class TCPServer(Server, SocketServer.TCPServer):
         daemon_threads = True
         allow_reuse_address = True
@@ -311,12 +310,13 @@ class Consumer(object):
             SocketServer.TCPServer.__init__(self, (address, int(port)), handler)
 
         def run(self):
+            logdbg("start tcp server");
             self.serve_forever()
 
         def stop(self):
+            logdbg("stop tcp server");
             self.shutdown()
             self.server_close()
-
 
     class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -353,7 +353,6 @@ class Consumer(object):
         # do not spew messages on every connection
         def log_message(self, _format, *_args):
             pass
-
 
     class Parser(object):
 
@@ -1037,7 +1036,7 @@ class LW30x(Consumer):
 
 """
 The output from a GW1000U is more complicated that a simply http GET/POST.
-What follows is the dissection using conventions from mycal.
+What follows is the dissection using conventions from mycal and skyspy.
 
 Each request has a header HTTP_IDENTIFY that specifys the request type,
 gateway identification, and key.  For example:
@@ -1060,30 +1059,39 @@ Each reply includes a HTTP_FLAGS header in the form 00:00.
 
 Packet types
 
-00:01 ?
+Sent by the gateway:
 
-00:10 gateway power up
+00:10   0 gateway power up
+00:20   0 gateway registration
+00:30   0 gateway registration finished
+00:70   0 gateway ping
+01:00   5 weather station ping  41 46 30 67 39
+01:01  30 ?
+01:01 197 current data
+01:01 210 history data?
+01:14  14 weather station registration verification
+7f:10  13 weather station registration
 
-00:20 gateway unregistered
+Sent by the server:
 
-00:30 gateway finished registration
-
-00:70 gateway ping
-
-01:00 weather station ping
-  41 46 30 67 39
-
-01:01 weather station data
-
-01:14 weather station registration verification
-
-7f:10 weather station registration
-
-00:14 ?
+10:00   0 reply to 00:10
+20:00 252 reply to 00:20
+30:00   0 reply to 00:30
+70:00  18 reply to 00:70
+14:00  38 reply to 7f:10
+1c:00   0 reply to 01:14
+00:01   0 reply to 01:01
+20:01 252 reply to 00:70
+30:01   0 reply to 00:30
+14:01  38 reply to 01:00
+00:00   0 reply to 01:01 210
+00:01   0 reply to 01:01 210 (terminate the history packets?)
 
 Data packets
 
-This is the decoding of the data, based on mycal description:
+197-byte packet (current data)
+
+This is the decoding based on mycal description:
 
 start nyb  nybble encoding description
 00H   0    2      byte     Record type, always 01
@@ -1153,6 +1161,28 @@ c0H   180  6      ???      Unknown
 c3H   186  2      binary   Checksum1
 c4H   188  2      binary   Checksum2 May be one 16-bit checksum
 
+30-byte packet
+
+00..03 unknown1
+04..05 next_epoch swapped
+06..07 next_epoch_copy swapped
+08..0f unknown2
+10..14 unknown3
+15     year
+16     month
+17     day
+18     hour
+19     minute
+1a..1b current_epoch swapped
+1c..1d unknown5
+
+210-byte packet (history?)
+
+00..01 unknown1
+02..03 unknown2
+04..05 current_epoch swapped
+06..cc unknown
+
 Gateway registration
 
 Gateway can be reset by holding the reset button while the gateway is powered
@@ -1160,8 +1190,6 @@ up.  It will then attempt to re-register.
 
 Once registered, the gateway periodically sends a ping of 00:70.  The reply to
 this ping determines how often the gateway should ping.
-
-FIXME: verify that this actually works
 
 Weather station registration
 
@@ -1177,7 +1205,7 @@ The station responds to registration with a 01:14 packet.
 
 Once registered, the station sends data packets 01:01 and ping packets 01:00.
 
-Nominal behavior
+Flush data packets
 
 Press the rain button until beep on a registered station to flush data packets.
 """
@@ -1201,9 +1229,9 @@ class GW1000U(Consumer):
         6: '1h', 7: '2h'}
 
     station_serial = '0' * 16
-    ping_interval = 60 # how often gateway should ping the server, in seconds
-    sensor_interval = 300 # seconds between data packets (5m is default)
-    history_interval = 3
+    ping_interval = 240 # how often gateway should ping the server, in seconds
+    sensor_interval = 15 # seconds between data packets
+    history_interval_idx = 3 # index of history interval
     lcd_brightness = 4
     server_name = 'box.weatherdirect.com'
     
@@ -1215,14 +1243,16 @@ class GW1000U(Consumer):
         if len(GW1000U.station_serial) != 16:
             raise weewx.ViolatedPrecondition("serial number must be 16 characters")
         loginf('using serial number %s' % GW1000U.station_serial)
-        GW1000U.sensor_interval = stn_dict.get('sensor_interval', 300)
+        GW1000U.sensor_interval = stn_dict.get(
+            'sensor_interval', GW1000U.sensor_interval)
         loginf('using sensor interval %ss' % GW1000U.sensor_interval)
-        GW1000U.history_interval = stn_dict.get('history_interval', 3)
-        if GW1000U.history_interval not in GW1000U.HISTORY_INTERVALS:
+        GW1000U.history_interval_idx = stn_dict.get(
+            'history_interval', GW1000U.history_interval_idx)
+        if GW1000U.history_interval_idx not in GW1000U.HISTORY_INTERVALS:
             raise weewx.ViolatedPrecondition("history interval must be 0-7")
         loginf('using history interval %s (%s)' %
-               (GW1000U.history_interval,
-                GW1000U.HISTORY_INTERVALS.get(GW1000U.history_interval)))
+               (GW1000U.history_interval_idx,
+                GW1000U.HISTORY_INTERVALS.get(GW1000U.history_interval_idx)))
 
     @staticmethod
     def encode_ts(ts):
@@ -1230,7 +1260,7 @@ class GW1000U(Consumer):
         tstr = time.strftime("%H%M%S%d%m%y", time.localtime(ts))
         s = ''
         for x in range(0, 6):
-            s += chr(GW1000U.encode_bcd(tstr[x*2: x*2+2]))
+            s += chr(GW1000U.encode_bcd(tstr[x * 2:x * 2 + 2]))
         return s
 
     @staticmethod
@@ -1249,8 +1279,7 @@ class GW1000U(Consumer):
         lsb = x % 10
         if msb > 10:
             msb = 10
-        return ((msb << 4) | (lsb & 0xf))
-
+        return (msb << 4) | (lsb & 0xf)
 
     class Handler(Consumer.Handler):
 
@@ -1269,55 +1298,71 @@ class GW1000U(Consumer):
                 logdbg("recv: %s:%s %s %s %s" %
                        (id1, id2, mac, key, _fmt_bytes(data)))
                 if pkt_type == '00:10':
-                    # power up for unregistered gateway
-                    flags = '10:00'
+                    # gateway power up
                     loginf("power up from gateway with mac %s" % mac)
+                    flags = '10:00'
+                elif pkt_type == '00:14':
+                    # received after response to 7f:10 packet.
+                    # gateway sends 14 bytes.
+                    loginf("registration confirmed for mac %s (%s)"
+                           % (mac, _fmt_bytes(data)))
+                    flags = '1C:00'
                 elif pkt_type == '00:20':
-                    # push button registration
+                    # gateway registration
+                    loginf("registration from gateway with mac %s" % mac)
                     flags = '20:00' # sometimes replies with 20:01
                     response = self._create_gateway_reg_response()
-                    loginf("registration from gateway with mac %s" % mac)
                 elif pkt_type == '00:30':
-                    # received after response to 00:70 packet
-                    flags = '30:00'
+                    # received after response to 00:20 packet
+                    flags = '30:00' # also observed 30:01
                 elif pkt_type == '00:70':
                     # gateway ping
-                    flags = '70:00'
+                    flags = '70:00' # also observed 20:01
                     response = self._create_gateway_ping_response()
+                elif pkt_type == '01:00':
+                    # station ping.  gateway sends 5 bytes.
+                    flags = '14:01'
+                    response = self._create_station_ping_response()
+                elif pkt_type == '01:14':
+                    # unknown.  gateway sends 14 bytes of data.
+                    # the first 8 bytes are the serial number.
+                    if data and len(data) >= 8:
+                        sn = GW1000U.decode_serial(data[0:8])
+                        if sn == GW1000U.station_serial:
+                            flags = '1C:00'
+                            loginf("responded to message 01:14 from %s (%s)"
+                                   % (sn, _fmt_bytes(data)))
+                        else:
+                            loginf("ignored message 01:14 from %s (%s)"
+                                   % (sn, _fmt_bytes(data)))
+                    else:
+                        loginf("ignored message 01:14 with no sn (%s)"
+                               % _fmt_bytes(data))
                 elif pkt_type == '7F:10':
-                    # station registration.  station sends its serial number
-                    # as the first 8 digits of the packet.  if it is the
-                    # default serial number, there should be 13 bytes.  ignore
-                    # requests from anything other than the known serial.
-                    if data and len(data) != 8:
+                    # station registration.  gateway sends 13 bytes.
+                    # the first 8 bytes are the serial number.  ignore requests
+                    # from anything other than the known serial.
+                    if data and len(data) >= 8:
                         sn = GW1000U.decode_serial(data[0:8])
                         if sn == GW1000U.station_serial:
                             flags = '14:00'
                             response = self._create_station_reg_response()
+                            loginf("accepted registration for serial %s (%s)"
+                                   % (sn, _fmt_bytes(data)))
                         else:
-                            loginf("ignore registration from serial %s" % sn)
+                            loginf("ignored registration from serial %s (%s)"
+                                   % (sn, _fmt_bytes(data)))
                     else:
-                        loginf('cannot extract serial from packet: %s'
+                        loginf("ignored message 7F:10 with no sn (%s)"
                                % _fmt_bytes(data))
-                elif pkt_type == '00:14':
-                    # reply after 7f:10 packet.  station sends 14 bytes.
-                    flags = '1C:00'
-                elif pkt_type == '01:14':
-                    # station sends 14 bytes of data.  data is new serial in
-                    # same format as 7f:10 with one extra byte on the end.
-                    flags = '1C:00'
-                    # FIXME: verify that the serial number matches
-                elif pkt_type == '01:00':
-                    # weather station ping.  station sends 5 bytes.
-                    flags = '14:01'
-                    response = self._create_station_ping_response()
                 elif pkt_type == '01:01':
-                    # data packet - current or history
-                    if len(data) == 197:
+                    # data packet
+                    if len(data) in [30, 197, 210]:
+                        flags = '00:00' # also observed 00:01
                         Consumer.queue.put({'mac': mac,
                                             'data': binascii.b2a_hex(data)})
                     else:
-                        loginf('ignore data packet: unexpected length %s'
+                        loginf('ignored data packet: unexpected length %s'
                                % len(data))
                 else:
                     loginf("unknown packet type %s" % pkt_type)
@@ -1331,17 +1376,43 @@ class GW1000U(Consumer):
 
             self.send_response(200)
             self.send_header('HTTP_FLAGS', flags)
-            self.send_header('Server', 'Microsoft-II/6.0')
+            self.send_header('Server', 'Microsoft-II/8.0')
             self.send_header('X-Powered-By', 'ASP.NET')
             self.send_header('X-ApsNet-Version', '2.0.50727')
             self.send_header('Cache-Control', 'private')
             self.send_header('Content-Length', len(response))
             self.send_header('Content-Type', 'application/octet-stream')
+#            self.send_header('Date', 'ddd, dd mmm yyyy HH:mm:ss')
             self.end_headers()
             self.wfile.write(response)
 
         @staticmethod
         def _create_gateway_reg_response():
+            # 252-byte reply.
+            #
+            # skyspy:
+            # 00..07 unknown     6e de b9 a2 8e f3 c7 5c
+            # 08..9f hostname1   box.weatherdirect.com
+            # a0..f5 hostname23  b.weatherdirect.com 00 box.weatherdirect.com
+            # f6..fb trailer     18 b1 85 06 1d ff
+            #
+            # kennkong:
+            # 00..07 unknown     00 00 00 00 00 00 00 00
+            # 08..9f             box.weatherdirect.com
+            # a1..f5             box.weatherdirect.com 00 box.weatherdirect.com
+            # f6..fb             00 00 00 00 00 ff
+            #
+            # lowerpower:
+            # 00..07 unknown     00 00 00 00 00 00 00 00
+            # 08..9f             box.weatherdirect.com
+            # a0..f5             box.weatherdirect.com 00 box.weatherdirect.com
+            # f6..fb             00 00 00 00 00 ff
+            #
+            # observed:
+            # 00..07             5d 7a 4b 64 24 41 5b 84
+            # 08..9f             box.weatherdirect.com
+            # a0..f5             b.weatherdirect.com 00 box.weatherdirect.com
+            # f6..fb             18 b1 85 06 1d ff
             server = GW1000U.server_name
             return ''.join(
                 [chr(0) * 8, # used to generate a new key
@@ -1353,22 +1424,82 @@ class GW1000U(Consumer):
         @staticmethod
         def _create_gateway_ping_response():
             # 18-byte reply.  last two bytes are the ping interval in seconds.
+            # skyspy only uses last one byte, but it has a fixed delay of 120s.
+            #
+            # skyspy:
+            # 00..16 unknown       00..00
+            # 17     seconds_delay 2*60
+            #
+            # kennkong:
+            # chr(0).chr(10)       10 seconds
+            # chr(0).chr(0xf0)    240 seconds
+            # str_pad(chr(ival >> 8).chr(ival % 0xff), 18, chr(0), left)
+            #
+            # lowerpower:
+            # ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 f0
+            #
+            # observed:
+            # 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
             interval = GW1000U.ping_interval
             hi = interval / 256
             lo = interval % 256
-            return ''.join([chr(0xff) * 4, chr(0) * 12, chr(hi), chr(lo)])
-
-        # FIXME: the reg_response and ping_response look awfully similar.
-        # can they be replaced with a single response?
+            return ''.join([chr(0) * 16, chr(hi), chr(lo)])
         
         @staticmethod
         def _create_station_reg_response():
-            # reply to station registration request with 38 bytes of data.
+            # 38-byte reply
             # this reply can set the serial number of the weather station if
-            # the station has the default serial number of 0102030405060708.
-            # once changed, the serial number cannot be modified, so it might
-            # be advisable to register with lacrosse first so that if you ever
-            # want to go back to the lacross service you could.
+            # the station has the default serial number.  once set, it is not
+            # clear how to modify the serial number, so you might want to
+            # get a serial number from lacrosse first since anything we
+            # generate probably would not be respected by lacrosse.
+            #
+            # skyspy:
+            # nothing implemented for this
+            #
+            # kennkong:
+            # 00     unknown     01
+            # 01..08 serial
+            # 09..15 unknown     00 30 00 0f 00 00 00 0f 00 00 00 77 00
+            # 16..17             0e ff
+            # 18..1a server_time bcd(H) bcd(i) bcd(s)
+            # 1b..1d server_date bcd(d) bcd(m) bcd(y)
+            # 1e     unknown     53
+            # 1f                 07
+            # 20     lcd         05 this_value_plus_one
+            # 21.22  beep        00 00
+            # 23     unknown     00
+            # 24     unknown     07
+            # 25     checksum    chr(sum & 0xff)
+            #
+            # lowerpower:
+            # 00     unknown     01
+            # 01..08 serial
+            # 09..15 unknown     00 30 00 0f 00 00 00 0f 00 00 00 77 00
+            # 16..17             0e ff
+            # 18..1a server_time bcd(h) bcd(i) bcd(s)
+            # 1b..1d server_date bcd(d) bcd(m) bcd(y)
+            # 1e                 53
+            # 1f     unknown     07
+            # 20     lcd         05
+            # 21..22 beep        00 00
+            # 23     unknown     00
+            # 24     unknown     07
+            # 25     checksum    chr(sum & 0xff)
+            #
+            # observed:
+            # 00                 01
+            # 01..08 serial      7f ff xx xx xx xx xx xx
+            # 09..15 unknown     00 30 00 0b 00 00 00 0f 00 00 00 77 00
+            # 16..17             0f ff
+            # 18..1a server_time 23 40 08   23:40:08
+            # 1b..1d server_date 16 06 16   16.06.2016
+            # 1e                 53
+            # 1f                 07
+            # 20     lcd         04
+            # 21..22 beep        00 00
+            # 23                 00
+            # 24..25             08 06
             sn = GW1000U.station_serial
             payload = ''.join(
                 [chr(1),
@@ -1387,21 +1518,64 @@ class GW1000U(Consumer):
 
         @staticmethod
         def _create_station_ping_response():
-            # reply with 38 bytes of data
+            # 38-byte reply
+            #
+            # skyspy:
+            # 00     unknown      1 byte
+            # 01..08 serial       8 bytes
+            # 09..0f unknown4     7 bytes 00 32 00 0b 00 00 00
+            # 10..15 unknown5     6 bytes 0f 00 00 00 03 00
+            # 16..17 epoch        2 bytes epoch swapped
+            # 18..1a server_time  3 bytes bcd(HH) bcd(MM) bcd(SS)
+            # 1b..1d server_date  3 bytes bcd(dd) bcd(mm) bcd(YY-2000)
+            # 1e..1f unknown6     2 bytes 53 07
+            # 20     lcd_contrast 1 byte  05
+            # 21..22 console_beep 2 bytes 00 00
+            # 23     unknown8     1 byte
+            # 24..25 checksum     2 bytes crc16 swapped
+            #
+            # kennkong:
+            # 00     unknown     01
+            # 01..08 serial
+            # 09..13 unknown     00 32 00 0b 00 00 00 0f 00 00 00
+            # 14     interval    03
+            # 15     unknown     00
+            # 16..17 last_hist_addr msb lsb
+            # 18..1a server_time bcd(H) bcd(i) bcd(s)
+            # 1b..1d server_date bcd(d) bcd(m) bcd(y)
+            # 1e     unknown     53
+            # 1f     history_interval 07
+            # 20     lcd_bright  04
+            # 21..22 beep        00 00
+            # 23     unknown     00
+            # 24..25 checksum    chr(sum >> 8).chr(sum & 0xff)
+            #
+            # lowerpower:
+            # 00     unknown     00
+            # 01..08 serial
+            # 09..17 unknown     00 32 00 0b 00 00 00 0f 00 00 00 03 00 3e de
+            # 18..1a server_time bcd(h) bcd(i) bcd(s)
+            # 1b..1d server_date bcd(d) bcd(m) bcd(y)
+            # 1e     unknown     53
+            # 1f     unknown     07
+            # 20     lcd_bright  04
+            # 21..22 beep        00 00
+            # 23     unknown     00
+            # 24..25 checksum
             sn = GW1000U.station_serial
             hi = GW1000U.Handler.last_history_address / 256
             lo = GW1000U.Handler.last_history_address % 256
-            interval = GW1000U.sensor_interval / 60
+            interval = GW1000U.sensor_interval
             payload = ''.join(
                 [chr(1),
                  GW1000U.encode_serial(sn), # 8 bytes
                  chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
-                 chr(interval - 1), # byte 0x14 (0x3)
+                 chr(interval), # byte 0x14 (0x3)
                  chr(0),
                  chr(hi) + chr(lo), # last_history_address 2 bytes (0x3e 0xde)
                  GW1000U.encode_ts(int(time.time())), # 6 bytes
                  chr(0x53),
-                 chr(GW1000U.history_interval), # byte 0x1f (0x7)
+                 chr(GW1000U.history_interval_idx), # byte 0x1f (0x7)
                  chr(GW1000U.lcd_brightness), # byte 0x20 (0x4)
                  chr(0) + chr(0),
                  chr(0)])
@@ -1421,8 +1595,7 @@ class GW1000U(Consumer):
             for c in x:
                 n += ord(c)
             return n & 0xffff
-        
-        
+
     class Parser(Consumer.Parser):
 
         # map database fields to sensor identifier tuples
@@ -1446,13 +1619,39 @@ class GW1000U(Consumer):
             return {'bridge_id': payload.get('mac')}
 
         def parse(self, payload):
-            mac = payload.get('mac')
+            # parse the bytes from the payload
             s = payload.get('data', '')
+            pkt = dict()
+            if len(s) == 60:
+                pkt = self.parse_30(s)
+            elif len(s) == 394:
+                pkt = self.parse_197(s)
+            elif len(s) == 420:
+                pkt = self.parse_210(s)
+            # now tag each value with identifiers
+            mac = payload.get('mac')
+            packet = {'dateTime': int(time.time() + 0.5),
+                      'usUnits': weewx.METRIC}
+            for n in pkt:
+                packet["%s..%s" % (n, mac)] = pkt[n]
+            return packet
+
+        def parse_30(self, s):
+            pkt = dict()
+            pkt['next_epoch'] = self.to_epoch(s, 8)
+            pkt['next_epoch_copy'] = self.to_epoch(s, 12)
+            pkt['year'] = int(s[42:44], 16)
+            pkt['month'] = int(s[44:46], 16)
+            pkt['day'] = int(s[46:48], 16)
+            pkt['hour'] = int(s[48:50], 16)
+            pkt['minute'] = int(s[50:52], 16)
+            pkt['current_epoch'] = self.to_epoch(s, 52)
+            return pkt
+
+        def parse_197(self, s):
             # this expects a string of hex characters.  the data packet length
             # is 197, so the hex string should be 394 characters.
             pkt = dict()
-            if len(s) != 394:
-                return pkt
             pkt['record_type'] = int(s[0:2], 16) # always 01
             pkt['rf_signal_strength'] = int(s[2:4], 16) # %
             pkt['status'] = s[4:6] # 0x10, 0x20, 0x30
@@ -1476,13 +1675,12 @@ class GW1000U(Consumer):
                 pkt['wind_dir'] = None
                 pkt['wind_gust'] = None
             pkt['barometer'] = self.to_pressure(s, 339) # mbar
+            return pkt
 
-            # now tag each value with identifiers
-            packet = {'dateTime': int(time.time() + 0.5),
-                      'usUnits': weewx.METRIC}
-            for n in pkt:
-                packet["%s..%s" % (n, mac)] = pkt[n]
-            return packet
+        def parse_210(self, s):
+            pkt = dict()
+            pkt['current_epoch'] = self.to_epoch(s, 8)
+            return pkt
 
         @staticmethod
         def map_to_fields(pkt, sensor_map):
@@ -1491,9 +1689,15 @@ class GW1000U(Consumer):
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
+        def to_epoch(x, idx):
+            hi = int(x[idx + 2:idx + 4], 16)
+            lo = int(x[idx: idx + 2], 16)
+            return hi * 256 + lo
+
+        @staticmethod
         def to_temperature(x, idx):
             # returns temperature in degree C
-            s = x[idx:idx+3]
+            s = x[idx:idx + 3]
             if s.lower() == 'aaa' or s.lower() == 'aa3':
                 return None
             return GW1000U.Parser.bcd2int(s) / 10.0 - 40.0
@@ -1501,27 +1705,27 @@ class GW1000U(Consumer):
         @staticmethod
         def to_hum(x, idx):
             # returns humidity in percent
-            return GW1000U.Parser.bcd2int(x[idx:idx+2])
+            return GW1000U.Parser.bcd2int(x[idx:idx + 2])
 
         @staticmethod
         def to_windspeed(x, idx):
             # returns windspeed in km per hour
-            return GW1000U.Parser.bin2int(x[idx:idx+4]) / 100.0
+            return GW1000U.Parser.bin2int(x[idx:idx + 4]) / 100.0
 
         @staticmethod
         def to_winddir(x, idx):
             # returns compass degrees in [0,360]
-            return int(x[idx:idx+1], 16) * 22.5
+            return int(x[idx:idx + 1], 16) * 22.5
 
         @staticmethod
         def to_pressure(x, idx):
             # returns barometric pressure in mbar
-            return GW1000U.Parser.bcd2int(x[idx:idx+5]) / 10.0
+            return GW1000U.Parser.bcd2int(x[idx:idx + 5]) / 10.0
 
         @staticmethod
         def to_rainfall(x, idx, n=7):
             # each tip is 0.01", returns rain total in mm
-            v = GW1000U.Parser.bcd2int(x[idx:idx+n])
+            v = GW1000U.Parser.bcd2int(x[idx:idx + n])
             if n == 6:
                 v /= 100.0
             else:
@@ -1623,7 +1827,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
     def closePort(self):
         loginf('shutting down server thread')
-        self._device.shutdown_server()
+        self._device.stop_server()
         self._server_thread.join(20.0)
         if self._server_thread.isAlive():
             logerr('unable to shut down server thread')
