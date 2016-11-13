@@ -280,7 +280,7 @@ class Consumer(object):
             self.packet_sniffer = None
 
         def decode_ip_packet(self, _pktlen, data, _timestamp):
-            if data:
+            if data and len(data) >= 15:
                 logdbg("sniff: pktlen=%s timestamp=%s data=%s" %
                        (_pktlen, _timestamp, _fmt_bytes(data)))
                 if data[12:14] == '\x08\x00':
@@ -293,6 +293,7 @@ class Consumer(object):
                         self.sniff_active = True
                     elif 'HTTP' in data and self.sniff_active:
                         self.sniff_active = False
+                        logdbg("sniff: %s" % _fmt_bytes(self.reassembled_string))
                         data = urlparse.urlparse(self.reassembled_string).query
                         logdbg("SNIFF: %s" % _obfuscate_passwords(data))
                         Consumer.queue.put(data)
@@ -369,7 +370,11 @@ class Consumer(object):
             # each with an associated observation identifier.
             if sensor_map is None:
                 return pkt
-            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
+            packet = dict()
+            if 'dateTime' in pkt:
+                packet['dateTime'] = pkt['dateTime']
+            if 'usUnits' in pkt:
+                packet['usUnits'] = pkt['usUnits']
             for n in sensor_map:
                 label = Consumer.Parser._find_match(sensor_map[n], pkt.keys())
                 if label:
