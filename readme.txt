@@ -60,12 +60,12 @@ Driver options
 To configure the driver beyond the default values, set parameters in the
 [Interceptor] section of the weewx configuration file.
 
-For example, to listen on port 80 instead of the default port 9999,
+For example, to listen on port 8000 instead of the default port 80:
 
 [Interceptor]
     driver = user.interceptor
     device_type = observer
-    port = 80
+    port = 8000
 
 To listen on port 8080 on the network interface with address 192.168.0.14:
 
