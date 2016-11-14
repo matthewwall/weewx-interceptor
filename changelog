@@ -1,6 +1,7 @@
 0.16 10nov2016
 * added comments and logging for gw1000u
 * fix rssi/rxCheckPercent scaling bug (thanks to radar)
+* avoid indexing errors in sniff extraction
 
 0.15
 * added direct support for sniffing using pcap (thanks to jerome helbert)

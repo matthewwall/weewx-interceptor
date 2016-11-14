@@ -264,7 +264,7 @@ class Consumer(object):
             loginf("sniff filter '%s'" % pcap_filter)
             self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
-            self.reassembled_string = ''
+            self.query_string = ''
             self.sniff_active = False
 
         def run(self):
@@ -280,25 +280,29 @@ class Consumer(object):
             self.packet_sniffer = None
 
         def decode_ip_packet(self, _pktlen, data, _timestamp):
-            if data and len(data) >= 15:
-                logdbg("sniff: pktlen=%s timestamp=%s data=%s" %
-                       (_pktlen, _timestamp, _fmt_bytes(data)))
-                if data[12:14] == '\x08\x00':
+            if data:
+                logdbg("sniff: timestamp=%s pktlen=%s data=%s" %
+                       (_timestamp, _pktlen, _fmt_bytes(data)))
+                if len(data) >= 15 and data[12:14] == '\x08\x00':
                     header_len = ord(data[14]) & 0x0f
-                    _data = data[4 * header_len + 34:]
-                    logdbg("sniff: header_len=%s _data=%s" %
-                           (header_len, _fmt_bytes(_data)))
-                    if 'GET' in _data:
-                        self.reassembled_string = _data
-                        self.sniff_active = True
-                    elif 'HTTP' in data and self.sniff_active:
-                        self.sniff_active = False
-                        logdbg("sniff: %s" % _fmt_bytes(self.reassembled_string))
-                        data = urlparse.urlparse(self.reassembled_string).query
-                        logdbg("SNIFF: %s" % _obfuscate_passwords(data))
-                        Consumer.queue.put(data)
-                    elif self.sniff_active:
-                        self.reassembled_string += _data
+                    idx = 4 * header_len + 34
+                    if len(data) >= idx:
+                        _data = data[idx:]
+                        if 'GET' in _data:
+                            self.query_string = _data
+                            self.sniff_active = True
+                            logdbg("sniff: start %s" % _fmt_bytes(_data))
+                        elif 'HTTP' in data and self.sniff_active:
+                            self.sniff_active = False
+                            data = urlparse.urlparse(self.query_string).query
+                            logdbg("sniff: final %s" % _fmt_bytes(_data))
+                            logdbg("SNIFF: %s" % _obfuscate_passwords(data))
+                            Consumer.queue.put(data)
+                        elif self.sniff_active:
+                            self.query_string += _data
+                            logdbg("sniff: append %s" % _fmt_bytes(_data))
+                        else:
+                            logdbg("sniff: ignore %s" % _fmt_bytes(data))
 
     class TCPServer(Server, SocketServer.TCPServer):
         daemon_threads = True
