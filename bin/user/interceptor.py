@@ -952,8 +952,8 @@ class Observer(Consumer):
 #
 # uv sensor (0x8e)
 #  or - ?              samples: 0
-#  uvh - ?             samples: 0
-#  uv - index? what is range?   samples: 125, 365
+#  uvh - index         samples: 0
+#  uv - ?              samples: 125, 365
 #
 # wind sensor (0x90)
 #  gw - ?              samples: 0
@@ -999,7 +999,7 @@ class LW30x(Consumer):
             'windDir': 'wd.?:*.*',
             'rainRate': 'rr.?:*.*',
             'rain': 'rain.?:*.*',
-            'UV': 'uv.?:*.*'}
+            'UV': 'uvh.?:*.*'}
 
         @staticmethod
         def parse_identifiers(s):
