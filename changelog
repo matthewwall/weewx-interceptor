@@ -2,6 +2,8 @@
 * added comments and logging for gw1000u
 * fix rssi/rxCheckPercent scaling bug (thanks to radar)
 * avoid indexing errors in sniff extraction
+* fixed uv in lw30x
+* use colon to help isolate channel identifier in lw30x sensor maps
 
 0.15
 * added direct support for sniffing using pcap (thanks to jerome helbert)

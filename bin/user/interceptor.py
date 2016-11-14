@@ -975,7 +975,7 @@ class Observer(Consumer):
 #  rfa - rain fall accumulated? mm
 
 # resulting raw packet format:
-#   <observation_name>.<ch><rid>.<mac> : value
+#   <observation_name>.<ch>:<rid>.<mac> : value
 
 class LW30x(Consumer):
 
