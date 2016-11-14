@@ -992,14 +992,14 @@ class LW30x(Consumer):
         # map database fields to sensor tuples
         DEFAULT_SENSOR_MAP = {
             'barometer': 'baro..*', # FIXME: should this be pressure?
-            'outTemp': 'ot.?*.*',
-            'outHumidity': 'oh.?*.*',
-            'windSpeed': 'ws.?*.*',
-            'windGust': 'wg.?*.*',
-            'windDir': 'wd.?*.*',
-            'rainRate': 'rr.?*.*',
-            'rain': 'rain.?*.*',
-            'UV': 'uv.?*.*'}
+            'outTemp': 'ot.?:*.*',
+            'outHumidity': 'oh.?:*.*',
+            'windSpeed': 'ws.?:*.*',
+            'windGust': 'wg.?:*.*',
+            'windDir': 'wd.?:*.*',
+            'rainRate': 'rr.?:*.*',
+            'rain': 'rain.?:*.*',
+            'UV': 'uv.?:*.*'}
 
         @staticmethod
         def parse_identifiers(s):
@@ -1030,8 +1030,8 @@ class LW30x(Consumer):
             #   observation.<channel><sensor_id>.<bridge_id>
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
-            _id = '%s%s.%s' % (pkt.get('ch', ''), pkt.get('rid', ''),
-                               pkt.get('mac', ''))
+            _id = '%s:%s.%s' % (pkt.get('ch', ''), pkt.get('rid', ''),
+                                pkt.get('mac', ''))
             for n in pkt:
                 packet["%s.%s" % (n, _id)] = pkt[n]
             return packet
