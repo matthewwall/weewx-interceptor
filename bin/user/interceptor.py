@@ -153,6 +153,7 @@ import Queue
 import binascii
 import calendar
 import fnmatch
+import string
 import syslog
 import threading
 import time
@@ -161,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.16'
+DRIVER_VERSION = '0.17a'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -265,7 +266,6 @@ class Consumer(object):
             self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
             self.query_string = ''
-            self.sniff_active = False
 
         def run(self):
             logdbg("start sniff server");
@@ -280,29 +280,32 @@ class Consumer(object):
             self.packet_sniffer = None
 
         def decode_ip_packet(self, _pktlen, data, _timestamp):
-            if data:
-                logdbg("sniff: timestamp=%s pktlen=%s data=%s" %
-                       (_timestamp, _pktlen, _fmt_bytes(data)))
-                if len(data) >= 15 and data[12:14] == '\x08\x00':
-                    header_len = ord(data[14]) & 0x0f
-                    idx = 4 * header_len + 34
-                    if len(data) >= idx:
-                        _data = data[idx:]
-                        if 'GET' in _data:
-                            self.query_string = _data
-                            self.sniff_active = True
-                            logdbg("sniff: start %s" % _fmt_bytes(_data))
-                        elif 'HTTP' in data and self.sniff_active:
-                            self.sniff_active = False
-                            data = urlparse.urlparse(self.query_string).query
-                            logdbg("sniff: final %s" % _fmt_bytes(_data))
-                            logdbg("SNIFF: %s" % _obfuscate_passwords(data))
-                            Consumer.queue.put(data)
-                        elif self.sniff_active:
-                            self.query_string += _data
+            if not data:
+                return
+            logdbg("sniff: timestamp=%s pktlen=%s data=%s" %
+                   (_timestamp, _pktlen, _fmt_bytes(data)))
+            if len(data) >= 15 and data[12:14] == '\x08\x00':
+                header_len = ord(data[14]) & 0x0f
+                idx = 4 * header_len + 34
+                if len(data) >= idx:
+                    _data = data[idx:]
+                    if 'GET' in _data:
+                        logdbg("sniff: start %s" % _fmt_bytes(_data))
+                        self.query_string = _data
+                    elif 'HTTP' in data and len(self.query_string):
+                        logdbg("sniff: final %s" % _fmt_bytes(self.query_string))
+                        data = urlparse.urlparse(self.query_string).query
+                        logdbg("SNIFF: %s" % _obfuscate_passwords(data))
+                        Consumer.queue.put(data)
+                        self.query_string = ''
+                    elif len(self.query_string):
+                        printable = set(string.printable)
+                        fdata = filter(lambda x: x in printable, _data)
+                        if fdata == _data:
                             logdbg("sniff: append %s" % _fmt_bytes(_data))
+                            self.query_string += _data
                         else:
-                            logdbg("sniff: ignore %s" % _fmt_bytes(data))
+                            logdbg("sniff: ignore %s" % _fmt_bytes(_data))
 
     class TCPServer(Server, SocketServer.TCPServer):
         daemon_threads = True
