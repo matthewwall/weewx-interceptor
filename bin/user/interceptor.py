@@ -445,7 +445,7 @@ class Consumer(object):
             return calendar.timegm(ts)
 
 
-# sample output from a bridge with 3 t/h sensors and 1 5-in-1
+# sample output from an acurite bridge with 3 t/h sensors and 1 5-in-1
 #
 # Chaney format (pre-July2016):
 # id=X&mt=pressure&C1=452D&C2=0D7F&C3=010D&C4=0330&C5=8472&C6=1858&C7=09C4&A=07&B=1B&C=06&D=09&PR=91CA&TR=8270
@@ -1073,6 +1073,8 @@ Packet types
 
 Sent by the gateway:
 
+CC:EE len description
+----- --- -----------
 00:10   0 gateway power up
 00:20   0 gateway registration
 00:30   0 gateway registration finished
@@ -1086,6 +1088,8 @@ Sent by the gateway:
 
 Sent by the server:
 
+xx:xx len description
+----- --- -----------
 10:00   0 reply to 00:10
 20:00 252 reply to 00:20
 30:00   0 reply to 00:30
