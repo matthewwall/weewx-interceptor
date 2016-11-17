@@ -995,7 +995,7 @@ class LW30x(Consumer):
         def __init__(self):
             self._last_rain = None
 
-        FLOATS = ['baro', 'ot', 'oh', 'ws', 'wg', 'wd', 'rr', 'rfa', 'uv']
+        FLOATS = ['baro', 'ot', 'oh', 'ws', 'wg', 'wd', 'rr', 'rfa', 'uvh']
 
         # map database fields to sensor tuples
         DEFAULT_SENSOR_MAP = {
