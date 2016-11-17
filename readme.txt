@@ -291,7 +291,7 @@ iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPP
 
 option 4: capture using tcpdump via a secure connection to the router
 
-ssh Z.Z.Z.Z "tcpdump -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
+ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | nc localhost PPPP
 
 
 option 5: capture using ngrep, filter with sed, forward with curl

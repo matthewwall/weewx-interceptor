@@ -936,7 +936,7 @@ class Observer(Consumer):
 #
 # all packets
 #  mac - mac address of the bridge
-#  id - sensor type identifier?
+#  id - sensor type identifier
 #
 # base station packets (0xc2)
 #  pv - ?                      samples: 0
@@ -946,7 +946,7 @@ class Observer(Consumer):
 #  lost - lost contact?        samples: 0000
 #  baro - barometer mbar
 #  ptr - ?                     samples: 0
-#  wfor - weather forecast?
+#  wfor - weather forecast
 #
 # all non-base packets
 #  rid - sensor identifier
