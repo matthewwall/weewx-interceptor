@@ -1,3 +1,6 @@
+0.17 16nov2016
+* reject packets with no dateTime or usUnits instead of failing
+
 0.16 10nov2016
 * added comments and logging for gw1000u
 * fix rssi/rxCheckPercent scaling bug (thanks to radar)

@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17a'
+DRIVER_VERSION = '0.17b'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -716,7 +716,11 @@ class AcuriteBridge(Consumer):
         def add_identifiers(pkt):
             # tag each observation with identifiers:
             #   observation.<sensor_id>.<bridge_id>
-            packet = {'dateTime': pkt['dateTime'], 'usUnits': pkt['usUnits']}
+            packet = dict()
+            if 'dateTime' in pkt:
+                packet['dateTime'] = pkt['dateTime']
+            if 'usUnits' in pkt:
+                packet['usUnits'] = pkt['usUnits']
             _id = '%s.%s' % (
                 pkt.get('sensor_id', ''), pkt.get('bridge_id', ''))
             for n in pkt:
