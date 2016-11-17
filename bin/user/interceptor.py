@@ -441,6 +441,7 @@ class Consumer(object):
             if s == 'now':
                 return int(time.time() + 0.5)
             s = s.replace("%20", " ")
+            s = s.replace("%3A", ":")
             ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
             return calendar.timegm(ts)
 

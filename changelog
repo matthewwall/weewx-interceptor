@@ -1,5 +1,6 @@
 0.17 16nov2016
 * reject packets with no dateTime or usUnits instead of failing
+* replace colons as well as spaces in datetime strings
 
 0.16 10nov2016
 * added comments and logging for gw1000u
