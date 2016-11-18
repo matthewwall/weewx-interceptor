@@ -45,13 +45,11 @@ wee_extension --install weewx-interceptor.zip
 
 3) configure the driver
 
-wee_config --reconfigure
+wee_config --reconfigure --driver=user.interceptor
 
 4) start weewx
 
 sudo /etc/init.d/weewx start
-
-5) direct network traffic from the bridge or weather station to weewx
 
 
 ===============================================================================
@@ -83,6 +81,29 @@ To sniff packets from 192.168.0.14 on network interface eth1:
     mode = sniff
     iface = eth1
     pcap_filter = src 192.168.0.14 and dst port 80
+
+For the Acurite bridge or LW30x, use the sensor_map to distinguish between
+sensors and map them to database fields.  For example:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = acurite-bridge
+    ...
+    [[sensor_map]]
+        inTemp = temperature.06022.*      # sensor id 06022
+        outTemp = temperature.05961.*     # sensor id 05961
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lw30x
+    ...
+    [[sensor_map]]
+        inTemp = ot.2:*.*      # sensor on channel 2
+        outTemp = ot.1:*.*     # sensor on channel 1
+
+Run the driver directly to see the sensor identifiers:
+
+PYTHONPATH=bin python bin/user/interceptor.py --help
 
 
 ===============================================================================
@@ -254,39 +275,28 @@ capture traffic, then use a tool such as nc to direct the traffic to the
 driver.  Another strategy is to use firewall rules to capture and redirect
 traffic.
 
-Isn't it nice to have options? :)
+If the source sends each HTTP request in a single line (e.g., the LW30x or the
+Observer), then tcpdump, ngrep, or tcpflow will probably work fine.  However,
+if the source sends each request in multiple packets (e.g., Acurite bridge
+with firmware after July 2016), you will have to use a utility such as
+combine-lines.pl (in the util folder) before re-sending the request.
 
+Here are examples of how to capture packets:
 
-option 0: use the driver in 'sniff' mode on a device that can see the traffic
-          from the internet bridge, i.e., plugged in to a shared hub, plugged
-          in to a switch with mirrored ports, or a device with two network
-          interfaces that are bridged
+option 1: redirect traffic using iptables firewall rules
 
-[Interceptor]
-    mode = sniff
-    iface = eth0
-    pcap_filter = src 192.168.1.14 and dst port 80
-
-
-option 1: capture using tcpdump, redirect using nc
-
-tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
-
+iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
+iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
 
 option 2: capture using tcpdump, redirect using nc
 
+tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
 tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
 
 
 option 3: capture using ngrep, redirect using nc
 
 ngrep -l -q -d eth0 'ether src host X.X.X.X && dst port 80' | nc Y.Y.Y.Y PPPP
-
-
-option 4: redirect traffic using iptables firewall rules
-
-iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
-iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
 
 
 option 4: capture using tcpdump via a secure connection to the router
@@ -304,7 +314,7 @@ option 6: use stdbuf and strings to extract fragments from tcpdump
 tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings -n8 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
 
-option 7: use tcpflow in console mode
+option 7: capture using tcpflow
 
 tcpflow -C -i eth0 -s0 tcp dst port 80 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
 
