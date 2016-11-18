@@ -1841,6 +1841,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         loginf('device type: %s' % self._device_type)
         self._obs_map = stn_dict.pop('sensor_map', None)
         loginf('sensor map: %s' % self._obs_map)
+        self._queue_timeout = int(stn_dict.pop('queue_timeout', 10))
         self._device = self.DEVICE_TYPES.get(self._device_type)(**stn_dict)
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
@@ -1860,7 +1861,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
     def genLoopPackets(self):
         while True:
             try:
-                data = self._device.get_queue().get(True, 10)
+                data = self._device.get_queue().get(True, self._queue_timeout)
                 logdbg('raw data: %s' % data)
                 pkt = self._device.parser.parse(data)
                 logdbg('raw packet: %s' % pkt)
