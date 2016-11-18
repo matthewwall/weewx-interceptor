@@ -941,27 +941,28 @@ class Observer(Consumer):
 #
 # all packets
 #  mac - mac address of the bridge
-#  id - sensor type identifier
+#  id - sensor type identifier       samples: 82, 84, 8e, 90, c2
+#  p - ?                             samples: 1
 #
 # base station packets (0xc2)
 #  pv - ?                      samples: 0
 #  lb - ?                      samples: 0
 #  ac - ?                      samples: 0
-#  reg - registered sensors?   samples: 1803, 1009
+#  reg - registered sensors?   samples: 1803, 1009, 1809
 #  lost - lost contact?        samples: 0000
 #  baro - barometer mbar
-#  ptr - ?                     samples: 0
+#  ptr - ?                     samples: 0, 1
 #  wfor - weather forecast
 #
 # all non-base packets
 #  rid - sensor identifier
-#  pwr - battery status?
-#  ch - channel
+#  pwr - battery status?       samples: 0
+#  ch - channel                samples: 1, 3
 #
 # uv sensor (0x8e)
 #  or - ?              samples: 0
 #  uvh - index         samples: 0
-#  uv - ?              samples: 125, 365
+#  uv - ?              samples: 125-382
 #
 # wind sensor (0x90)
 #  gw - ?              samples: 0
@@ -971,8 +972,8 @@ class Observer(Consumer):
 #  ws - wind speed m/s
 #
 # temperature/humidity sensor (0x84)
-#  htr - ?             samples: 0, 1
-#  cz - ?              samples: 3, 2
+#  htr - ?             samples: 0, 1, 2
+#  cz - ?              samples: 0, 1, 2, 3
 #  oh - humidity %
 #  ttr - ?             samples: 0, 1
 #  ot - temperature C
@@ -1035,7 +1036,7 @@ class LW30x(Consumer):
                 self._last_rain = pkt['rfa']
 
             # tag each observation with identifiers:
-            #   observation.<channel><sensor_id>.<bridge_id>
+            #   observation.<channel>:<sensor_id>.<bridge_id>
             packet = {'dateTime': int(time.time() + 0.5),
                       'usUnits': weewx.METRICWX}
             _id = '%s:%s.%s' % (pkt.get('ch', ''), pkt.get('rid', ''),
