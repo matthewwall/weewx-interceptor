@@ -82,8 +82,9 @@ To sniff packets from 192.168.0.14 on network interface eth1:
     iface = eth1
     pcap_filter = src 192.168.0.14 and dst port 80
 
-For the Acurite bridge or LW30x, use the sensor_map to distinguish between
-sensors and map them to database fields.  For example:
+For hardware such as the Acurite bridge or LW30x that support multiple remote
+sensors, use the sensor_map to map the sensors to database fields.  For
+example:
 
 [Interceptor]
     driver = user.interceptor
@@ -117,8 +118,7 @@ posted to that server are parsed then processed as sensor inputs.
 In sniff mode, the driver runs a packet sniffer on a dedicated thread.  Data
 captured by sniffing are parsed then processed as sensor inputs.
 
-There are many options for getting data to the driver.  Here are some examples,
-from simplest to most complicated.
+Here are some example configurations, from simplest to most complicated.
 
 Example 1: weewx is running on host 'pi' and nothing is listening on port 80.
 Configure the driver to listen on port 80 and configure the internet bridge to
@@ -144,6 +144,10 @@ to display weewx reports.  Configure the driver to listen on port 9999.  Add a
 reverse proxy to the web server configuration to direct traffic on port 80 from
 the device to port 9999.  Add a DNS entry so that traffic from the device is
 sent to 'pi' instead of the cloud.
+
+
+===============================================================================
+How to intercept data
 
 These are strategies for getting data to the driver when the simple approach
 (direct from device to driver) is not possible:
@@ -283,10 +287,19 @@ combine-lines.pl (in the util folder) before re-sending the request.
 
 Here are examples of how to capture packets:
 
+option 0: put the driver in sniff mode
+
+[Interceptor]
+    mode = sniff
+    iface = eth0
+    pcap_filter = src 192.168.0.14 and dst port 80
+
+
 option 1: redirect traffic using iptables firewall rules
 
 iptables -t broute -A BROUTING -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
 iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPPP
+
 
 option 2: capture using tcpdump, redirect using nc
 
