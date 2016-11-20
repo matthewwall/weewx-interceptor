@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17c'
+DRIVER_VERSION = '0.17d'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1723,13 +1723,15 @@ class GW1000U(Consumer):
         def to_temperature(x, idx):
             # returns temperature in degree C
             s = x[idx:idx + 3]
-            if s.lower() == 'aaa' or s.lower() == 'aa3':
+            if s.lower() == 'aaa' or s.lower() == 'aa3' or s.lower() == 'aa6':
                 return None
             return GW1000U.Parser.bcd2int(s) / 10.0 - 40.0
 
         @staticmethod
         def to_hum(x, idx):
             # returns humidity in percent
+            if s.lower() == 'aa':
+                return None
             return GW1000U.Parser.bcd2int(x[idx:idx + 2])
 
         @staticmethod
@@ -1916,6 +1918,7 @@ if __name__ == '__main__':
                       default=DEFAULT_DEVICE_TYPE,
                       help='type of device for which to listen')
     parser.add_option('--data', dest='data', metavar='DATA',
+                      default='',
                       help='data string for parse testing')
     parser.add_option('--parse-gw1000u', action='store_true',
                       default=False,
@@ -1930,7 +1933,7 @@ if __name__ == '__main__':
 
     if options.parse_gw1000u:
         parser = GW1000U.Parser()
-        print parser.parse(options.data)
+        print parser.parse({'mac': 'tester', 'data': options.data})
         exit(0)
 
     if not options.device_type in InterceptorDriver.DEVICE_TYPES:
