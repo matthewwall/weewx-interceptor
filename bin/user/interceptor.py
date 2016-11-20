@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17d'
+DRIVER_VERSION = '0.17e'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -548,10 +548,10 @@ class AcuriteBridge(Consumer):
     _firmware_version = 126
 
     def __init__(self, **stn_dict):
+        AcuriteBridge._firmware_version = stn_dict.pop(
+            'firmware_version', AcuriteBridge._firmware_version)
         super(AcuriteBridge, self).__init__(
             AcuriteBridge.Parser(), handler=AcuriteBridge.Handler, **stn_dict)
-        if 'firmware_version' in stn_dict:
-            AcuriteBridge._firmware_version = stn_dict['firmware_version']
 
     class Handler(Consumer.Handler):
 
@@ -1259,22 +1259,22 @@ class GW1000U(Consumer):
     
     def __init__(self, **stn_dict):
         stn_dict['mode'] = 'listen' # sniffing not supported for this hardware
-        super(GW1000U, self).__init__(
-            GW1000U.Parser(), handler=GW1000U.Handler, **stn_dict)
-        GW1000U.station_serial = stn_dict.get('serial', '0' * 16)
+        GW1000U.station_serial = stn_dict.pop('serial', '0' * 16)
         if len(GW1000U.station_serial) != 16:
             raise weewx.ViolatedPrecondition("serial number must be 16 characters")
         loginf('using serial number %s' % GW1000U.station_serial)
-        GW1000U.sensor_interval = stn_dict.get(
+        GW1000U.sensor_interval = stn_dict.pop(
             'sensor_interval', GW1000U.sensor_interval)
         loginf('using sensor interval %ss' % GW1000U.sensor_interval)
-        GW1000U.history_interval_idx = stn_dict.get(
+        GW1000U.history_interval_idx = stn_dict.pop(
             'history_interval', GW1000U.history_interval_idx)
         if GW1000U.history_interval_idx not in GW1000U.HISTORY_INTERVALS:
             raise weewx.ViolatedPrecondition("history interval must be 0-7")
         loginf('using history interval %s (%s)' %
                (GW1000U.history_interval_idx,
-                GW1000U.HISTORY_INTERVALS.get(GW1000U.history_interval_idx)))
+                GW1000U.HISTORY_INTERVALS.pop(GW1000U.history_interval_idx)))
+        super(GW1000U, self).__init__(
+            GW1000U.Parser(), handler=GW1000U.Handler, **stn_dict)
 
     @staticmethod
     def encode_ts(ts):
@@ -1705,6 +1705,7 @@ class GW1000U(Consumer):
         def parse_210(self, s):
             pkt = dict()
             pkt['current_epoch'] = self.to_epoch(s, 8)
+            # FIXME: decode the 210 packets (history records?)
             return pkt
 
         @staticmethod
@@ -1730,9 +1731,10 @@ class GW1000U(Consumer):
         @staticmethod
         def to_hum(x, idx):
             # returns humidity in percent
+            s = x[idx:idx + 2]
             if s.lower() == 'aa':
                 return None
-            return GW1000U.Parser.bcd2int(x[idx:idx + 2])
+            return GW1000U.Parser.bcd2int(s)
 
         @staticmethod
         def to_windspeed(x, idx):

@@ -2,6 +2,7 @@
 * reject packets with no dateTime or usUnits instead of failing
 * replace colons as well as spaces in datetime strings
 * check for aa6 temperature and aa humidity values in gw1000u parsing
+* pop station options from stn_config
 
 0.16 10nov2016
 * added comments and logging for gw1000u
