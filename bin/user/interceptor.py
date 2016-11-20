@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17b'
+DRIVER_VERSION = '0.17c'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
