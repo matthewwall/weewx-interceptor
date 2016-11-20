@@ -1915,6 +1915,11 @@ if __name__ == '__main__':
     parser.add_option('--device', dest='device_type', metavar='DEVICE_TYPE',
                       default=DEFAULT_DEVICE_TYPE,
                       help='type of device for which to listen')
+    parser.add_option('--data', dest='data', metavar='DATA',
+                      help='data string for parse testing')
+    parser.add_option('--parse-gw1000u', action='store_true',
+                      default=False,
+                      help='test gw1000u packet parsing')
 
     (options, args) = parser.parse_args()
 
@@ -1923,10 +1928,16 @@ if __name__ == '__main__':
         syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
         debug = True
 
+    if options.parse_gw1000u:
+        parser = GW1000U.Parser()
+        print parser.parse(options.data)
+        exit(0)
+
     if not options.device_type in InterceptorDriver.DEVICE_TYPES:
         raise Exception("unsupported device type '%s'.  options include %s" %
                         (options.device_type,
                          ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
+
     device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
         mode=options.mode,
         iface=options.iface, pcap_filter=options.filter,
