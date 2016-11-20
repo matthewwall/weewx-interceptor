@@ -1644,12 +1644,15 @@ class GW1000U(Consumer):
             # parse the bytes from the payload
             s = payload.get('data', '')
             pkt = dict()
-            if len(s) == 60:
-                pkt = self.parse_30(s)
-            elif len(s) == 394:
-                pkt = self.parse_197(s)
-            elif len(s) == 420:
-                pkt = self.parse_210(s)
+            try:
+                if len(s) == 60:
+                    pkt = self.parse_30(s)
+                elif len(s) == 394:
+                    pkt = self.parse_197(s)
+                elif len(s) == 420:
+                    pkt = self.parse_210(s)
+            except ValueError, e:
+                logerr("parse failed for %s: %s" % (payload, e))
             # now tag each value with identifiers
             mac = payload.get('mac')
             packet = {'dateTime': int(time.time() + 0.5),
