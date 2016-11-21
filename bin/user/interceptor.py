@@ -1597,6 +1597,20 @@ class GW1000U(Consumer):
             # 21..22 beep        00 00
             # 23     unknown     00
             # 24..25 checksum
+            #
+            # implemented:
+            # 00     unknown      1 byte
+            # 01..08 serial       8 bytes 7f ff xx xx xx xx xx
+            # 09..0f unknown4     7 bytes 00 32 00 0b 00 00 00
+            # 10..15 unknown5     6 bytes 0f 00 00 00 03 00
+            # 16..17 ?            2 bytes 
+            # 18..1a server_time  3 bytes bcd(HH) bcd(MM) bcd(SS)
+            # 1b..1d server_date  3 bytes bcd(dd) bcd(mm) bcd(YY)
+            # 1e..1f unknown6     2 bytes 53 07
+            # 20     lcd_contrast 1 byte  05
+            # 21..22 console_beep 2 bytes 00 00
+            # 23     unknown8     1 byte  00
+            # 24..25 checksum     2 bytes crc16 + 7
             hi = last_history_address / 256
             lo = last_history_address % 256
             payload = ''.join(
