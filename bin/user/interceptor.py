@@ -1056,8 +1056,7 @@ class LW30x(Consumer):
 The output from a GW1000U is more complicated that a simply http GET/POST.
 What follows is the dissection using conventions from mycal and skyspy.
 
-Each request has a header HTTP_IDENTIFY that specifys the request type,
-gateway identification, and key.  For example:
+Each request has a header HTTP_IDENTIFY with the following contents:
 
   HTTP_IDENTIFY: 8009E3A7:00:45A49CAF5B9ED7E2:70
                  ^^^^^^^^ ^^ ^^^^^^^^^^^^^^^^ ^^
@@ -1085,7 +1084,7 @@ CC:EE len description
 00:20   0 gateway registration
 00:30   0 gateway registration finished
 00:70   0 gateway ping
-01:00   5 weather station ping  41 46 30 67 39
+01:00   5 weather station ping
 01:01  30 ?
 01:01 197 current data
 01:01 210 history data?
@@ -1250,7 +1249,10 @@ class GW1000U(Consumer):
         0: '1m', 1: '5m', 2: '10m', 3: '15m', 4: '20m', 5: '30m',
         6: '1h', 7: '2h'}
 
-    station_serial = '0' * 16
+    UNREGISTERED_SERIAL = '01020304050600708'
+    EMPTY_SERIAL = '0' * 16
+
+    station_serial = EMPTY_SERIAL # serial from lacrosse, starts with 7fff
     ping_interval = 240 # how often gateway should ping the server, in seconds
     sensor_interval = 15 # seconds between data packets
     history_interval_idx = 3 # index of history interval
@@ -1259,10 +1261,10 @@ class GW1000U(Consumer):
     
     def __init__(self, **stn_dict):
         stn_dict['mode'] = 'listen' # sniffing not supported for this hardware
-        GW1000U.station_serial = stn_dict.pop('serial', '0' * 16)
+        GW1000U.station_serial = stn_dict.pop('serial', GW1000U.station_serial)
         if len(GW1000U.station_serial) != 16:
-            raise weewx.ViolatedPrecondition("serial number must be 16 characters")
-        loginf('using serial number %s' % GW1000U.station_serial)
+            raise weewx.ViolatedPrecondition("serial must be 16 characters")
+        loginf('using station serial %s' % GW1000U.station_serial)
         GW1000U.ping_interval = stn_dict.pop(
             'ping_interval', GW1000U.ping_interval)
         loginf('using ping interval %ss' % GW1000U.ping_interval)
@@ -1316,12 +1318,12 @@ class GW1000U(Consumer):
             response = ''
             parts = self.headers.get('HTTP_IDENTIFY', '').split(':')
             if len(parts) == 4:
-                (mac, id1, key, id2) = parts
+                (mac, id1, code, id2) = parts
                 pkt_type = ("%s:%s" % (id1, id2)).upper()
                 length = int(self.headers.get('Content-Length', 0))
                 data = self.rfile.read(length) if length else ''
                 logdbg("recv: %s:%s %s %s %s" %
-                       (id1, id2, mac, key, _fmt_bytes(data)))
+                       (id1, id2, mac, code, _fmt_bytes(data)))
                 if pkt_type == '00:10':
                     # gateway power up
                     loginf("power up from gateway with mac %s" % mac)
@@ -1337,7 +1339,7 @@ class GW1000U(Consumer):
                     loginf("registration from gateway with mac %s" % mac)
                     flags = '20:00' # sometimes replies with 20:01
                     response = self._create_gateway_reg_response(
-                        '0000000000000000', GW1000U.server_name)
+                        GW1000U.server_name)
                 elif pkt_type == '00:30':
                     # received after response to 00:20 packet
                     flags = '30:00' # also observed 30:01
@@ -1357,11 +1359,14 @@ class GW1000U(Consumer):
                         GW1000U.lcd_brightness,
                         GW1000U.Handler.last_history_address)
                 elif pkt_type == '01:14':
-                    # unknown.  gateway sends 14 bytes of data.
-                    # the first 8 bytes are the serial number.
+                    # unknown.  gateway sends 14 bytes.
+                    # the first 8 bytes are the serial 7fffxxxxxxxx
                     if data and len(data) >= 8:
                         sn = GW1000U.decode_serial(data[0:8])
-                        if sn == GW1000U.station_serial:
+                        if sn.startswith('7fff'):
+                            if GW1000U.station_serial == GW1000U.EMPTY_SERIAL:
+                                loginf("using serial %s" % sn)
+                                GW1000U.station_serial = sn
                             flags = '1C:00'
                             loginf("responded to message 01:14 from %s (%s)"
                                    % (sn, _fmt_bytes(data)))
@@ -1369,27 +1374,30 @@ class GW1000U(Consumer):
                             loginf("ignored message 01:14 from %s (%s)"
                                    % (sn, _fmt_bytes(data)))
                     else:
-                        loginf("ignored message 01:14 with no sn (%s)"
+                        loginf("ignored message 01:14 with no serial (%s)"
                                % _fmt_bytes(data))
                 elif pkt_type == '7F:10':
                     # station registration.  gateway sends 13 bytes.
-                    # the first 8 bytes are the serial number.  ignore requests
-                    # from anything other than the known serial.
+                    # the first 8 bytes are the serial 7fffxxxxxxxx
                     if data and len(data) >= 8:
                         sn = GW1000U.decode_serial(data[0:8])
-                        if sn == GW1000U.station_serial:
+                        if sn == GW1000U.UNREGISTERED_SERIAL:
+                            # FIXME: give the station a serial number
+                            pass
+                        elif sn.startswith('7fff'):
+                            if GW1000U.station_serial == GW1000U.EMPTY_SERIAL:
+                                loginf("using serial %s" % sn)
+                                GW1000U.station_serial = sn
                             flags = '14:00'
                             response = self._create_station_reg_response(
-                                int(time.time()),
-                                GW1000U.station_serial,
-                                GW1000U.lcd_brightness)
+                                int(time.time()), sn, GW1000U.lcd_brightness)
                             loginf("accepted registration for serial %s (%s)"
-                                   % (sn, _fmt_bytes(data)))
+                                   % (rk, _fmt_bytes(data)))
                         else:
                             loginf("ignored registration from serial %s (%s)"
-                                   % (sn, _fmt_bytes(data)))
+                                   % (rk, _fmt_bytes(data)))
                     else:
-                        loginf("ignored message 7F:10 with no sn (%s)"
+                        loginf("ignored message 7F:10 with no serial (%s)"
                                % _fmt_bytes(data))
                 elif pkt_type == '01:01':
                     # data packet
@@ -1423,7 +1431,7 @@ class GW1000U(Consumer):
             self.wfile.write(response)
 
         @staticmethod
-        def _create_gateway_reg_response(serial, server):
+        def _create_gateway_reg_response(server):
             # 252-byte reply.
             #
             # skyspy:
@@ -1450,10 +1458,10 @@ class GW1000U(Consumer):
             # a0..f5             b.weatherdirect.com 00 box.weatherdirect.com
             # f6..fb             18 b1 85 06 1d ff
             return ''.join(
-                [GW1000U.encode_serial(serial), # used to generate a new key
+                [chr(0) * 8, # FIXME: what should these 8 bytes be?
                  server.ljust(0x98, chr(0)),
                  ("%s%s%s" % (server, chr(0), server)).ljust(0x56, chr(0)),
-                 chr(0) * 5,
+                 chr(0) * 5, # FIXME: what should these 5 bytes be?
                  chr(0xff)])
 
         @staticmethod
@@ -1475,6 +1483,7 @@ class GW1000U(Consumer):
             #
             # observed:
             # 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            # 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 f0
             hi = interval / 256
             lo = interval % 256
             return ''.join([chr(0) * 16, chr(hi), chr(lo)])
@@ -1482,11 +1491,10 @@ class GW1000U(Consumer):
         @staticmethod
         def _create_station_reg_response(ts, serial, brightness):
             # 38-byte reply
-            # this reply can set the serial number of the weather station if
-            # the station has the default serial number.  once set, it is not
-            # clear how to modify the serial number, so you might want to
-            # get a serial number from lacrosse first since anything we
-            # generate probably would not be respected by lacrosse.
+            # this reply can set the registration key of the weather station if
+            # it has not yet be set.  once set, it is not clear how to modify
+            # the registration key, so you might want to get a registration key
+            # from lacrosse instead of using one arbitrarily specified here.
             #
             # skyspy:
             # nothing implemented for this
@@ -1601,7 +1609,7 @@ class GW1000U(Consumer):
             lo = last_history_address % 256
             payload = ''.join(
                 [chr(1),
-                 GW1000U.encode_serial(serial), # 8 bytes
+                 GW1000U.encode_serial(serial), # 8 bytes starting with 7fff
                  chr(0) + chr(0x32) + chr(0) + chr(0xb) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
                  chr(sensor_interval), # byte 0x14 (0x3)
                  chr(0),
@@ -1972,7 +1980,7 @@ if __name__ == '__main__':
         print "sensor_interval:", sensor_interval
         print "history_interval:", history_interval
         print "last_address:", last_history_address
-        print "gateway_reg_response:", _fmt_bytes(GW1000U.Handler._create_gateway_reg_response(serial, server))
+        print "gateway_reg_response:", _fmt_bytes(GW1000U.Handler._create_gateway_reg_response(server))
         print "gateway_ping_response:", _fmt_bytes(GW1000U.Handler._create_gateway_ping_response(ping_interval))
         print "station_reg_response:", _fmt_bytes(GW1000U.Handler._create_station_reg_response(ts, serial, brightness))
         print "station_ping_response:", _fmt_bytes(GW1000U.Handler._create_station_ping_response(ts, serial, sensor_interval, history_interval, brightness, last_history_address))
