@@ -4,6 +4,7 @@
 * check for aa6 temperature and aa humidity values in gw1000u parsing
 * pop station options from stn_config
 * added methods for testing gw1000u parsing and response
+* automatically use station serial from gateway on gw1000u
 
 0.16 10nov2016
 * added comments and logging for gw1000u
