@@ -1420,6 +1420,9 @@ class GW1000U(Consumer):
 
             logdbg("send: %s %s" % (flags, _fmt_bytes(response)))
 
+            tstr = time.strftime("%a, %d %b %Y %H:%m:%s GMT",
+                                 time.gmtime(time.time()))
+
             self.send_response(200)
             self.send_header('HTTP_FLAGS', flags)
             self.send_header('Server', 'Microsoft-II/8.0')
@@ -1428,7 +1431,7 @@ class GW1000U(Consumer):
             self.send_header('Cache-Control', 'private')
             self.send_header('Content-Length', len(response))
             self.send_header('Content-Type', 'application/octet-stream')
-#            self.send_header('Date', 'ddd, dd mmm yyyy HH:mm:ss')
+            self.send_header('Date', tstr)
             self.end_headers()
             self.wfile.write(response)
 
