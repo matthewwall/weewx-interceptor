@@ -1086,6 +1086,7 @@ CC:EE len description
 00:70   0 gateway ping
 01:00   5 weather station ping
 01:01  30 ?
+01:01  48 ?
 01:01 197 current data
 01:01 210 history data?
 01:14  14 weather station registration verification
@@ -1098,13 +1099,14 @@ xx:xx len description
 10:00   0 reply to 00:10
 20:00 252 reply to 00:20
 30:00   0 reply to 00:30
+30:01   0 reply to 00:30
 70:00  18 reply to 00:70
+20:01 252 reply to 00:70
 14:00  38 reply to 7f:10
+14:01  38 reply to 01:00
 1c:00   0 reply to 01:14
 00:01   0 reply to 01:01
-20:01 252 reply to 00:70
-30:01   0 reply to 00:30
-14:01  38 reply to 01:00
+00:00   0 reply to 01:01 197
 00:00   0 reply to 01:01 210
 00:01   0 reply to 01:01 210 (terminate the history packets?)
 
@@ -1249,7 +1251,7 @@ class GW1000U(Consumer):
         0: '1m', 1: '5m', 2: '10m', 3: '15m', 4: '20m', 5: '30m',
         6: '1h', 7: '2h'}
 
-    UNREGISTERED_SERIAL = '01020304050600708'
+    UNREGISTERED_SERIAL = '0102030405060708'
     EMPTY_SERIAL = '0' * 16
 
     station_serial = EMPTY_SERIAL # serial from lacrosse, starts with 7fff
@@ -1605,20 +1607,6 @@ class GW1000U(Consumer):
             # 21..22 beep        00 00
             # 23     unknown     00
             # 24..25 checksum
-            #
-            # implemented:
-            # 00     unknown      1 byte
-            # 01..08 serial       8 bytes 7f ff xx xx xx xx xx
-            # 09..0f unknown4     7 bytes 00 32 00 0b 00 00 00
-            # 10..15 unknown5     6 bytes 0f 00 00 00 03 00
-            # 16..17 ?            2 bytes 
-            # 18..1a server_time  3 bytes bcd(HH) bcd(MM) bcd(SS)
-            # 1b..1d server_date  3 bytes bcd(dd) bcd(mm) bcd(YY)
-            # 1e..1f unknown6     2 bytes 53 07
-            # 20     lcd_contrast 1 byte  05
-            # 21..22 console_beep 2 bytes 00 00
-            # 23     unknown8     1 byte  00
-            # 24..25 checksum     2 bytes crc16 + 7
             hi = last_history_address / 256
             lo = last_history_address % 256
             payload = ''.join(
