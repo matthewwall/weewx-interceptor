@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17e'
+DRIVER_VERSION = '0.17f'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1365,10 +1365,11 @@ class GW1000U(Consumer):
                     # the first 8 bytes are the serial 7fffxxxxxxxx
                     if data and len(data) >= 8:
                         sn = GW1000U.decode_serial(data[0:8])
-                        if sn.startswith('7fff'):
-                            if GW1000U.station_serial == GW1000U.EMPTY_SERIAL:
-                                loginf("using serial %s" % sn)
-                                GW1000U.station_serial = sn
+                        if (sn.startswith('7fff') and
+                            GW1000U.station_serial == GW1000U.EMPTY_SERIAL):
+                            loginf("using serial %s" % sn)
+                            GW1000U.station_serial = sn
+                        if sn == GW1000U.station_serial:
                             flags = '1C:00'
                             loginf("responded to message 01:14 from %s (%s)"
                                    % (sn, _fmt_bytes(data)))
@@ -1384,20 +1385,21 @@ class GW1000U(Consumer):
                     if data and len(data) >= 8:
                         sn = GW1000U.decode_serial(data[0:8])
                         if sn == GW1000U.UNREGISTERED_SERIAL:
-                            # FIXME: give the station a serial number
-                            pass
-                        elif sn.startswith('7fff'):
-                            if GW1000U.station_serial == GW1000U.EMPTY_SERIAL:
-                                loginf("using serial %s" % sn)
-                                GW1000U.station_serial = sn
+                            # FIXME: generate a serial number for the station
+                            loginf("ignored unregistered serial from %s" % mac)
+                        if (sn.startswith('7fff') and
+                            GW1000U.station_serial == GW1000U.EMPTY_SERIAL):
+                            loginf("using serial %s" % sn)
+                            GW1000U.station_serial = sn
+                        if sn == GW1000U.station_serial:
                             flags = '14:00'
                             response = self._create_station_reg_response(
                                 int(time.time()), sn, GW1000U.lcd_brightness)
-                            loginf("accepted registration for serial %s (%s)"
-                                   % (rk, _fmt_bytes(data)))
+                            loginf("responded to message 7F:10 from %s (%s)"
+                                   % (sn, _fmt_bytes(data)))
                         else:
-                            loginf("ignored registration from serial %s (%s)"
-                                   % (rk, _fmt_bytes(data)))
+                            loginf("ignored message 7F:10 from %s (%s)"
+                                   % (sn, _fmt_bytes(data)))
                     else:
                         loginf("ignored message 7F:10 with no serial (%s)"
                                % _fmt_bytes(data))
