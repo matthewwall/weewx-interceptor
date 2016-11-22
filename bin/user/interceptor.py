@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17h'
+DRIVER_VERSION = '0.17i'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -268,13 +268,13 @@ class Consumer(object):
             self.query_string = ''
 
         def run(self):
-            logdbg("start sniff server");
+            logdbg("start sniff server")
             self.running = True
             while self.running:
                 self.packet_sniffer.dispatch(1, self.decode_ip_packet)
 
         def stop(self):
-            logdbg("stop sniff server");
+            logdbg("stop sniff server")
             self.running = False
             self.packet_sniffer.close()
             self.packet_sniffer = None
@@ -318,11 +318,11 @@ class Consumer(object):
             SocketServer.TCPServer.__init__(self, (address, int(port)), handler)
 
         def run(self):
-            logdbg("start tcp server");
+            logdbg("start tcp server")
             self.serve_forever()
 
         def stop(self):
-            logdbg("stop tcp server");
+            logdbg("stop tcp server")
             self.shutdown()
             self.server_close()
 
@@ -1385,7 +1385,7 @@ class GW1000U(Consumer):
                                    % (mac, sn, _fmt_bytes(data)))
                         else:
                             loginf("ignored msg 01:14 mac=%s sn=%s (%s)"
-                                   % (sn, _fmt_bytes(data)))
+                                   % (mac, sn, _fmt_bytes(data)))
                     else:
                         loginf("ignored msg 01:14 with no serial mac=%s (%s)"
                                % (mac, _fmt_bytes(data)))
@@ -1425,7 +1425,7 @@ class GW1000U(Consumer):
                                         'data': binascii.b2a_hex(data)})
                     if data[0] == 0x21:
                         # this is a history packet, get the history address
-                        addr = data[4] * 256 + data[5]
+                        addr = ord(data[4]) * 256 + ord(data[5])
                         logdbg("current_address is 0x%04x" % addr)
                         GW1000U.Handler.last_history_address = addr
                 else:
