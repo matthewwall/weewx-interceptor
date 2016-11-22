@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17f'
+DRIVER_VERSION = '0.17g'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1371,38 +1371,43 @@ class GW1000U(Consumer):
                             GW1000U.station_serial = sn
                         if sn == GW1000U.station_serial:
                             flags = '1C:00'
-                            loginf("responded to message 01:14 from %s (%s)"
-                                   % (sn, _fmt_bytes(data)))
+                            loginf("responded to msg 01:14 mac=%s sn=%s (%s)"
+                                   % (mac, sn, _fmt_bytes(data)))
                         else:
-                            loginf("ignored message 01:14 from %s (%s)"
+                            loginf("ignored msg 01:14 mac=%s sn=%s (%s)"
                                    % (sn, _fmt_bytes(data)))
                     else:
-                        loginf("ignored message 01:14 with no serial (%s)"
-                               % _fmt_bytes(data))
+                        loginf("ignored msg 01:14 with no serial mac=%s (%s)"
+                               % (mac, _fmt_bytes(data)))
                 elif pkt_type == '7F:10':
                     # station registration.  gateway sends 13 bytes.
                     # the first 8 bytes are the serial 7fffxxxxxxxx
                     if data and len(data) >= 8:
                         sn = GW1000U.decode_serial(data[0:8])
-                        if sn == GW1000U.UNREGISTERED_SERIAL:
-                            # FIXME: generate a serial number for the station
-                            loginf("ignored unregistered serial from %s" % mac)
                         if (sn.startswith('7fff') and
                             GW1000U.station_serial == GW1000U.EMPTY_SERIAL):
                             loginf("using serial %s" % sn)
                             GW1000U.station_serial = sn
+                        do_reply = False
                         if sn == GW1000U.station_serial:
+                            do_reply = True
+                        if (sn == GW1000U.UNREGISTERED_SERIAL and
+                            GW1000U.station_serial.startswith('7fff')):
+                            loginf("unregistered station mac=%s (%s)"
+                                   % (mac, _fmt_bytes(data)))
+                            do_reply = True
+                        if do_reply:
                             flags = '14:00'
                             response = self._create_station_reg_response(
                                 int(time.time()), sn, GW1000U.lcd_brightness)
-                            loginf("responded to message 7F:10 from %s (%s)"
-                                   % (sn, _fmt_bytes(data)))
+                            loginf("responded to msg 7F:10 mac=%s sn=%s (%s)"
+                                   % (mac, sn, _fmt_bytes(data)))
                         else:
-                            loginf("ignored message 7F:10 from %s (%s)"
-                                   % (sn, _fmt_bytes(data)))
+                            loginf("ignored msg 7F:10 mac=%s sn=%s (%s)"
+                                   % (mac, sn, _fmt_bytes(data)))
                     else:
-                        loginf("ignored message 7F:10 with no serial (%s)"
-                               % _fmt_bytes(data))
+                        loginf("ignored msg 7F:10 with no serial mac=%s (%s)"
+                               % (mac, _fmt_bytes(data)))
                 elif pkt_type == '01:01':
                     # data packet
                     if len(data) in [30, 197, 210]:
