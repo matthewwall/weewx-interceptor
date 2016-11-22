@@ -1509,7 +1509,7 @@ class GW1000U(Consumer):
                  chr(brightness), # byte 0x20 (0x4)
                  chr(0) + chr(0),
                  chr(0)])
-            cs = GW1000U.Handler.checksum16(payload) + 7
+            cs = GW1000U.Handler.checksum16p7(payload)
             return payload + chr(cs >> 8) + chr(cs & 0xff)
 
         @staticmethod
@@ -1520,8 +1520,8 @@ class GW1000U(Consumer):
             return n & 0xff
 
         @staticmethod
-        def checksum16(x):
-            n = 0
+        def checksum16p7(x):
+            n = 7 # the checksum has a seed of 7
             for c in x:
                 n += ord(c)
             return n & 0xffff
