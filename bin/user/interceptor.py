@@ -1085,10 +1085,8 @@ CC:EE len description
 00:30   0 gateway registration finished
 00:70   0 gateway ping
 01:00   5 weather station ping
-01:01  30 ?
-01:01  48 ?
-01:01 197 current data
-01:01 210 history data?
+01:01 197 current data (type 01)
+01:01 210 history data (type 21, also lengths 30, 48, ...)
 01:14  14 weather station registration verification
 7f:10  13 weather station registration
 
@@ -1114,7 +1112,7 @@ Data packets
 
 5-byte 01:00
 
-00
+00 packet type 0x41
 01 rf signal strength
 02
 03
@@ -1126,7 +1124,7 @@ This is the decoding based on mycal description:
 
 start nyb  nybble encoding description
 00H   0    2      byte     Record type, always 01
-01H   2    4      ???      Unknown
+01H   2    4      ???      rf signal strength
 03H   6    3      byte     status?
 04L   9    10     BDC      Date/Time of Max Inside Temp
 09L   13   10     BCD      Date/Time of Min Inside Temp
@@ -1192,10 +1190,17 @@ c0H   180  6      ???      Unknown
 c3H   186  2      binary   Checksum1
 c4H   188  2      binary   Checksum2 May be one 16-bit checksum
 
-30-, 48-, 66-, 84-, 102-, 120-, 138-, 156-, 174-, or 192-byte packets
+historical data packet
 
-00..01 21 64 data type indicator
-02..03
+these packets have length that is a multiple of 18-bytes (0x12).  the largest
+is 210-bytes, the shortest is 30-bytes.  observed lengths include 30, 48, 66,
+84, 102, 120, 138, 156, 174, or 192 bytes.
+
+30-byte packet (history)
+
+00..01 data type indicator (0x21 0x64)
+02     rf signal strength
+03
 04..05 current_address
 06..07 next_address (current + 0x12)
 08..19 data
@@ -1203,8 +1208,9 @@ c4H   188  2      binary   Checksum2 May be one 16-bit checksum
 
 210-byte packet (history)
 
-00..01 21 64 data type indicator
-02..03 unknown2
+00..01 data type indicator (0x21 0x64)
+02     rf signal strength
+03 
 04..05 current_address
 06..07 next_address (current + 0x12)
 08..d1 unknown
@@ -1221,15 +1227,13 @@ Weather station registration
 
 To register a station, press the rain button on the weather station to get a
 blinking REG, then push the gateway button.  This should generate the station
-registration packet 7F:10 which includes the station serial number.  A serial
-that starts with 7FFF has been registered, and the driver should respond with
-this serial.  A serial of 0102030405060708 indicates that the station has not
-been registered, and the response from the driver will be set as the station
-serial number.
+registration packet 7F:10, which contains the registration key.  A registration
+key that starts with 7FFF is a valid registration key, and the driver should
+respond with that key.  A registration key of 0102030405060708 indicates that
+the station has not been registered, and the registration key in the response
+from the driver will be set as the station's registration key.
 
 The station responds to registration with a 01:14 packet.
-
-Once registered, the station sends data packets 01:01 and ping packets 01:00.
 
 Flush data packets
 
@@ -1291,6 +1295,7 @@ class GW1000U(Consumer):
     @staticmethod
     def encode_ts(ts):
         # encode a 12-character time stamp into 6 bytes
+        # FIXME: verify that this should be localtime, not utc
         tstr = time.strftime("%H%M%S%d%m%y", time.localtime(ts))
         s = ''
         for x in range(0, 6):
