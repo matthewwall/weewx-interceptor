@@ -1196,24 +1196,60 @@ these packets have length that is a multiple of 18-bytes (0x12).  the largest
 is 210-bytes, the shortest is 30-bytes.  observed lengths include 30, 48, 66,
 84, 102, 120, 138, 156, 174, or 192 bytes.
 
-30-byte packet (history)
+each packet contains an 8-byte header, n 18-byte records, and a 4-byte footer
 
-00..01 data type indicator (0x21 0x64)
-02     rf signal strength
-03
-04..05 current_address
-06..07 next_address (current + 0x12)
-08..19 data
-1a..1d
+1: 8 + 18 + 4 -> 30
+2: 8 + 36 + 4 -> 48
+11: 8 + 198 + 4 -> 210
+
+30-byte packet
+
+00..01   data type indicator (0x21 0x64)
+02       rf signal strength
+03       ?
+04..05   current_address
+06..07   next_address (current + 0x12)
+08..09   rainfall
+09H      wind gust direction; 0x0-0xf
+0aH      wind direction; 0x0-0xf
+0aL..0bL wind gust; 3 nybbles in 0.01 kph
+0cH..0dH wind speed; 3 nybbles in 0.01 kph
+0dL..0eH outside humidity; %
+0eL..0fH inside humidity; %
+0fL..11L barometer; 0.1 mbar
+12H..13H outside temperature; 0.1 C + 400
+13L..14L inside temperature; 0.1 C + 400
+15..19   date ymdhi
+1a..1d   ?
+
+00|01|02|03|04|05|06|07|08|09|0a|0b|0c|0d|0e|0f|10|11|12|13|14|15|16|17|18|19
+                                                               xx xx xx xx xx
+                                                          x xx inside temp
+                                                      xx x outside temp
+                                              x xx xx barometer
+                                           x x inside humidity
+                                        x x outside humidity
+                                    xx x wind speed
+                               x xx wind gust
+                              x wind direction
+                            x wind gust direction
+                        xx x rainfall
+                  xx xx next address
+            xx xx current address
+         ?
+      xx rf signal strengh
+   64
+21 - data type
 
 210-byte packet (history)
 
 00..01 data type indicator (0x21 0x64)
 02     rf signal strength
-03 
+03     ?
 04..05 current_address
 06..07 next_address (current + 0x12)
-08..d1 unknown
+08..cd eleven 18-byte records
+ce..d1 ?
 
 Gateway registration
 
