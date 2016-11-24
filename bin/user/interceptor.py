@@ -1467,9 +1467,11 @@ class GW1000U(Consumer):
                                             'data': binascii.b2a_hex(data)})
                     elif data and ord(data[0]) == 0x21:
                         # this is a history packet, get the history address
-                        addr = ord(data[4]) * 256 + ord(data[5])
-                        logdbg("current_address is 0x%04x" % addr)
-                        GW1000U.Handler.last_history_address = addr
+                        caddr = ord(data[4]) * 256 + ord(data[5])
+                        naddr = ord(data[6]) * 256 + ord(data[7])
+                        logdbg("current_addr=0x%04x next_addr=0x%04x" %
+                               (caddr, naddr))
+                        GW1000U.Handler.last_history_address = caddr
                     else:
                         loginf("unknown data packet type: %s" %
                                _fmt_bytes(data))
