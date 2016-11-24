@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17i'
+DRIVER_VERSION = '0.17j'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1300,7 +1300,7 @@ class GW1000U(Consumer):
     station_serial = EMPTY_SERIAL # serial from lacrosse, starts with 7fff
     ping_interval = 240 # how often gateway should ping the server, in seconds
     sensor_interval = 1 # minutes between data packets
-    history_interval_idx = 3 # index of history interval
+    history_interval_idx = 1 # index of history interval
     lcd_brightness = 4
     server_name = 'box.weatherdirect.com'
     
@@ -1357,11 +1357,10 @@ class GW1000U(Consumer):
         return (msb << 4) | (lsb & 0xf)
 
     class Handler(Consumer.Handler):
-
+        protocol_version = 'HTTP/1.1'
         last_history_address = 0
-        
-        def handle(self):
-            Consumer.Handler.handle(self)
+
+        def do_PUT(self):
             flags = '00:00'
             response = ''
             parts = self.headers.get('HTTP_IDENTIFY', '').split(':')
@@ -1457,13 +1456,18 @@ class GW1000U(Consumer):
                 elif pkt_type == '01:01':
                     # data packet
                     flags = '00:00' # also observed 00:01
-                    Consumer.queue.put({'mac': mac,
-                                        'data': binascii.b2a_hex(data)})
-                    if data[0] == 0x21:
+                    if data and ord(data[0]) == 0x01:
+                        # this is a current conditions packet, process it
+                        Consumer.queue.put({'mac': mac,
+                                            'data': binascii.b2a_hex(data)})
+                    elif data and ord(data[0]) == 0x21:
                         # this is a history packet, get the history address
                         addr = ord(data[4]) * 256 + ord(data[5])
                         logdbg("current_address is 0x%04x" % addr)
                         GW1000U.Handler.last_history_address = addr
+                    else:
+                        loginf("unknown data packet type: %s" %
+                               _fmt_bytes(data))
                 else:
                     loginf("unknown packet type %s" % pkt_type)
             elif 'HTTP_IDENTIFY' not in self.headers:
@@ -1474,18 +1478,19 @@ class GW1000U(Consumer):
 
             logdbg("send: %s %s" % (flags, _fmt_bytes(response)))
 
-            tstr = time.strftime("%a, %d %b %Y %H:%m:%s GMT",
+            tstr = time.strftime("%a, %d %b %Y %H:%M:%S GMT",
                                  time.gmtime(time.time()))
 
             self.send_response(200)
             self.send_header('HTTP_FLAGS', flags)
-            self.send_header('Server', 'Microsoft-II/8.0')
+            self.send_header('Server', 'Microsoft-IIS/8.0')
             self.send_header('X-Powered-By', 'ASP.NET')
             self.send_header('X-ApsNet-Version', '2.0.50727')
             self.send_header('Cache-Control', 'private')
             self.send_header('Content-Length', len(response))
             self.send_header('Content-Type', 'application/octet-stream')
             self.send_header('Date', tstr)
+            self.send_header('Connection', 'close')
             self.end_headers()
             self.wfile.write(response)
 
@@ -1647,9 +1652,9 @@ class GW1000U(Consumer):
             if sensor_map is None:
                 sensor_map = GW1000U.Parser.DEFAULT_SENSOR_MAP
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
-
+        
         @staticmethod
-        def to_epoch(x, idx):
+        def to_addr(x, idx):
             hi = int(x[idx: idx + 2], 16)
             lo = int(x[idx + 2:idx + 4], 16)
             return hi * 256 + lo

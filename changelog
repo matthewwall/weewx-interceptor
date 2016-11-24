@@ -6,6 +6,7 @@
 * added methods for testing gw1000u parsing and response
 * automatically use station serial from gateway on gw1000u
 * optionally register a gw1000u with arbitrary serial, skipping lacrossealerts
+* finally got gw1000u ping, sensor, and history intervals to work properly
 
 0.16 10nov2016
 * added comments and logging for gw1000u
