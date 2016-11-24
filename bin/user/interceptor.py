@@ -1589,14 +1589,12 @@ class GW1000U(Consumer):
             s = payload.get('data', '')
             pkt = dict()
             try:
-                if len(s) == 60:
-                    pkt = self.parse_30(s)
-                elif len(s) == 394:
-                    pkt = self.parse_197(s)
-                elif len(s) == 420:
-                    pkt = self.parse_210(s)
+                if len(s) == 394 and s[0:2] = '01':
+                    pkt = self.parse_current(s)
+                elif len(s) in [] and s[0:2] = '21':
+                    pkt = self.parse_history(s)
                 else:
-                    loginf("unhandled data length %s (%s)" % (len(s), s))
+                    loginf("unhandled data len=%s (%s)" % (len(s), s))
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (payload, e))
             # now tag each value with identifiers
@@ -1607,11 +1605,11 @@ class GW1000U(Consumer):
                 packet["%s..%s" % (n, mac)] = pkt[n]
             return packet
 
-        def parse_197(self, s):
+        def parse_current(self, s):
             # this expects a string of hex characters.  the data packet length
             # is 197, so the hex string should be 394 characters.
             pkt = dict()
-            pkt['record_type'] = int(s[0:2], 16) # always 01
+            pkt['record_type'] = s[0:2] # always 01
             pkt['rf_signal_strength'] = int(s[2:4], 16) # %
             pkt['status'] = s[4:6] # 0x10, 0x20, 0x30
             pkt['forecast'] = s[6:8] # 0x11, 0x12, 0x20, 0x21
@@ -1636,20 +1634,12 @@ class GW1000U(Consumer):
             pkt['barometer'] = self.to_pressure(s, 339) # mbar
             return pkt
 
-        def parse_30(self, s):
+        def parse_history(self, s):
             pkt = dict()
-            pkt['record_type'] = s[0:4] # always 0x2164
+            pkt['record_type'] = s[0:2] # always 21
             pkt['current_address'] = self.to_addr(s, 8)
             pkt['next_address'] = self.to_addr(s, 12)
-            # FIXME: decode the 30 packets (history records?)
-            return pkt
-
-        def parse_210(self, s):
-            pkt = dict()
-            pkt['record_type'] = s[0:4] # always 0x2164
-            pkt['current_address'] = self.to_addr(s, 8)
-            pkt['next_address'] = self.to_addr(s, 12)
-            # FIXME: decode the 210 packets (history records?)
+            # FIXME: decode the records
             return pkt
 
         @staticmethod
