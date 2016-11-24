@@ -1279,6 +1279,8 @@ Press the rain button until beep on a registered station to flush data packets.
 # resulting raw packet format:
 #   <observation_name>..<mac> : value
 
+# FIXME: implement packet sniffing mode for gw1000u
+
 class GW1000U(Consumer):
 
     # values for history interval:
@@ -1444,7 +1446,8 @@ class GW1000U(Consumer):
                                           _fmt_bytes(data)))
                                 do_reply = True
                             else:
-                                loginf("ignoring unregistered station mac=%s"
+                                # FIXME: generate a new registration key
+                                loginf("ignored unregistered station mac=%s"
                                        " (%s)" % (mac, _fmt_bytes(data)))
                         if do_reply:
                             flags = '14:00'
