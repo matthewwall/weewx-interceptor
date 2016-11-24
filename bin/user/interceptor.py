@@ -1589,9 +1589,9 @@ class GW1000U(Consumer):
             s = payload.get('data', '')
             pkt = dict()
             try:
-                if len(s) == 394 and s[0:2] = '01':
+                if len(s) == 394 and s[0:2] == '01':
                     pkt = self.parse_current(s)
-                elif len(s) in [] and s[0:2] = '21':
+                elif len(s) in [60,96,132,168,204,240,276,312,348,384,420] and s[0:2] == '21':
                     pkt = self.parse_history(s)
                 else:
                     loginf("unhandled data len=%s (%s)" % (len(s), s))
