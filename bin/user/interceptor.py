@@ -1436,11 +1436,16 @@ class GW1000U(Consumer):
                         do_reply = False
                         if sn == GW1000U.station_serial:
                             do_reply = True
-                        if (sn == GW1000U.UNREGISTERED_SERIAL and
-                            GW1000U.station_serial.startswith('7fff')):
-                            loginf("unregistered station mac=%s (%s)"
-                                   % (mac, _fmt_bytes(data)))
-                            do_reply = True
+                        if sn == GW1000U.UNREGISTERED_SERIAL:
+                            if GW1000U.station_serial.startswith('7fff'):
+                                loginf("assigning serial %s to unregistered"
+                                       " station mac=%s (%s)"
+                                       % (GW1000U.station_serial, mac,
+                                          _fmt_bytes(data)))
+                                do_reply = True
+                            else:
+                                loginf("ignoring unregistered station mac=%s"
+                                       " (%s)" % (mac, _fmt_bytes(data)))
                         if do_reply:
                             flags = '14:00'
                             response = self._create_station_reg_response(
