@@ -36,21 +36,21 @@ or using apt-get on debian systems:
 ===============================================================================
 Installation
 
-0) install weewx, select 'Simulator' driver (see the weewx user guide)
+0) install weewx, select 'Simulator' driver
 
-dpkg -i weewx_x.y.z-r.deb
+http://weewx.com/docs/usersguide.htm#installing
 
-1) download the driver
+1) download the interceptor driver
 
 wget -O weewx-interceptor.zip https://github.com/matthewwall/weewx-interceptor/archive/master.zip
 
 2) install the driver
 
-wee_extension --install weewx-interceptor.zip
+sudo wee_extension --install weewx-interceptor.zip
 
 3) configure the driver
 
-wee_config --reconfigure --driver=user.interceptor
+sudo wee_config --reconfigure --driver=user.interceptor --no-prompt
 
 4) start weewx
 
