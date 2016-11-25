@@ -107,7 +107,22 @@ example:
         inTemp = ot.2:*.*      # sensor on channel 2
         outTemp = ot.1:*.*     # sensor on channel 1
 
-Run the driver directly to see the sensor identifiers:
+
+===============================================================================
+How to run the driver directly
+
+The driver can be run directly for diagnostic purposes.  This can be useful
+when setting up the capture pipeline or for determining the sensor identifiers.
+
+For example, to run in sniff mode, looking for acurite bridge sensor data:
+
+PYTHONPATH=bin python bin/user/interceptor.py --device=acurite-bridge --mode=sniff --iface=eth0 --pcap_filter="src 192.168.0.4 and dst port 80"
+
+To run in listen mode, looking for LW302 sensor data on port 9000:
+
+PYTHONPATH=bin python bin/user/interceptor.py --device=lw30x --mode=listen --port=9000
+
+Specify help for a full list of options:
 
 PYTHONPATH=bin python bin/user/interceptor.py --help
 
