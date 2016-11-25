@@ -1280,6 +1280,8 @@ Press the rain button until beep on a registered station to flush data packets.
 #   <observation_name>..<mac> : value
 
 # FIXME: implement packet sniffing mode for gw1000u
+# FIXME: implement standalone option to detect gw1000u broadcasts and configure
+#        the proxy settings to point to the machine running weewx
 
 class GW1000U(Consumer):
 

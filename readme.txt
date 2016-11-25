@@ -6,11 +6,16 @@ Internet Bridge, the Oregon Scientific LW301/302, the Fine Offset
 HP1000/WH2600, or the LaCrosse GW1000U.
 
 Warning!  This driver is experimental.  It is fully tested with the Acurite
-bridge, mostly functional with the Fine Offset HP1000 and WH2600, mostly
-functional with the Oregon Scientific LW stations, and mostly functional with
-the GW1000U.  Feedback from anyone with the untested hardware would be greatly
-appreciated.  My intent is to push these components into weewx once all of the
-different configurations are working properly.
+bridge, the Fine Offset HP1000 and WH2600, the Oregon Scientific LW stations,
+and the GW1000U.  My intent is to push the components into weewx at some point.
+
+There are two modes of operation: listen and sniff.
+
+In listen mode, the driver runs a socket server on a dedicated thread.  Data
+posted to that server are parsed then processed as sensor inputs.
+
+In sniff mode, the driver runs a packet sniffer on a dedicated thread.  Data
+captured by sniffing are parsed then processed as sensor inputs.
 
 
 ===============================================================================
@@ -108,15 +113,7 @@ PYTHONPATH=bin python bin/user/interceptor.py --help
 
 
 ===============================================================================
-How it works
-
-There are two modes of operation: listen and sniff.
-
-In listen mode, the driver runs a socket server on a dedicated thread.  Data
-posted to that server are parsed then processed as sensor inputs.
-
-In sniff mode, the driver runs a packet sniffer on a dedicated thread.  Data
-captured by sniffing are parsed then processed as sensor inputs.
+Examples
 
 Here are some example configurations, from simplest to most complicated.
 
@@ -144,6 +141,73 @@ to display weewx reports.  Configure the driver to listen on port 9999.  Add a
 reverse proxy to the web server configuration to direct traffic on port 80 from
 the device to port 9999.  Add a DNS entry so that traffic from the device is
 sent to 'pi' instead of the cloud.
+
+
+===============================================================================
+Examples: Acurite Bridge in listen mode
+
+1) Create a script that captures data from the bridge and sends it to the
+   computer on which weewx runs.  The router address is Z.Z.Z.Z, the acurite
+   bridge address is X.X.X.X, the computer running the interceptor is Y.Y.Y.Y.
+
+#!/bin/sh
+# remote to the router, capture traffic, and send to interceptor
+ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:9999 -s -d
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = acurite-bridge
+    firmware_version = 224 # set to 126 if bridge uses pre-july-2016 firmware
+    port = 9999
+
+
+===============================================================================
+Examples: Observer in listen mode
+
+1) Configure the Observer to send data to the computer on which interceptor
+   is running.
+
+2) Set parameters in the weewx configuration file:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = observer
+
+
+===============================================================================
+Examples: LW302 in sniff mode
+
+1) Plug LW302 into first network interface eth0 on computer running weewx.
+   Bridge the two network interfaces eth0 and eth1 on the computer running
+   weewx.
+
+2) Set parameters in the weewx configuration file.  The LW302 has IP address
+   of X.X.X.X
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lw30x
+    iface = eth0
+    pcap_filter = src X.X.X.X and dst port 80
+
+
+===============================================================================
+Examples: GW1000U
+
+1) Use the GAS utility to set the proxy on the gateway to the computer on which
+   interceptor is running.
+
+2) Optionally set parameters in the weewx configuration file:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lacrosse-bridge
+    station_serial = 7FFFXXXXXXXXXXXX # 16-character registration key
+    sensor_interval = 1 # numer of minutes between sensor updates
+    history_interval = 3 # integer value in [0-7]
+    ping_interval = 120 # number of seconds between gateway pings
 
 
 ===============================================================================
