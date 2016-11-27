@@ -1,3 +1,6 @@
+0.18
+* use gauge pressure instead of sea level pressure for lw30x raw data
+
 0.17
 * reject packets with no dateTime or usUnits instead of failing
 * replace colons as well as spaces in datetime strings

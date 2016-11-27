@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.17j'
+DRIVER_VERSION = '0.18'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -950,7 +950,7 @@ class Observer(Consumer):
 #  ac - ?                      samples: 0
 #  reg - registered sensors?   samples: 1803, 1009, 1809
 #  lost - lost contact?        samples: 0000
-#  baro - barometer mbar
+#  baro - pressure mbar
 #  ptr - ?                     samples: 0, 1
 #  wfor - weather forecast
 #
@@ -1000,7 +1000,7 @@ class LW30x(Consumer):
 
         # map database fields to sensor tuples
         DEFAULT_SENSOR_MAP = {
-            'barometer': 'baro..*', # FIXME: should this be pressure?
+            'pressure': 'baro..*',
             'outTemp': 'ot.?:*.*',
             'outHumidity': 'oh.?:*.*',
             'windSpeed': 'ws.?:*.*',
