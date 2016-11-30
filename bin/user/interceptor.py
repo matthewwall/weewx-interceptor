@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.18'
+DRIVER_VERSION = '0.19rc1'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1169,7 +1169,6 @@ start nyb  nybble encoding description
 85L   10b  23     ???      Unknown - skydvr says rainfall array
 91H   122  4      binary   Current Ave Wind Speed
 93H   126  4      ???      Unknown
-93H   126  4      ???      Unknown
 95H   12a  6      nybbles  Wind direction history -- One nybble per time period
 98H   130  10     BCD      Time of Max Wind Gust
 9dH   13a  4      binary   Max Wind Gust since reset in 100th of km/h
@@ -1589,8 +1588,9 @@ class GW1000U(Consumer):
             'inHumidity': 'humidity_in..*',
             'outHumidity': 'humidity_out..*',
             'windSpeed': 'wind_speed..*',
-            'windGust': 'wind_gust..*',
+            'windGust': 'gust_speed..*',
             'windDir': 'wind_dir..*',
+            'windGustDir': 'gust_dir..*',
             'rain': 'rain..*',
             'rxCheckPercent': 'rf_signal_strength..*'}
 
@@ -1643,11 +1643,13 @@ class GW1000U(Consumer):
             if ok:
                 pkt['wind_speed'] = self.to_windspeed(s, 290) # kph
                 pkt['wind_dir'] = self.to_winddir(s, 298) # degrees
-                pkt['wind_gust'] = self.to_windspeed(s, 320) # kph
+                pkt['gust_speed'] = self.to_windspeed(s, 320) # kph
+                pkt['gust_dir'] = self.to_winddir(s, 328) # degrees
             else:
                 pkt['wind_speed'] = None
                 pkt['wind_dir'] = None
-                pkt['wind_gust'] = None
+                pkt['gust_speed'] = None
+                pkt['gust_dir'] = None
             pkt['barometer'] = self.to_pressure(s, 339) # mbar
             return pkt
 

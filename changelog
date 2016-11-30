@@ -1,3 +1,6 @@
+0.19
+* added gust dir for gw1000u
+
 0.18
 * use gauge pressure instead of sea level pressure for lw30x raw data
 
