@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.19'
+DRIVER_VERSION = '0.20'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1525,15 +1525,21 @@ class GW1000U(Consumer):
         @staticmethod
         def _create_station_reg_response(ts, serial, brightness):
             # 38-byte reply
+            # FIXME: this looks a lot like the ping response, with the checksum
+            # the only difference.  need more samples from lacrosse alerts to
+            # see whether the last two bytes really should be calculated the
+            # same way as those of the ping response.
             payload = ''.join(
                 [chr(1),
                  GW1000U.encode_serial(serial), # 8 bytes
-                 chr(0) + chr(0x30) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0x77) + chr(0),
-                 chr(0xe) + chr(0xff), # skydriver calls this epoch
+                 chr(0) + chr(0x30) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0) + chr(0xf) + chr(0) + chr(0) + chr(0),
+                 chr(0x77), # FIXME: should be sensor interval minus one?
+                 chr(0),
+                 chr(0xe) + chr(0xff), # FIXME: should be last history address?
                  GW1000U.encode_ts(ts), # 6 bytes
                  chr(0x53),
-                 chr(0x7), # unknown
-                 chr(brightness), # LCD brightness
+                 chr(0x7), # history interval?
+                 chr(brightness - 1), # LCD brightness
                  chr(0) + chr(0), # beep weather station
                  chr(0), # unknown
                  chr(0x7)]) # unknown - 0x7 is from lacrosse alerts
@@ -1558,7 +1564,7 @@ class GW1000U(Consumer):
                  GW1000U.encode_ts(ts), # 6 bytes
                  chr(0x53),
                  chr(history_interval), # byte 0x1f (0x7)
-                 chr(brightness), # byte 0x20 (0x4)
+                 chr(brightness - 1), # byte 0x20 (0x4)
                  chr(0) + chr(0),
                  chr(0)])
             cs = GW1000U.Handler.checksum16p7(payload)

@@ -1,3 +1,6 @@
+0.20 02dec2016
+* fix off-by-one error in lcd brightness for gw1000u
+
 0.19 30nov2016
 * added gust dir for gw1000u
 
