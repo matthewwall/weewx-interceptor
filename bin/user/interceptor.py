@@ -162,7 +162,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.20'
+DRIVER_VERSION = '0.21'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1000,7 +1000,7 @@ class LW30x(Consumer):
 
         # map database fields to sensor tuples
         DEFAULT_SENSOR_MAP = {
-            'pressure': 'baro..*',
+            'pressure': 'baro.:.*',
             'outTemp': 'ot.?:*.*',
             'outHumidity': 'oh.?:*.*',
             'windSpeed': 'ws.?:*.*',

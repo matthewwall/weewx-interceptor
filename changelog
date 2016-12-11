@@ -1,3 +1,6 @@
+0.21 11dec2016
+* fix default pressure sensor map for lw30x
+
 0.20 02dec2016
 * fix off-by-one error in lcd brightness for gw1000u
 
