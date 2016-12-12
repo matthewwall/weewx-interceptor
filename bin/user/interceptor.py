@@ -545,7 +545,7 @@ class AcuriteBridge(Consumer):
     # if the firmware version does not match that of the bridge, the bridge
     # will attempt to download the latest firmware from chaney.
 
-    _firmware_version = 126
+    _firmware_version = 224
 
     def __init__(self, **stn_dict):
         AcuriteBridge._firmware_version = stn_dict.pop(

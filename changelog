@@ -1,3 +1,6 @@
+0.22 12dec2016
+* default to application version 224 (instead of 126) for acurite bridge
+
 0.21 11dec2016
 * fix default pressure sensor map for lw30x
 
