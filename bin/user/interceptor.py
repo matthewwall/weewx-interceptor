@@ -75,6 +75,17 @@ It looks like this hardware simply sends data in weather underground format.
 
 The bridge sends data every 5 minutes.
 
+The anemometer reports wind gust and wind average.  Readings are reported every
+16 seconds, so there is no instantaneous wind speed reading.  The gust measure
+has resolution of 1.1 m/s (2.46 mph) - one revolution of the anemometer.  It is
+measured as the largest number of revolutions in any one second in the final
+8 seconds of the 16 second reporting interval.  The average measure has a
+resolution of 0.14 m/s (0.3 mph) - 1/8 revolution of the anemometer.  It is
+measured as the number of revolutions divided by 8 in the final 8 seconds of
+the 16 second reporting interval.
+
+http://www.wxforum.net/index.php?topic=28713.msg278935#msg278935
+
 
 ===============================================================================
 Oregon Scientific LW301/LW302
