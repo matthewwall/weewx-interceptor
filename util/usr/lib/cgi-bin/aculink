@@ -12,15 +12,16 @@ echo '{ "success": 1, "checkversion": "126" }'
 # get the data as a single string
 POSTDATA=$(cat | tr -d ' ')
 
-# dump the output to file
+# dump the output to file for debugging
 #echo "$POSTDATA" > /var/tmp/bridge-data
 
+SERVER_PORT=9999
+
 # dump the output to a socket
-#SERVER_PORT=9999
 #echo "$POSTDATA" | nc -l -k $SERVER_PORT
 
 # send data to the interceptor driver
-curl -s -d "$POSTDATA" http://localhost:9999/messages/ > /dev/null
+curl -s -d "$POSTDATA" http://localhost:${POST_DATA}/messages/ > /dev/null
 
 # send the data to acurite's acu-link web server if you want that to be updated
-curl -s -d "$POSTDATA" http://acu-link.com/messages/ > /dev/null
+#curl -s -d "$POSTDATA" http://acu-link.com/messages/ > /dev/null

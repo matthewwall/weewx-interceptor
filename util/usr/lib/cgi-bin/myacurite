@@ -1,0 +1,27 @@
+#!/bin/sh
+# Copyright Matthew Wall, all rights reserved
+# cgi stub to reply to acurite internet bridge
+
+# reply to the bridge with output like we get from the myacurite.com server
+echo "Content-type: text/html"
+echo
+echo '{ "success": 1, "checkversion": "224" }'
+
+PREFIX="weatherstation/updateweatherstation"
+
+# get the data as a single string
+DATA=$QUERY_STRING
+
+# dump the output to file for testing
+#echo "$DATA" > /var/tmp/bridge-data
+
+SERVER_PORT=9999
+
+# dump the output to a socket
+#echo "$DATA" | nc -l -k $SERVER_PORT
+
+# send data to the interceptor driver
+curl -s http://localhost:${SERVER_PORT}/${PREFIX}?${DATA} > /dev/null
+
+# send the data to the myacurite web server if you want that to be updated.
+#curl -s http://hubapi.myacurite.com/${PREFIX}?${DATA} > /dev/null
