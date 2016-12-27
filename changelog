@@ -1,3 +1,6 @@
+0.23
+* acurite bridge emits station pressure, not barometer (despite the name)
+
 0.22 12dec2016
 * default to application version 224 (instead of 126) for acurite bridge
 

@@ -173,7 +173,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.21'
+DRIVER_VERSION = '0.23'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -576,10 +576,10 @@ class AcuriteBridge(Consumer):
         # set of sensors.  if there are more than one remote sensor then a
         # custom sensor map is necessary to avoid confusion of outputs.
         DEFAULT_SENSOR_MAP = {
-            # wu format uses barometer in every packet
-            'barometer': 'barometer.?*.*',
-            # chaney format uses barometer in bridge packets only
-            'pressure': 'pressure..*',
+            # wu format uses station pressure in every packet
+            'pressure': 'pressure.*.*',
+            # chaney format uses station pressure in bridge packets only
+            #'pressure': 'pressure..*',
             # both formats
             'inTemp': 'temperature_in.*.*',
             'inHumidity': 'humidity_in.*.*',
@@ -603,7 +603,7 @@ class AcuriteBridge(Consumer):
             'indoorhumidity': 'humidity_in',
             'indoortempf': 'temperature_in',
             'ptempf': 'temperature_probe',
-            'baromin': 'barometer',
+            'baromin': 'pressure', # baromin is actually station pressure
             'windspeedmph': 'windspeed',
             'winddir': 'winddir',
             'dailyrainin': 'rainfall'
