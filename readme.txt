@@ -128,7 +128,93 @@ PYTHONPATH=bin python bin/user/interceptor.py --help
 
 
 ===============================================================================
-Examples
+Example: Acurite Bridge in listen mode
+
+1) Create a script that captures data from the bridge and sends it to the
+   computer on which weewx runs.  The router address is Z.Z.Z.Z, the acurite
+   bridge address is X.X.X.X, the computer running the interceptor is Y.Y.Y.Y.
+
+#!/bin/sh
+# remote to the router, capture traffic, and send to interceptor
+ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:9999 -s -d
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = acurite-bridge
+    port = 9999
+
+
+===============================================================================
+Example: Acurite Bridge in sniff mode
+
+1) The interceptor must be running on a computer that can see traffic from the
+   acurite bridge.  For example, run weewx on a raspberry pi that has both a
+   wired network interface and a wifi network interface.  Connect the acurite
+   bridge to the wired interface, and connect the rpi wireless to the local
+   wireless network.
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = acurite-bridge
+    mode = sniff
+    iface = eth0
+    pcap_filter = src X.X.X.X and dst port 80
+
+
+===============================================================================
+Example: Observer in listen mode
+
+1) Configure the Observer to send data to the computer on which interceptor
+   is running.
+
+2) Set parameters in the weewx configuration file:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = observer
+
+
+===============================================================================
+Example: LW302 in sniff mode
+
+1) Plug LW302 into first network interface eth0 on computer running weewx.
+   Bridge the two network interfaces eth0 and eth1 on the computer running
+   weewx.
+
+2) Set parameters in the weewx configuration file.  The LW302 has IP address
+   of X.X.X.X
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lw30x
+    mode = sniff
+    iface = eth0
+    pcap_filter = src X.X.X.X and dst port 80
+
+
+===============================================================================
+Example: GW1000U
+
+1) Use the GAS utility to set the proxy on the gateway to the computer on which
+   interceptor is running.
+
+2) Optionally set parameters in the weewx configuration file:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lacrosse-bridge
+    station_serial = 7FFFXXXXXXXXXXXX # 16-character registration key
+    sensor_interval = 1 # numer of minutes between sensor updates
+    history_interval = 3 # integer value in [0-7]
+    ping_interval = 120 # number of seconds between gateway pings
+
+
+===============================================================================
+Reference: Generic configurations
 
 Here are some example configurations, from simplest to most complicated.
 
@@ -159,74 +245,7 @@ sent to 'pi' instead of the cloud.
 
 
 ===============================================================================
-Examples: Acurite Bridge in listen mode
-
-1) Create a script that captures data from the bridge and sends it to the
-   computer on which weewx runs.  The router address is Z.Z.Z.Z, the acurite
-   bridge address is X.X.X.X, the computer running the interceptor is Y.Y.Y.Y.
-
-#!/bin/sh
-# remote to the router, capture traffic, and send to interceptor
-ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:9999 -s -d
-
-2) Configure the interceptor
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = acurite-bridge
-    firmware_version = 224 # set to 126 if bridge uses pre-july-2016 firmware
-    port = 9999
-
-
-===============================================================================
-Examples: Observer in listen mode
-
-1) Configure the Observer to send data to the computer on which interceptor
-   is running.
-
-2) Set parameters in the weewx configuration file:
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = observer
-
-
-===============================================================================
-Examples: LW302 in sniff mode
-
-1) Plug LW302 into first network interface eth0 on computer running weewx.
-   Bridge the two network interfaces eth0 and eth1 on the computer running
-   weewx.
-
-2) Set parameters in the weewx configuration file.  The LW302 has IP address
-   of X.X.X.X
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = lw30x
-    iface = eth0
-    pcap_filter = src X.X.X.X and dst port 80
-
-
-===============================================================================
-Examples: GW1000U
-
-1) Use the GAS utility to set the proxy on the gateway to the computer on which
-   interceptor is running.
-
-2) Optionally set parameters in the weewx configuration file:
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = lacrosse-bridge
-    station_serial = 7FFFXXXXXXXXXXXX # 16-character registration key
-    sensor_interval = 1 # numer of minutes between sensor updates
-    history_interval = 3 # integer value in [0-7]
-    ping_interval = 120 # number of seconds between gateway pings
-
-
-===============================================================================
-How to intercept data
+Reference: How to intercept data
 
 These are strategies for getting data to the driver when the simple approach
 (direct from device to driver) is not possible:
@@ -409,6 +428,15 @@ tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings 
 option 7: capture using tcpflow
 
 tcpflow -C -i eth0 -s0 tcp dst port 80 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
+
+
+option 8: web proxy
+
+See the examples in the util directory.  The apache/conf.d/myaculink.conf
+creates an alias, and the the usr/lib/cgi-bin/myaculink script receives data,
+redirects it to the interceptor, and optionally passes it on to the original
+destination.  Use DNS hijack or direct configuration to make the internet
+bridge send to the web proxy.
 
 
 ===============================================================================
