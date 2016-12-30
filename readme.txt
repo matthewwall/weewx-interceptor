@@ -128,7 +128,22 @@ PYTHONPATH=bin python bin/user/interceptor.py --help
 
 
 ===============================================================================
-Example: Acurite Bridge in listen mode
+Example: Acurite Bridge in listen mode, traffic redirected by DNS hijack
+
+1) Configure the DNS server for the local network to make hubapi.myacurite.com
+   point to the computer running weewx.  See the DNS hijack section for details
+   and/or the sample bind DNS configuration in util/bind
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = acurite-bridge
+    port = 80
+
+
+===============================================================================
+Example: Acurite Bridge in listen mode, traffic sniffed at router
 
 1) Create a script that captures data from the bridge and sends it to the
    computer on which weewx runs.  The router address is Z.Z.Z.Z, the acurite

@@ -1,4 +1,10 @@
-// named.conf snipped to redirect acu-link traffic
+// named.conf snippet to redirect myacurite traffic
+zone "hubapi.myacurite.com" {
+     type master;
+     file "/etc/bind/myacurite.com";
+};
+
+// named.conf snippet to redirect acu-link traffic
 zone "www.acu-link.com" {
      type master;
      file "/etc/bind/acu-link.com";
