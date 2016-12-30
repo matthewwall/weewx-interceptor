@@ -297,8 +297,8 @@ bridge tries to send its data.
 
 1a) If you run pfsense, simply add an entry in the Services -> DNS forwarder
 
-  host: www
-  domain: acu-link.com
+  host: hubapi
+  domain: myacurite.com
   ip address: Y.Y.Y.Y
 
 OpenWrt has a similar configuration.
@@ -308,28 +308,28 @@ For example, a bind9 configuration looks something like this:
 
 In the file /etc/bind/named.conf.local:
 
-zone "www.acu-link.com" {
+zone "hubapi.myacurite.com" {
     type master;
-    file "/etc/bind/acu-link.com";
+    file "/etc/bind/myacurite.com";
 };
 
-In the file /etc/bind/acu-link.com:
+In the file /etc/bind/myacurite.com:
 
 $TTL    604800
-@       IN      SOA     dns.www.acu-link.com. root.www.acu-link.com. (
+@       IN      SOA     dns.hubapi.myacurite.com. root.hubapi.myacurite.com. (
 2016032001 ; Serial
     604800 ; Refresh
      86400 ; Retry
    2419200 ; Expire
     604800 ) ; Negative Cache TTL
 ;
-@       IN      NS      dns.www.acu-link.com.
+@       IN      NS      dns.hubapi.myacurite.com.
 @       IN      A       Y.Y.Y.Y
 *       IN      A       Y.Y.Y.Y
 *       IN      AAAA    ::1
 
-This will redirect any requests to www.acu-link.com, but it will not redirect
-any requests to acu-link.com.
+This will redirect any requests to hubapi.myacurite.com, but it will not
+redirect any requests to myacurite.com.
 
 1c) Alternative bind configuration using DNS views.  This configuration sends
 the hijacked DNS entry for queries from the weather station, but the standard
@@ -359,7 +359,7 @@ internet bridge to the driver.
 In the file /etc/apache2/conf.d/aculink.conf:
 
 RewriteEngine on
-RewriteCond %{HTTP_POST} www.acu-link.com
+RewriteCond %{HTTP_POST} hubapi.myacurite.com
 RewriteRule ^/messages(.*)$ http://Y.Y.Y.Y/messages$1
 
 2b) Another option is to use an Apache CGI script.  Put a script alias in
@@ -417,7 +417,7 @@ iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port PPP
 option 2: capture using tcpdump, redirect using nc
 
 tcpdump -i eth0 src X.X.X.X and port 80 | nc Y.Y.Y.Y PPPP
-tcpdump -i eth0 dst www.acu-link.com and port 80 | nc Y.Y.Y.Y PPPP
+tcpdump -i eth0 dst hubapi.myacurite.com and port 80 | nc Y.Y.Y.Y PPPP
 
 
 option 3: capture using ngrep, redirect using nc
