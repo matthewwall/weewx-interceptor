@@ -1,3 +1,6 @@
+0.24
+* respond to Observer requests with 'success'
+
 0.23
 * acurite bridge emits station pressure, not barometer (despite the name)
 

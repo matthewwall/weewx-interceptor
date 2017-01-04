@@ -173,7 +173,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.23'
+DRIVER_VERSION = '0.24rc1'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -823,7 +823,13 @@ class AcuriteBridge(Consumer):
 class Observer(Consumer):
 
     def __init__(self, **stn_dict):
-        super(Observer, self).__init__(Observer.Parser(), **stn_dict)
+        super(Observer, self).__init__(
+            Observer.Parser(), handler=Observer.Handler, **stn_dict)
+
+    class Handler(Consumer.Handler):
+
+        def get_response(self):
+            return 'success'
 
     class Parser(Consumer.Parser):
 
