@@ -47,6 +47,29 @@ Chaney did a firmware update to the bridge in July 2016.  This update made the
 bridge emit data using the weather underground protocol instead of the
 Chaney protocol.
 
+The old firmware (acurite bridge) sends to aculink.com in a proprietary 'chaney
+format'.  The new firmware (smarthub) sends to hubapi.acurite.com as well as to
+rtupdate.wunderground.com.  The format for hubapi is similar to the rtupdate
+format used at weather underground.  The user interface of the aculink service
+has been shut down, and it has been replaced by the myacurite.com user
+interface.
+
+From user whorfin regarding barometric pressure:
+
+Contrary to a significant amount of internet misinformation, it IS possible to
+have the smartHub send accurate, adjusted barometric pressure directly to
+wunderground. The "magic" is to use "Adjusted Pressure" as the "Barometric
+Pressure Setting", and fiddle with station elevation.
+
+After some delay of up to a few minutes, after changing this on myacurite.com,
+hubapi.acurite.com will send a special, extended response to the smartHub. It
+looks like this:
+
+{"localtime":"20:36:10","checkversion":"224","ID1":"","PASSWORD1":"<wunderground_password>","sensor1":"","elevation":""}
+
+Once set, subsequent reports to wunderground by the smarthub will be adusted
+for that sensor number.
+
 
 ===============================================================================
 Observer
@@ -173,7 +196,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.24'
+DRIVER_VERSION = '0.25'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -554,7 +577,8 @@ class AcuriteBridge(Consumer):
     # 224 is the version for the wu format (circa july 2016)
     #
     # if the firmware version does not match that of the bridge, the bridge
-    # will attempt to download the latest firmware from chaney.
+    # will attempt to download the latest firmware from chaney, and the rain
+    # count might get messed up.
 
     _firmware_version = 224
 
@@ -567,7 +591,14 @@ class AcuriteBridge(Consumer):
     class Handler(Consumer.Handler):
 
         def get_response(self):
-            return '{ "success": 1, "checkversion": "%s" }' % AcuriteBridge._firmware_version
+            # the response depends on the firmware in the device, but we have
+            # no way of knowing that from the device.  so the firmware version
+            # is an option one must set in the driver, then this will make the
+            # appropriate response.
+            if AcuriteBridge._firmware_version == 126:
+                return '{ "success": 1, "checkversion": "126" }'
+            ts = time.strftime("%H:%M:%S", time.localtime(time.time()))
+            return '{ "localtime": "%s", "checkversion": "224" }' % ts
 
     class Parser(Consumer.Parser):
 

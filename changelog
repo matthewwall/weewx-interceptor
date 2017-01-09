@@ -1,3 +1,6 @@
+0.25
+* fix response to acurite smarthub to ensure proper rain counts
+
 0.24
 * respond to Observer requests with 'success'
 
