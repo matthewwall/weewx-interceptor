@@ -350,30 +350,33 @@ view "watson" {
 ===============================================================================
 2) HTTP proxy/redirect
 
-Use a proxy to capture HTTP traffic and redirect it to the driver.
+Use a proxy to capture HTTP traffic and redirect it to the driver, and use
+DNS hijack or direct configuration of the device to make the internet bridge
+send to the web proxy.  Then configure the web server as a reverse proxy or
+with a redirecting CGI script.
 
 2a) Here is an example of an Apache 'reverse proxy' configuration for the
 Acurite internet bridge.  The Apache server sends any requests from the
 internet bridge to the driver.
 
-In the file /etc/apache2/conf.d/aculink.conf:
+In the file /etc/apache2/conf.d/myacurite.conf:
 
 RewriteEngine on
-RewriteCond %{HTTP_POST} hubapi.myacurite.com
-RewriteRule ^/messages(.*)$ http://Y.Y.Y.Y/messages$1
+RewriteCond %{HTTP_POST} www.myacurite.com
+RewriteRule ^/weatherstation(.*)$ http://Y.Y.Y.Y/weatherstation$1
 
 2b) Another option is to use an Apache CGI script.  Put a script alias in
-the file /etc/apache2/conf.d/aculink.conf:
+the file /etc/apache2/conf.d/myacurite.conf:
 
-ScriptAlias /messages/ /usr/lib/cgi-bin/aculink
+ScriptAlias /weatherstation/updateweatherstation/ /usr/lib/cgi-bin/myacurite
 
-and copy the cgi script util/usr/lib/cgi-bin/aculink to the Apache
+and copy the cgi script util/usr/lib/cgi-bin/myacurite to the Apache
 cgi-bin directory (nominally /usr/lib/cgi-bin).
 
 2c) Here is a reverse proxy configuration for the nginx web server:
 
 server {
-    location /messages/ {
+    location /weatherstation/ {
         proxy_pass http://Y.Y.Y.Y:PPPP/;
     }
 }
@@ -399,14 +402,6 @@ with firmware after July 2016), you will have to use a utility such as
 combine-lines.pl (in the util folder) before re-sending the request.
 
 Here are examples of how to capture packets:
-
-option 0: put the driver in sniff mode
-
-[Interceptor]
-    mode = sniff
-    iface = eth0
-    pcap_filter = src 192.168.0.14 and dst port 80
-
 
 option 1: redirect traffic using iptables firewall rules
 
@@ -443,15 +438,6 @@ tcpdump -Anpl -s0 -w - -i eth0 src X.X.X.X and dst port 80 | stdbuf -oL strings 
 option 7: capture using tcpflow
 
 tcpflow -C -i eth0 -s0 tcp dst port 80 | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:PPPP -s -d
-
-
-option 8: web proxy
-
-See the examples in the util directory.  The apache/conf.d/myaculink.conf
-creates an alias, and the the usr/lib/cgi-bin/myaculink script receives data,
-redirects it to the interceptor, and optionally passes it on to the original
-destination.  Use DNS hijack or direct configuration to make the internet
-bridge send to the web proxy.
 
 
 ===============================================================================
