@@ -222,7 +222,7 @@ Example: GW1000U
 [Interceptor]
     driver = user.interceptor
     device_type = lacrosse-bridge
-    station_serial = 7FFFXXXXXXXXXXXX # 16-character registration key
+    serial = 7FFFXXXXXXXXXXXX # 16-character registration key
     sensor_interval = 1 # numer of minutes between sensor updates
     history_interval = 3 # integer value in [0-7]
     ping_interval = 120 # number of seconds between gateway pings
