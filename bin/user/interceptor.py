@@ -119,6 +119,7 @@ sensors.  Both kits include the LW300 "Internet connected hub" which is
 connected to the sensor base station via USB (for power only?) and to the
 network via wired ethernet.
 
+LW300: bridge (ethernet)
 LW301: bridge (ethernet), base, rain, wind, TH
 LW302: bridge (ethernet), base, TH
 
@@ -126,6 +127,10 @@ The base communicates with many different OS sensors, not just those included
 in the Anywhere Weather Kit.  For example, the THGR810 temperature/humidity
 sensors (up to 10 channels!) and the sensors included with the WMR86 stations
 are recognized by the LW300 base receivers.
+
+Oregon Scientific says that the LW30x works with any protocol 3 sensor.  It
+says that THGN801 must be channel 1, THGR800/THGN800 must be chanel 2 or
+channel 3, and states no requirements for WGR800 or PCR800 sensors.
 
 By default, the bridge communicates with www.osanywhereweather.com
 
