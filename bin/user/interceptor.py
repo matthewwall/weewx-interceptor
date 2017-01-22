@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # Copyright 2016 Matthew Wall, all rights reserved
+# Distributed under the terms of the GNU Public License (GPLv3)
+
 """
 This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
@@ -201,7 +203,7 @@ import urlparse
 import weewx.drivers
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.25'
+DRIVER_VERSION = '0.26'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80

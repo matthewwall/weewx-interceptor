@@ -1,5 +1,6 @@
 # installer for the weewx-interceptor driver
 # Copyright 2016 Matthew Wall, all rights reserved
+# Distributed under the terms of the GNU Public License (GPLv3)
 
 from setup import ExtensionInstaller
 
@@ -9,7 +10,7 @@ def loader():
 class InterceptorInstaller(ExtensionInstaller):
     def __init__(self):
         super(InterceptorInstaller, self).__init__(
-            version="0.25",
+            version="0.26",
             name='interceptor',
             description='Capture weather data from HTTP requests',
             author="Matthew Wall",

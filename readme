@@ -1,4 +1,6 @@
 weewx-interceptor
+Copyright 2016-2017 Matthew Wall
+Distributed under terms of the GPLv3
 
 This is a driver for weewx that receives and parses network traffic.  It can
 be used with a variety of "internet bridge" devices such as the Acurite
