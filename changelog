@@ -1,3 +1,6 @@
+0.27 12feb2017
+* make promiscuous a configuration option for sniff mode
+
 0.26 22jan2017
 * make license explicit
 

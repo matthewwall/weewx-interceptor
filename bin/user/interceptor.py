@@ -201,9 +201,10 @@ import time
 import urlparse
 
 import weewx.drivers
+import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.26'
+DRIVER_VERSION = '0.27'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -266,11 +267,13 @@ class Consumer(object):
 
     def __init__(self, parser, mode='listen',
                  address=DEFAULT_ADDR, port=DEFAULT_PORT, handler=None,
-                 iface=DEFAULT_IFACE, pcap_filter=DEFAULT_FILTER):
+                 iface=DEFAULT_IFACE, pcap_filter=DEFAULT_FILTER,
+                 promiscuous=0):
         self.parser = parser
         loginf("mode is %s" % mode)
         if mode == 'sniff':
-            self._server = Consumer.SniffServer(iface, pcap_filter)
+            self._server = Consumer.SniffServer(
+                iface, pcap_filter, promiscuous)
         elif mode == 'listen':
             self._server = Consumer.TCPServer(address, port, handler)
         else:
@@ -294,15 +297,15 @@ class Consumer(object):
 
     class SniffServer(Server):
         SNAPLEN = 1600
-        PROMISCUOUS = 0
         TIMEOUT_MS = 100
 
-        def __init__(self, iface, pcap_filter):
+        def __init__(self, iface, pcap_filter, promiscuous):
             import pcap
+            pval = 1 if weeutil.weeutil.to_bool(promiscuous) else 0
             self.packet_sniffer = pcap.pcapObject()
-            loginf("sniff iface %s" % iface)
+            loginf("sniff iface=%s promiscuous=%s" % (iface, pval))
             self.packet_sniffer.open_live(
-                iface, self.SNAPLEN, self.PROMISCUOUS, self.TIMEOUT_MS)
+                iface, self.SNAPLEN, pval, self.TIMEOUT_MS)
             loginf("sniff filter '%s'" % pcap_filter)
             self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
