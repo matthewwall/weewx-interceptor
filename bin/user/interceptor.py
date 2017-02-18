@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.27'
+DRIVER_VERSION = '0.28rc1'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -241,6 +241,8 @@ def _obfuscate_passwords(msg):
     return msg
 
 def _fmt_bytes(data):
+    if not data:
+        return ''
     return ' '.join(['%02x' % ord(x) for x in data])
 
 def _cgi_to_dict(s):
@@ -309,7 +311,7 @@ class Consumer(object):
             loginf("sniff filter '%s'" % pcap_filter)
             self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
-            self.query_string = ''
+            self.data_buffer = ''
 
         def run(self):
             logdbg("start sniff server")
@@ -324,6 +326,20 @@ class Consumer(object):
             self.packet_sniffer = None
 
         def decode_ip_packet(self, _pktlen, data, _timestamp):
+            # i would like to queue up each packet so we do not have to
+            # maintain state.  unfortunately, sometimes we get data spread
+            # across multiple packets, so we have to reassemble them.
+            #
+            # old acurite: one GET packet
+            # new acurite: multiple GET packets
+            # observer: one GET packet
+            # lw30x: two POST packets
+            #
+            # examples:
+            # POST /update HTTP/1.0\r\nHost: gateway.oregonscientific.com\r\n
+            # mac=0004a36903fe&id=84&rid=f3&pwr=0&htr=0&cz=1&oh=41&...
+            # GET /weatherstation/updateweatherstation?dateutc=now&rssi=2&...
+            # &sensor=00003301&windspeedmph=5&winddir=113&rainin=0.00&...
             if not data:
                 return
             logdbg("sniff: timestamp=%s pktlen=%s data=%s" %
@@ -334,22 +350,40 @@ class Consumer(object):
                 if len(data) >= idx:
                     _data = data[idx:]
                     if 'GET' in _data:
-                        logdbg("sniff: start %s" % _fmt_bytes(_data))
-                        self.query_string = _data
-                    elif 'HTTP' in data and len(self.query_string):
-                        logdbg("sniff: final %s" % _fmt_bytes(self.query_string))
-                        data = urlparse.urlparse(self.query_string).query
-                        logdbg("SNIFF: %s" % _obfuscate_passwords(data))
-                        Consumer.queue.put(data)
-                        self.query_string = ''
-                    elif len(self.query_string):
-                        printable = set(string.printable)
-                        fdata = filter(lambda x: x in printable, _data)
-                        if fdata == _data:
-                            logdbg("sniff: append %s" % _fmt_bytes(_data))
-                            self.query_string += _data
+                        self.flush()
+                        logdbg("sniff: start GET")
+                        self.data_buffer = _data
+                    elif 'POST' in _data:
+                        self.flush()
+                        logdbg("sniff: start POST")
+                        self.data_buffer = 'POST?' # start buffer with dummy
+                    elif len(self.data_buffer):
+                        if 'HTTP' in data:
+                            # looks like the end of a multi-packet GET
+                            self.flush()
                         else:
-                            logdbg("sniff: ignore %s" % _fmt_bytes(_data))
+                            printable = set(string.printable)
+                            fdata = filter(lambda x: x in printable, _data)
+                            if fdata == _data:
+                                logdbg("sniff: append %s" % _fmt_bytes(_data))
+                                self.data_buffer += _data
+                            else:
+                                logdbg("sniff: skip %s" % _fmt_bytes(_data))
+                    else:
+                        logdbg("sniff: ignore %s" % _fmt_bytes(_data))
+
+        def flush(self):
+            logdbg("sniff: flush %s" % _fmt_bytes(self.data_buffer))
+            if not self.data_buffer:
+                return
+            data = self.data_buffer
+            if '?' in data:
+                data = urlparse.urlparse(data).query
+            if len(data):
+                logdbg("SNIFF: %s" % _obfuscate_passwords(data))
+                Consumer.queue.put(data)
+            self.data_buffer = ''
+
 
     class TCPServer(Server, SocketServer.TCPServer):
         daemon_threads = True

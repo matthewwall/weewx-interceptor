@@ -1,3 +1,6 @@
+0.28 18feb2017
+* added POST to sniffer capture
+
 0.27 12feb2017
 * make promiscuous a configuration option for sniff mode
 
