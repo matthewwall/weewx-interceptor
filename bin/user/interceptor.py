@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.28'
+DRIVER_VERSION = '0.29'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -700,7 +700,7 @@ class AcuriteBridge(Consumer):
                     'bridge_id': data.get('id')}
 
         def __init__(self):
-            self._last_rain = None
+            self._last_rain = dict()
 
         # be ready for either the chaney format or the wu format
         def parse(self, s):
@@ -743,9 +743,14 @@ class AcuriteBridge(Consumer):
             # convert rainfall to a delta
             if 'rainfall' in pkt:
                 rain_total = pkt['rainfall']
-                pkt['rainfall'] = self._delta_rain(rain_total, self._last_rain)
-                pkt['rain_total'] = rain_total
-                self._last_rain = rain_total
+                if 'sensor_id' in pkt:
+                    last_rain = self._last_rain.get(pkt['sensor_id'])
+                    pkt['rainfall'] = self._delta_rain(rain_total, last_rain)
+                    pkt['rain_total'] = rain_total
+                    self._last_rain[pkt['sensor_id']] = rain_total
+                else:
+                    loginf("ignored rainfall %s: no sensor_id" % rain_total)
+                    pkt['rainfall'] = None
             return self.add_identifiers(pkt)
 
         # parse packets that are in the chaney format
@@ -1087,7 +1092,7 @@ class LW30x(Consumer):
     class Parser(Consumer.Parser):
 
         def __init__(self):
-            self._last_rain = None
+            self._last_rain = dict()
 
         FLOATS = ['baro', 'ot', 'oh', 'ws', 'wg', 'wd', 'rr', 'rfa', 'uvh']
 
@@ -1125,8 +1130,15 @@ class LW30x(Consumer):
 
             # convert accumulated rain to rain delta
             if 'rfa' in pkt:
-                pkt['rain'] = self._delta_rain(pkt['rfa'], self._last_rain)
-                self._last_rain = pkt['rfa']
+                rain_total = pkt['rfa']
+                if 'ch' in pkt and 'rid' in pkt:
+                    sensor_id = "%s:%s" % (pkt['ch'], pkt['rid'])
+                    last_rain = self._last_rain[sensor_id]
+                    pkt['rain'] = self._delta_rain(rain_total, last_rain)
+                    self._last_rain[sensor_id] = rain_total
+                else:
+                    loginf("ignored rainfall %s: no sensor_id" % rain_total)
+                    pkt['rain'] = None
 
             # tag each observation with identifiers:
             #   observation.<channel>:<sensor_id>.<bridge_id>

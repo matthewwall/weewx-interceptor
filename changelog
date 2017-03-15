@@ -1,3 +1,6 @@
+0.29 14mar2017
+* disambiguate rain totals for multiple acurite sensors
+
 0.28 18feb2017
 * added POST to sniffer capture
 
