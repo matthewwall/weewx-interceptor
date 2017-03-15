@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.28rc1'
+DRIVER_VERSION = '0.28'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -744,6 +744,7 @@ class AcuriteBridge(Consumer):
             if 'rainfall' in pkt:
                 rain_total = pkt['rainfall']
                 pkt['rainfall'] = self._delta_rain(rain_total, self._last_rain)
+                pkt['rain_total'] = rain_total
                 self._last_rain = rain_total
             return self.add_identifiers(pkt)
 
@@ -1981,6 +1982,10 @@ if __name__ == '__main__':
                       help='test gw1000u responses')
 
     (options, args) = parser.parse_args()
+
+    if options.version:
+        print "driver version is %s" % DRIVER_VERSION
+        exit(0)
 
     debug = False
     if options.debug:
