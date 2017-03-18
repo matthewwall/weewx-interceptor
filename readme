@@ -118,7 +118,7 @@ when setting up the capture pipeline or for determining the sensor identifiers.
 
 For example, to run in sniff mode, looking for acurite bridge sensor data:
 
-PYTHONPATH=bin python bin/user/interceptor.py --device=acurite-bridge --mode=sniff --iface=eth0 --pcap_filter="src 192.168.0.4 and dst port 80"
+PYTHONPATH=bin python bin/user/interceptor.py --device=acurite-bridge --mode=sniff --iface=eth0 --filter="src 192.168.0.4 and dst port 80"
 
 To run in listen mode, looking for LW302 sensor data on port 9000:
 
