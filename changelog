@@ -1,3 +1,6 @@
+0.30 26mar2017
+* deal with integer timestamps for dateutc
+
 0.29 14mar2017
 * disambiguate rain totals for multiple acurite sensors
 

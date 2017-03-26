@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.29'
+DRIVER_VERSION = '0.30'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -516,6 +516,8 @@ class Consumer(object):
 
         @staticmethod
         def decode_wu_datetime(s):
+            if isinstance(s, int):
+                return s
             if s == 'now':
                 return int(time.time() + 0.5)
             s = s.replace("%20", " ")
