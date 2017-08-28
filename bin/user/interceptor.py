@@ -937,7 +937,7 @@ class Observer(Consumer):
 
         # map labels to observation names
         LABEL_MAP = {
-            # for firmware Weather logger V2.1.9
+            # firmware Weather logger V2.1.9
             'humidity': 'humidity_out',
             'indoorhumidity': 'humidity_in',
             'tempf': 'temperature_out',
@@ -950,7 +950,7 @@ class Observer(Consumer):
             'windchillf': 'windchill',
             'yearlyrainin': 'rain_total',
 
-            # for firmware HP1001 2.2.2
+            # firmware HP1001 2.2.2
             'outhumi': 'humidity_out',
             'inhumi': 'humidity_in',
             'outtemp': 'temperature_out',
@@ -963,6 +963,9 @@ class Observer(Consumer):
             'windchill': 'windchill',
             'rainrate': 'rain_rate',
             'yearlyrain': 'rain_total',
+
+            # firmware WS-1002 V2.4.3 also reports station pressure
+            'absbaromin': 'pressure',
 
             # for all firmware
             'winddir': 'wind_dir',

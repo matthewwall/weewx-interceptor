@@ -1,3 +1,6 @@
+0.31 28aug2017
+* for observers, recognize absbaromin not just absbaro or baromin
+
 0.30 26mar2017
 * deal with integer timestamps for dateutc
 

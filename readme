@@ -5,11 +5,16 @@ Distributed under terms of the GPLv3
 This is a driver for weewx that receives and parses network traffic.  It can
 be used with a variety of "internet bridge" devices such as the Acurite
 Internet Bridge, the Oregon Scientific LW301/302, the Fine Offset
-HP1000/WH2600, or the LaCrosse GW1000U.
+HP1000/WH2600, or the LaCrosse GW1000U.  The 'observer' mode (for fine offset)
+can probably be used with any weather station that sends directly to weather
+underground.
 
-Warning!  This driver is experimental.  It is fully tested with the Acurite
-bridge, the Fine Offset HP1000 and WH2600, the Oregon Scientific LW stations,
-and the GW1000U.  My intent is to push the components into weewx at some point.
+Warning!  This driver is experimental.  It is fully tested and seems to work
+as designed with the Acurite bridge, the Fine Offset HP1000 and WH2600, the
+Oregon Scientific LW stations, and the GW1000U.  However, the implementation
+is a proof-of-concept to help understand how these devices work. My intent is
+to push the components into weewx, at which time the driver will be refactored
+to simplify setup for each type of weather station.
 
 There are two modes of operation: listen and sniff.
 
