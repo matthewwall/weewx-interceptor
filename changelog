@@ -1,3 +1,6 @@
+0.32 18sep2017
+* prefer yearly rain but use daily rain if yearly is not available
+
 0.31 28aug2017
 * for observers, recognize absbaromin not just absbaro or baromin
 

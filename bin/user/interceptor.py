@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.30'
+DRIVER_VERSION = '0.32'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -948,7 +948,6 @@ class Observer(Consumer):
             'solarradiation': 'radiation',
             'dewptf': 'dewpoint',
             'windchillf': 'windchill',
-            'yearlyrainin': 'rain_total',
 
             # firmware HP1001 2.2.2
             'outhumi': 'humidity_out',
@@ -962,7 +961,6 @@ class Observer(Consumer):
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
             'rainrate': 'rain_rate',
-            'yearlyrain': 'rain_total',
 
             # firmware WS-1002 V2.4.3 also reports station pressure
             'absbaromin': 'pressure',
@@ -974,9 +972,9 @@ class Observer(Consumer):
         }
 
         IGNORED_LABELS = ['relbaro',
-                          'dailyrain', 'weeklyrain', 'monthlyrain',
+                          'weeklyrain', 'monthlyrain',
                           'rainin',
-                          'dailyrainin', 'weeklyrainin', 'monthlyrainin',
+                          'weeklyrainin', 'monthlyrainin',
                           'realtime', 'rtfreq',
                           'action', 'ID', 'PASSWORD', 'dateutc',
                           'softwaretype']
@@ -992,6 +990,24 @@ class Observer(Consumer):
                 pkt['dateTime'] = self.decode_wu_datetime(
                     data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
+
+                # prefer to get rain total from the yearly count, but if
+                # that is not available, get it from the daily count.
+                rain_total = None
+                if 'dailyrainin' in data:
+                    rain_total = self.decode_float(data.pop('dailyrainin'))
+                    year_total = self.decode_float(data.pop('yearlyrainin'))
+                    if year_total is not None:
+                        rain_total = year_total
+                elif 'dailyrain' in data:
+                    rain_total = self.decode_float(data.pop('dailyrain'))
+                    year_total = self.decode_float(data.pop('yearlyrain'))
+                    if year_total is not None:
+                        rain_total = year_total
+                if rain_total is not None:
+                    pkt['rain_total'] = rain_total
+
+                # get all of the other parameters
                 for n in data:
                     if n in self.LABEL_MAP:
                         pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
@@ -999,7 +1015,8 @@ class Observer(Consumer):
                         logdbg("ignored parameter %s=%s" % (n, data[n]))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
-                # get the rain this period from yearly total
+
+                # get the rain this period from total
                 if 'rain_total' in pkt:
                     newtot = pkt['rain_total']
                     if pkt['usUnits'] == weewx.METRIC:
