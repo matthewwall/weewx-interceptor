@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.34'
+DRIVER_VERSION = '0.35'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1035,6 +1035,11 @@ class Observer(Consumer):
                         newtot /= 10.0 # METRIC wants cm, not mm
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
+
+                # ensure that the rain rate has the right units
+                if ('rainRate' in pkt and pkt['rainRate'] is not None and
+                    pkt['usUnits'] == weewx.METRIC):
+                    pkt['rainRate'] /= 10.0 # METRIC wants cm/hr, not mm/hr
 
                 # convert luminosity to solar radiation
                 # FIXME: this should be done in StdWXCalculate

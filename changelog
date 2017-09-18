@@ -1,3 +1,6 @@
+0.35 18sep2017
+* deal with metric rain rate for some observer firmware
+
 0.34 18sep2017
 * prefer rainin, then fallback to yearlyrain, then dailyrain
 
