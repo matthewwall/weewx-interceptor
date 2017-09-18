@@ -1,3 +1,6 @@
+0.34 18sep2017
+* prefer rainin, then fallback to yearlyrain, then dailyrain
+
 0.33 18sep2017
 * added conversion from luminosity to radiation
 

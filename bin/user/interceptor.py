@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.33'
+DRIVER_VERSION = '0.34'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -973,7 +973,6 @@ class Observer(Consumer):
 
         IGNORED_LABELS = ['relbaro',
                           'weeklyrain', 'monthlyrain',
-                          'rainin',
                           'weeklyrainin', 'monthlyrainin',
                           'realtime', 'rtfreq',
                           'action', 'ID', 'PASSWORD', 'dateutc',
@@ -991,19 +990,32 @@ class Observer(Consumer):
                     data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
 
+                # different firmware seems to report rain in different ways.
+                # if the station provides 'rainin', use it.  otherwise,
                 # prefer to get rain total from the yearly count, but if
                 # that is not available, get it from the daily count.
                 rain_total = None
-                if 'dailyrainin' in data:
+                if 'rainin' in data:
+                    pkt['rain'] = self.decode_float(data.pop('rainin'))
+                    data.pop('dailyrainin')
+                    data.pop('yearlyrainin')
+                    logdbg("using rain from 'rainin'")
+                elif 'dailyrainin' in data:
                     rain_total = self.decode_float(data.pop('dailyrainin'))
                     year_total = self.decode_float(data.pop('yearlyrainin'))
                     if year_total is not None:
                         rain_total = year_total
+                        logdbg("using rain_total %s from yearlyrainin" % rain_total)
+                    else:
+                        logdbg("using rain_total %s from dailyrainin" % rain_total)
                 elif 'dailyrain' in data:
                     rain_total = self.decode_float(data.pop('dailyrain'))
                     year_total = self.decode_float(data.pop('yearlyrain'))
                     if year_total is not None:
                         rain_total = year_total
+                        logdbg("using rain_total %s from yearlyrain" % rain_total)
+                    else:
+                        logdbg("using rain_total %s from dailyrain" % rain_total)
                 if rain_total is not None:
                     pkt['rain_total'] = rain_total
 
