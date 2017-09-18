@@ -1,3 +1,6 @@
+0.33 18sep2017
+* added conversion from luminosity to radiation
+
 0.32 18sep2017
 * prefer yearly rain but use daily rain if yearly is not available
 

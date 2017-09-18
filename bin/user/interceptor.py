@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.32'
+DRIVER_VERSION = '0.33'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -957,7 +957,7 @@ class Observer(Consumer):
             'absbaro': 'pressure',
             'windspeed': 'wind_speed',
             'windgust': 'wind_gust',
-            'light': 'radiation',
+            'light': 'luminosity',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
             'rainrate': 'rain_rate',
@@ -1023,6 +1023,12 @@ class Observer(Consumer):
                         newtot /= 10.0 # METRIC wants cm, not mm
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
+
+                # convert luminosity to solar radiation
+                # FIXME: this should be done in StdWXCalculate
+                if 'luminosity' in pkt and not 'radiation' in pkt:
+                    lum2rad = 0.01075 # lux to W/m^2 (approximation)
+                    pkt['radiation'] = pkt['luminosity'] * lum2rad
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
