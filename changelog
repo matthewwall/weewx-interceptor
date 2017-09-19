@@ -1,3 +1,6 @@
+0.36 19sep2017
+* revert to ignoring rainin - on at least some stations it is not rain delta
+
 0.35 18sep2017
 * deal with metric rain rate for some observer firmware
 

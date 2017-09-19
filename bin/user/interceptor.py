@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.35'
+DRIVER_VERSION = '0.36'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -971,7 +971,7 @@ class Observer(Consumer):
             'lowbatt': 'battery',
         }
 
-        IGNORED_LABELS = ['relbaro',
+        IGNORED_LABELS = ['relbaro', 'rainin',
                           'weeklyrain', 'monthlyrain',
                           'weeklyrainin', 'monthlyrainin',
                           'realtime', 'rtfreq',
@@ -991,16 +991,10 @@ class Observer(Consumer):
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
 
                 # different firmware seems to report rain in different ways.
-                # if the station provides 'rainin', use it.  otherwise,
                 # prefer to get rain total from the yearly count, but if
                 # that is not available, get it from the daily count.
                 rain_total = None
-                if 'rainin' in data:
-                    pkt['rain'] = self.decode_float(data.pop('rainin'))
-                    data.pop('dailyrainin')
-                    data.pop('yearlyrainin')
-                    logdbg("using rain from 'rainin'")
-                elif 'dailyrainin' in data:
+                if 'dailyrainin' in data:
                     rain_total = self.decode_float(data.pop('dailyrainin'))
                     year_total = self.decode_float(data.pop('yearlyrainin'))
                     if year_total is not None:
