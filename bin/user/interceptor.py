@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.36'
+DRIVER_VERSION = '0.37'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1172,7 +1172,7 @@ class LW30x(Consumer):
                 rain_total = pkt['rfa']
                 if 'ch' in pkt and 'rid' in pkt:
                     sensor_id = "%s:%s" % (pkt['ch'], pkt['rid'])
-                    last_rain = self._last_rain[sensor_id]
+                    last_rain = self._last_rain.get(sensor_id)
                     pkt['rain'] = self._delta_rain(rain_total, last_rain)
                     self._last_rain[sensor_id] = rain_total
                 else:

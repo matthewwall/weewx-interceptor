@@ -1,3 +1,6 @@
+0.37 04oct2017
+* fixed bug in lw30x rain accumulator
+
 0.36 19sep2017
 * revert to ignoring rainin - on at least some stations it is not rain delta
 
