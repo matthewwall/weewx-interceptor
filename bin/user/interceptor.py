@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.37'
+DRIVER_VERSION = '0.38'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -861,6 +861,16 @@ class AcuriteBridge(Consumer):
             return p, t
 
 
+# known firmware versions
+#
+# Weather logger V2.1.9
+# Weather logger V3.0.7
+# HP1001 V2.2.2
+# WeatherSmart V1.7.0
+# EasyWeather V1.1.2
+# AMBWeather V3.0.0
+# 
+#
 # sample output from an observer
 #
 # ID=XXXX&PASSWORD=PASSWORD&tempf=43.3&humidity=98&dewptf=42.8&windchil
@@ -995,16 +1005,16 @@ class Observer(Consumer):
                 # that is not available, get it from the daily count.
                 rain_total = None
                 if 'dailyrainin' in data:
-                    rain_total = self.decode_float(data.pop('dailyrainin'))
-                    year_total = self.decode_float(data.pop('yearlyrainin'))
+                    rain_total = self.decode_float(data.pop('dailyrainin', None))
+                    year_total = self.decode_float(data.pop('yearlyrainin', None))
                     if year_total is not None:
                         rain_total = year_total
                         logdbg("using rain_total %s from yearlyrainin" % rain_total)
                     else:
                         logdbg("using rain_total %s from dailyrainin" % rain_total)
                 elif 'dailyrain' in data:
-                    rain_total = self.decode_float(data.pop('dailyrain'))
-                    year_total = self.decode_float(data.pop('yearlyrain'))
+                    rain_total = self.decode_float(data.pop('dailyrain', None))
+                    year_total = self.decode_float(data.pop('yearlyrain', None))
                     if year_total is not None:
                         rain_total = year_total
                         logdbg("using rain_total %s from yearlyrain" % rain_total)

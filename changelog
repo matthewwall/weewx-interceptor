@@ -1,3 +1,6 @@
+0.38 19nov2017
+* deal with station firmware that reports dailyrain but no yearlyrain
+
 0.37 04oct2017
 * fixed bug in lw30x rain accumulator
 
