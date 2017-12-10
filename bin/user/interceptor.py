@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.38'
+DRIVER_VERSION = '0.39'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1975,6 +1975,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         if self._server_thread.isAlive():
             logerr('unable to shut down server thread')
 
+    @property
     def hardware_name(self):
         return self._device_type
 

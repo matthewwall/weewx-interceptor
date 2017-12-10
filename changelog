@@ -1,3 +1,6 @@
+0.39 10dec2017
+* hardware_name is a property
+
 0.38 19nov2017
 * deal with station firmware that reports dailyrain but no yearlyrain
 
