@@ -1023,6 +1023,16 @@ class Observer(Consumer):
                 if rain_total is not None:
                     pkt['rain_total'] = rain_total
 
+                # firmware WH2600GEN_V2.2.5 reports station pressure as baromin.
+                # check firmware and change LABEL_MAP if it is V2.2.5
+                if 'softwaretype' in data:
+                    software_type = data['softwaretype']
+                    if software_type == 'WH2600GEN_V2.2.5':
+                        self.LABEL_MAP['baromin'] = 'pressure'
+                        logdbg("firmware %s: using baromin as pressure" % software_type)
+                    else:
+                        logdbg("firmware %s: using baromin as barometer" % software_type)
+
                 # get all of the other parameters
                 for n in data:
                     if n in self.LABEL_MAP:
