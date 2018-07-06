@@ -515,14 +515,19 @@ class Consumer(object):
             return None if x is None else int(x)
 
         @staticmethod
-        def decode_wu_datetime(s):
+        def decode_datetime(s):
             if isinstance(s, int):
                 return s
             if s == 'now':
                 return int(time.time() + 0.5)
             s = s.replace("%20", " ")
             s = s.replace("%3A", ":")
-            ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
+            if '+' in s:
+                # this is an ambient weather timestamp
+                ts = time.strptime(s, "%Y-%m-%d+%H:%M:%S")
+            else:
+                # this is a weather underground timestamp
+                ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
             return calendar.timegm(ts)
 
 
@@ -720,7 +725,7 @@ class AcuriteBridge(Consumer):
             try:
                 data = _cgi_to_dict(s)
                 # FIXME: add option to use computer time instead of station
-                pkt['dateTime'] = self.decode_wu_datetime(
+                pkt['dateTime'] = self.decode_datetime(
                     data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US
                 for n in data:
@@ -909,6 +914,13 @@ class AcuriteBridge(Consumer):
 # rradiation=-9999&UV=-9999&indoortempf=66.2&indoorhumidity=47&baromin=
 # 29.94&lowbatt=0&dateutc=2016-5-10%202:34:15&softwaretype=Weather%20lo
 # gger%20V3.0.7&action=updateraw&realtime=1&rtfreq=5
+#
+# stationtype=AMBWeatherV4.0.2&PASSKEY=DUMMYDATADUMMYDATADUMMYDATADATAD
+# &dateutc=2018-06-20+13:39:00&winddir=169&windspeedmph=1.8&windgustmph
+# =2.2&maxdailygust=3.4&tempf=69.1&hourlyrainin=0.00&eventrainin=0.00&d
+# ailyrainin=0.00&weeklyrainin=0.87&monthlyrainin=0.87&totalrainin=0.87
+# &baromrelin=29.89&baromabsin=29.48&humidity=61&tempinf=73.4&humidityi
+# n=51&uv=3&solarradiation=299.23
 
 # resulting raw packet format:
 #   <observation_name> : value
@@ -972,6 +984,12 @@ class Observer(Consumer):
             'windchill': 'windchill',
             'rainrate': 'rain_rate',
 
+            # firmware AMBWeatherV4.0.2
+            'baromabsin': 'pressure',
+            'tempinf': 'temperature_in',
+            'humidityin': 'humidity_in',
+            'uv': 'uv',
+
             # firmware WS-1002 V2.4.3 also reports station pressure
             'absbaromin': 'pressure',
 
@@ -996,7 +1014,7 @@ class Observer(Consumer):
             try:
                 data = _cgi_to_dict(s)
                 # FIXME: add option to use computer time instead of station
-                pkt['dateTime'] = self.decode_wu_datetime(
+                pkt['dateTime'] = self.decode_datetime(
                     data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US if 'tempf' in data else weewx.METRIC
 
