@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.40'
+DRIVER_VERSION = '0.41'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1041,7 +1041,7 @@ class Observer(Consumer):
                 if rain_total is not None:
                     pkt['rain_total'] = rain_total
 
-                # firmware WH2600GEN_V2.2.5 reports station pressure as baromin.
+                # firmware WH2600GEN_V2.2.5 reports station pressure as baromin
                 # check firmware and change LABEL_MAP if it is V2.2.5
                 if 'softwaretype' in data:
                     software_type = data['softwaretype']

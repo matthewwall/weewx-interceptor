@@ -1,3 +1,6 @@
+0.41 31aug2018
+* map 'baromin' to 'pressure' for firmware WH2600GEN_V2.2.5
+
 0.40 06jul2018
 * detect ambient weather datetime format
 * parse ambient weather postings, not just wu postings
