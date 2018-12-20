@@ -204,7 +204,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.41'
+DRIVER_VERSION = '0.42rc2'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -298,31 +298,53 @@ class Consumer(object):
             pass
 
     class SniffServer(Server):
-        SNAPLEN = 1600
-        TIMEOUT_MS = 100
-
+        """
+        Abstraction to deal with the two different python pcap implementations,
+        pylibpcap and pypcap.
+        """
         def __init__(self, iface, pcap_filter, promiscuous):
-            import pcap
-            pval = 1 if weeutil.weeutil.to_bool(promiscuous) else 0
-            self.packet_sniffer = pcap.pcapObject()
-            loginf("sniff iface=%s promiscuous=%s" % (iface, pval))
-            self.packet_sniffer.open_live(
-                iface, self.SNAPLEN, pval, self.TIMEOUT_MS)
-            loginf("sniff filter '%s'" % pcap_filter)
-            self.packet_sniffer.setfilter(pcap_filter, 0, 0)
             self.running = False
             self.data_buffer = ''
+            self.sniffer_type = None
+            self.sniffer_version = 'unknown'
+            self.sniffer = None
+            snaplen = 1600
+            timeout_ms = 100
+            pval = 1 if weeutil.weeutil.to_bool(promiscuous) else 0
+            loginf("sniff iface=%s promiscuous=%s" % (iface, pval))
+            loginf("sniff filter '%s'" % pcap_filter)
+            import pcap
+            try:
+                # try pylibpcap
+                self.sniffer = pcap.pcapObject()
+                self.sniffer.setfilter(pcap_filter, 0, 0)
+                self.sniffer.open_live(iface, snaplen, pval, timeout_ms)
+                self.sniffer_type = 'pylibpcap'
+            except AttributeError:
+                # try pypcap
+                self.sniffer = pcap.pcap(iface, snaplen, promiscuous)
+                self.sniffer.setfilter(pcap_filter)
+                self.sniffer_type = 'pypcap'
+                self.sniffer_version = pcap.__version__.lower()
+            loginf("%s (%s)" % (self.sniffer_type, self.sniffer_version))
 
         def run(self):
             logdbg("start sniff server")
             self.running = True
-            while self.running:
-                self.packet_sniffer.dispatch(1, self.decode_ip_packet)
+            if self.sniffer_type == 'pylibpcap':
+                while self.running:
+                    self.sniffer.dispatch(1, self.decode_ip_packet)
+            elif self.sniffer_type == 'pypcap':
+                for ts, pkt in self.sniffer:
+                    if not self.running:
+                        break
+                    self.decode_ip_packet(0, pkt, ts)
 
         def stop(self):
             logdbg("stop sniff server")
             self.running = False
-            self.packet_sniffer.close()
+            if self.sniffer_type == 'pylibpcap':
+                self.sniffer.close()
             self.packet_sniffer = None
 
         def decode_ip_packet(self, _pktlen, data, _timestamp):
