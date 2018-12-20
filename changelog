@@ -1,3 +1,6 @@
+0.42 20dec2018
+* support both pcap bindings
+
 0.41 31aug2018
 * map 'baromin' to 'pressure' for firmware WH2600GEN_V2.2.5
 
