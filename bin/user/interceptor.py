@@ -1185,8 +1185,8 @@ class Observer(Consumer):
 #
 # rain sensor (0x82)
 #  rro - ?             samples: 0
-#  rr - rain rate? mm/hr
-#  rfa - rain fall accumulated? mm
+#  rr - rain rate? inch/hr
+#  rfa - rain fall accumulated? inch
 
 # resulting raw packet format:
 #   <observation_name>.<ch>:<rid>.<mac> : value
@@ -1234,6 +1234,12 @@ class LW30x(Consumer):
                         pkt[n] = data[n]
             except ValueError, e:
                 logerr("parse failed for %s: %s" % (s, e))
+
+            # convert rain from inches to mm
+            if 'rfa' in pkt:
+                pkt['rfa'] *= 25.4
+            if 'rr' in pkt:
+                pkt['rr'] *= 25.4
 
             # convert accumulated rain to rain delta
             if 'rfa' in pkt:
