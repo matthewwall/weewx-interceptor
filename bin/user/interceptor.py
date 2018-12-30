@@ -136,6 +136,14 @@ channel 3, and states no requirements for WGR800 or PCR800 sensors.
 
 By default, the bridge communicates with www.osanywhereweather.com
 
+In 2018, Oregon Scientific apparently shut down the server to which the LW
+stations posted their data (gateway.weather.oregonscientific.com).  The result
+is weather stations that no longer report any data.  You can continue to use
+these stations by making a DNS entry for gateway.weather.orgeonscientific.com
+that points to the computer on which the interceptor driver is running.  The
+weather station will happily post data to weeWX instead of trying to fine the
+oregon scientific servers that no longer exist.
+
 
 ===============================================================================
 LaCrosse GW1000U
