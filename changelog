@@ -1,3 +1,6 @@
+0.43 30dec2018
+* deal with pressure mapping for WH2650A_V1.2.1 firmware
+
 0.42 20dec2018
 * support both pcap bindings
 
