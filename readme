@@ -182,7 +182,19 @@ Example: Acurite Bridge in sniff mode
    acurite bridge.  For example, run weewx on a raspberry pi that has both a
    wired network interface and a wifi network interface.  Connect the acurite
    bridge to the wired interface, and connect the rpi wireless to the local
-   wireless network.
+   wireless network.  Configure the rpi to bridge or route traffic between
+   wired and wireless interfaces.
+    
+   Using iptables, routing would look something like this:
+
+sudo iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+sudo iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
+sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
+
+   If the acurite bridge is the only device on the wired interface, you must
+   also run a DHCP server on the rpi that will give the acurite bridge a valid
+   IP address.
 
 2) Configure the interceptor
 
@@ -192,6 +204,8 @@ Example: Acurite Bridge in sniff mode
     mode = sniff
     iface = eth0
     pcap_filter = src X.X.X.X and dst port 80
+
+  Where X.X.X.X is the IP address of the acurite bridge on the wired interface.
 
 
 ===============================================================================
