@@ -325,8 +325,8 @@ class Consumer(object):
             try:
                 # try pylibpcap
                 self.sniffer = pcap.pcapObject()
-                self.sniffer.setfilter(pcap_filter, 0, 0)
                 self.sniffer.open_live(iface, snaplen, pval, timeout_ms)
+                self.sniffer.setfilter(pcap_filter, 0, 0)
                 self.sniffer_type = 'pylibpcap'
             except AttributeError:
                 # try pypcap

@@ -1,4 +1,5 @@
 0.43 30dec2018
+* do setfilter after open_live when using pylibpcap
 * deal with pressure mapping for WH2650A_V1.2.1 firmware
 * assume inches instead of mm for rain in lw30x packets
 
