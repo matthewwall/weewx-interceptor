@@ -246,6 +246,10 @@ def _obfuscate_passwords(msg):
     if idx >= 0:
         import re
         msg = re.sub(r'PASSWORD=[^&]+', r'PASSWORD=XXXX', msg)
+    idx = msg.find('PASSKEY')
+    if idx >= 0:
+        import re
+        msg = re.sub(r'PASSKEY=[^&]+', r'PASSKEY=XXXX', msg)
     return msg
 
 def _fmt_bytes(data):
@@ -407,11 +411,17 @@ class Consumer(object):
             if not self.data_buffer:
                 return
             data = self.data_buffer
+            # if this is a query string, parse it
             if '?' in data:
                 data = urlparse.urlparse(data).query
+            # trim any dangling HTTP/x.x and connection info
+            idx = data.find(' HTTP')
+            if idx >= 0:
+                data = data[:idx]
             if len(data):
                 logdbg("SNIFF: %s" % _obfuscate_passwords(data))
                 Consumer.queue.put(data)
+            # clear the data buffer
             self.data_buffer = ''
 
 
@@ -559,6 +569,139 @@ class Consumer(object):
                 # this is a weather underground timestamp
                 ts = time.strptime(s, "%Y-%m-%d %H:%M:%S")
             return calendar.timegm(ts)
+
+
+# capture data from hardware that sends using the weather underground protocol
+
+class WUClient(Consumer):
+
+    def __init__(self, **stn_dict):
+        super(WUClient, self).__init__(
+            WUClient.Parser(), handler=WUClient.Handler, **stn_dict)
+
+    class Handler(Consumer.Handler):
+
+        def get_response(self):
+            return 'success'
+
+    class Parser(Consumer.Parser):
+
+        # map database fields to observation names
+        DEFAULT_SENSOR_MAP = {
+            'pressure': 'pressure',
+            'barometer': 'barometer',
+            'outHumidity': 'humidity_out',
+            'inHumidity': 'humidity_in',
+            'outTemp': 'temperature_out',
+            'inTemp': 'temperature_in',
+            'windSpeed': 'wind_speed',
+            'windGust': 'wind_gust',
+            'windDir': 'wind_dir',
+            'radiation': 'radiation',
+            'dewpoint': 'dewpoint',
+            'windchill': 'windchill',
+            'rain': 'rain',
+            'rainRate': 'rain_rate',
+            'UV': 'uv',
+            'txBatteryStatus': 'battery'}
+
+        # map labels to observation names
+        LABEL_MAP = {
+            'humidity': 'humidity_out',
+            'indoorhumidity': 'humidity_in',
+            'tempf': 'temperature_out',
+            'indoortempf': 'temperature_in',
+            'baromin': 'barometer',
+            'windspeedmph': 'wind_speed',
+            'windgustmph': 'wind_gust',
+            'solarradiation': 'radiation',
+            'dewptf': 'dewpoint',
+            'windchillf': 'windchill',
+            'winddir': 'wind_dir',
+            'UV': 'uv',
+            'lowbatt': 'battery',
+        }
+
+        IGNORED_LABELS = ['realtime', 'rtfreq', 'action',
+                          'ID', 'PASSWORD', 'dateutc', 'softwaretype']
+
+        def __init__(self):
+            self._last_rain = None
+
+        def parse(self, s):
+            pkt = dict()
+            try:
+                data = _cgi_to_dict(s)
+                pkt['dateTime'] = self.decode_datetime(
+                    data.pop('dateutc', int(time.time() + 0.5)))
+                pkt['usUnits'] = weewx.US
+
+                # different firmware seems to report rain in different ways.
+                # prefer to get rain total from the yearly count, but if
+                # that is not available, get it from the daily count.
+                rain_total = None
+                field = None
+                if 'dailyrainin' in data:
+                    rain_total = self.decode_float(data.pop('dailyrainin', None))
+                    field = 'dailyrainin'
+                    year_total = self.decode_float(data.pop('yearlyrainin', None))
+                    if year_total is not None:
+                        rain_total = year_total
+                        field = 'yearlyrainin'
+                elif 'dailyrain' in data:
+                    rain_total = self.decode_float(data.pop('dailyrain', None))
+                    field = 'dailyrain'
+                    year_total = self.decode_float(data.pop('yearlyrain', None))
+                    if year_total is not None:
+                        rain_total = year_total
+                        field = 'yearlyrain'
+                if rain_total is not None:
+                    pkt['rain_total'] = rain_total
+                    logdbg("using rain_total %s from %s" % (rain_total, field))
+
+                # some firmware reports baromin as station pressure, but others
+                # report it as barometer.
+                if 'softwaretype' in data:
+                    fw = data['softwaretype']
+                    if fw == 'WH2600GEN_V2.2.5' or fw == 'WH2650A_V1.2.1':
+                        self.LABEL_MAP['baromin'] = 'pressure'
+                    logdbg("firmware %s: baromin is %s" %
+                           (fw, self.LABEL_MAP['baromin']))
+
+                # get all of the other parameters
+                for n in data:
+                    if n in self.LABEL_MAP:
+                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                    elif n in self.IGNORED_LABELS:
+                        val = data[n]
+                        if n == 'PASSWORD':
+                            val = 'X' * len(data[n])
+                        logdbg("ignored parameter %s=%s" % (n, val))
+                    else:
+                        loginf("unrecognized parameter %s=%s" % (n, data[n]))
+
+                # get the rain this period from total
+                if 'rain_total' in pkt:
+                    newtot = pkt['rain_total']
+                    pkt['rain'] = self._delta_rain(newtot, self._last_rain)
+                    self._last_rain = newtot
+
+            except ValueError, e:
+                logerr("parse failed for %s: %s" % (s, e))
+            return pkt
+
+        @staticmethod
+        def map_to_fields(pkt, sensor_map):
+            if sensor_map is None:
+                sensor_map = WUClient.Parser.DEFAULT_SENSOR_MAP
+            return Consumer.Parser.map_to_fields(pkt, sensor_map)
+
+        @staticmethod
+        def decode_float(x):
+            # these stations send a value of -9999 to indicate no value, so
+            # convert that to a proper None.
+            x = Consumer.Parser.decode_float(x)
+            return None if x == -9999 else x
 
 
 # sample output from an acurite bridge with 3 t/h sensors and 1 5-in-1
@@ -772,7 +915,10 @@ class AcuriteBridge(Consumer):
                     elif n in self.LABEL_MAP:
                         pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     elif n in self.IGNORED_LABELS:
-                        logdbg("ignored parameter %s=%s" % (n, data[n]))
+                        val = data[n]
+                        if n == 'PASSWORD':
+                            val = 'X' * len(data[n])
+                        logdbg("ignored parameter %s=%s" % (n, val))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
             except ValueError, e:
@@ -896,6 +1042,9 @@ class AcuriteBridge(Consumer):
             return p, t
 
 
+# the observer emits data in weather underground format or in ambient weather
+# format.
+#
 # known firmware versions
 #
 # Weather logger V2.1.9
@@ -904,7 +1053,8 @@ class AcuriteBridge(Consumer):
 # WeatherSmart V1.7.0
 # EasyWeather V1.1.2
 # AMBWeather V3.0.0
-# 
+# AMBWeather V4.0.3
+#
 #
 # sample output from an observer
 #
@@ -1033,13 +1183,14 @@ class Observer(Consumer):
                           'weeklyrain', 'monthlyrain',
                           'weeklyrainin', 'monthlyrainin',
                           'realtime', 'rtfreq',
-                          'action', 'ID', 'PASSWORD', 'dateutc',
+                          'action', 'ID', 'PASSWORD', 'PASSKEY', 'dateutc',
                           'softwaretype']
 
         def __init__(self):
             self._last_rain = None
 
         def parse(self, s):
+            # FIXME: explicitly distinguish between ambient and wu packets
             pkt = dict()
             try:
                 data = _cgi_to_dict(s)
@@ -1052,24 +1203,24 @@ class Observer(Consumer):
                 # prefer to get rain total from the yearly count, but if
                 # that is not available, get it from the daily count.
                 rain_total = None
+                field = None
                 if 'dailyrainin' in data:
                     rain_total = self.decode_float(data.pop('dailyrainin', None))
+                    field = 'dailyrainin'
                     year_total = self.decode_float(data.pop('yearlyrainin', None))
                     if year_total is not None:
                         rain_total = year_total
-                        logdbg("using rain_total %s from yearlyrainin" % rain_total)
-                    else:
-                        logdbg("using rain_total %s from dailyrainin" % rain_total)
+                        field = 'yearlyrainin'
                 elif 'dailyrain' in data:
                     rain_total = self.decode_float(data.pop('dailyrain', None))
+                    field = 'dailyrain'
                     year_total = self.decode_float(data.pop('yearlyrain', None))
                     if year_total is not None:
                         rain_total = year_total
-                        logdbg("using rain_total %s from yearlyrain" % rain_total)
-                    else:
-                        logdbg("using rain_total %s from dailyrain" % rain_total)
+                        field = 'yearlyrain'
                 if rain_total is not None:
                     pkt['rain_total'] = rain_total
+                    logdbg("using rain_total %s from %s" % (rain_total, field))
 
                 # some firmware reports baromin as station pressure, but others
                 # report it as barometer.
@@ -1077,16 +1228,18 @@ class Observer(Consumer):
                     fw = data['softwaretype']
                     if fw == 'WH2600GEN_V2.2.5' or fw == 'WH2650A_V1.2.1':
                         self.LABEL_MAP['baromin'] = 'pressure'
-                        logdbg("firmware %s: using baromin as pressure" % fw)
-                    else:
-                        logdbg("firmware %s: using baromin as barometer" % fw)
+                    logdbg("firmware %s: baromin is %s" %
+                           (fw, self.LABEL_MAP['baromin']))
 
                 # get all of the other parameters
                 for n in data:
                     if n in self.LABEL_MAP:
                         pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
                     elif n in self.IGNORED_LABELS:
-                        logdbg("ignored parameter %s=%s" % (n, data[n]))
+                        val = data[n]
+                        if n == 'PASSWORD' or n == 'PASSKEY':
+                            val = 'X' * len(data[n])
+                        logdbg("ignored parameter %s=%s" % (n, val))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
 
@@ -1964,10 +2117,11 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     driver = user.interceptor
 
     # Specify the hardware device to capture.  Options include:
-    #   acurite-bridge - acurite internet bridge
-    #   observer - fine offset WH2600/HP1000/HP1003, aka 'observer'
+    #   acurite-bridge - acurite internet bridge, smarthub, or access
+    #   observer - fine offset WH2600/HP1000/HP1003, ambient WS2902
     #   lw30x - oregon scientific LW301/LW302
     #   lacrosse-bridge - lacrosse GW1000U/C84612 internet bridge
+    #   wu-client - any hardware that uses the weather underground protocol
     device_type = acurite-bridge
 
     # For acurite, fine offset, and oregon scientific hardware, the driver
@@ -1975,7 +2129,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     # connections.  Packet sniffing requires the installation of the pcap
     # python module.  The default mode is to listen using a socket server.
     # Options are 'listen' and 'sniff'.
-    #mode = sniff
+    #mode = listen
 
     # When listening, specify at least a port on which to bind.
     #address = 127.0.0.1
@@ -2004,7 +2158,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
         print "Specify the type of device whose data will be captured"
         device_type = self._prompt(
             'device_type', 'acurite-bridge',
-            ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge'])
+            ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge', 'wu-client'])
         return {'device_type': device_type}
 
 
@@ -2014,7 +2168,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         'observer': Observer,
         'observerip': Observer,
         'lw30x': LW30x,
-        'lacrosse-bridge': GW1000U}
+        'lacrosse-bridge': GW1000U,
+        'wu-client': WUClient}
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
