@@ -597,6 +597,7 @@ class WUClient(Consumer):
             'windSpeed': 'wind_speed',
             'windGust': 'wind_gust',
             'windDir': 'wind_dir',
+            'windGustDir': 'wind_gust_dir',
             'radiation': 'radiation',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
@@ -618,6 +619,7 @@ class WUClient(Consumer):
             'dewptf': 'dewpoint',
             'windchillf': 'windchill',
             'winddir': 'wind_dir',
+            'windgustdir': 'wind_gust_dir',
             'UV': 'uv',
             'lowbatt': 'battery',
         }
@@ -1129,6 +1131,7 @@ class Observer(Consumer):
             'windSpeed': 'wind_speed',
             'windGust': 'wind_gust',
             'windDir': 'wind_dir',
+            'windGustDir': 'wind_gust_dir',
             'radiation': 'radiation',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
@@ -1175,6 +1178,7 @@ class Observer(Consumer):
 
             # for all firmware
             'winddir': 'wind_dir',
+            'windgustdir': 'wind_gust_dir',
             'UV': 'uv',
             'lowbatt': 'battery',
         }
