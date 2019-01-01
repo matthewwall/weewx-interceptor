@@ -378,33 +378,44 @@ class Consumer(object):
                 return
             logdbg("sniff: timestamp=%s pktlen=%s data=%s" %
                    (_timestamp, _pktlen, _fmt_bytes(data)))
-            if len(data) >= 15 and data[12:14] == '\x08\x00':
+            # FIXME: generalize the packet type detection
+            header_len = 0
+            idx = 0
+            if (len(data) >= 70 and
+                data[12:14] == '\x81\x00' and data[16:18] == '\x08\x00'):
+                # this is 802.1Q tagged IP packet
+                header_len = ord(data[18]) & 0x0f
+                idx = 4 * header_len + 38
+            elif len(data) >= 15 and data[12:14] == '\x08\x00':
+                # this is standard IP packet
                 header_len = ord(data[14]) & 0x0f
                 idx = 4 * header_len + 34
-                if len(data) >= idx:
-                    _data = data[idx:]
-                    if 'GET' in _data:
+            if idx and len(data) >= idx:
+                _data = data[idx:]
+                if 'GET' in _data:
+                    self.flush()
+                    logdbg("sniff: start GET")
+                    self.data_buffer = _data
+                elif 'POST' in _data:
+                    self.flush()
+                    logdbg("sniff: start POST")
+                    self.data_buffer = 'POST?' # start buffer with dummy
+                elif len(self.data_buffer):
+                    if 'HTTP' in data:
+                        # looks like the end of a multi-packet GET
                         self.flush()
-                        logdbg("sniff: start GET")
-                        self.data_buffer = _data
-                    elif 'POST' in _data:
-                        self.flush()
-                        logdbg("sniff: start POST")
-                        self.data_buffer = 'POST?' # start buffer with dummy
-                    elif len(self.data_buffer):
-                        if 'HTTP' in data:
-                            # looks like the end of a multi-packet GET
-                            self.flush()
-                        else:
-                            printable = set(string.printable)
-                            fdata = filter(lambda x: x in printable, _data)
-                            if fdata == _data:
-                                logdbg("sniff: append %s" % _fmt_bytes(_data))
-                                self.data_buffer += _data
-                            else:
-                                logdbg("sniff: skip %s" % _fmt_bytes(_data))
                     else:
-                        logdbg("sniff: ignore %s" % _fmt_bytes(_data))
+                        printable = set(string.printable)
+                        fdata = filter(lambda x: x in printable, _data)
+                        if fdata == _data:
+                            logdbg("sniff: append %s" % _fmt_bytes(_data))
+                            self.data_buffer += _data
+                        else:
+                            logdbg("sniff: skip %s" % _fmt_bytes(_data))
+                else:
+                    logdbg("sniff: ignore %s" % _fmt_bytes(_data))
+            else:
+                logdbg("sniff: unrecognized packet header")
 
         def flush(self):
             logdbg("sniff: flush %s" % _fmt_bytes(self.data_buffer))

@@ -1,5 +1,6 @@
 0.44 01jan2019
 * use correct promiscuous flag for pypcap initialization (thanks to JeffRossMT)
+* added support for tagged packets (thanks to vk4tdi)
 
 0.43 30dec2018
 * added generic weather underground client
