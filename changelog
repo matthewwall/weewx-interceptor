@@ -1,3 +1,6 @@
+0.44 01jan2019
+* use correct promiscuous flag for pypcap initialization (thanks to JeffRossMT)
+
 0.43 30dec2018
 * added generic weather underground client
 * added wu support for windGustDir

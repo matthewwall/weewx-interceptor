@@ -212,7 +212,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.43'
+DRIVER_VERSION = '0.44'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -334,7 +334,7 @@ class Consumer(object):
                 self.sniffer_type = 'pylibpcap'
             except AttributeError:
                 # try pypcap
-                self.sniffer = pcap.pcap(iface, snaplen, promiscuous)
+                self.sniffer = pcap.pcap(iface, snaplen, pval)
                 self.sniffer.setfilter(pcap_filter)
                 self.sniffer_type = 'pypcap'
                 self.sniffer_version = pcap.__version__.lower()
