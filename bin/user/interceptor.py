@@ -141,7 +141,7 @@ stations posted their data (gateway.weather.oregonscientific.com).  The result
 is weather stations that no longer report any data.  You can continue to use
 these stations by making a DNS entry for gateway.weather.orgeonscientific.com
 that points to the computer on which the interceptor driver is running.  The
-weather station will happily post data to weeWX instead of trying to fine the
+weather station will happily post data to weeWX instead of trying to find the
 oregon scientific servers that no longer exist.
 
 
@@ -202,6 +202,7 @@ import Queue
 import binascii
 import calendar
 import fnmatch
+import re
 import string
 import syslog
 import threading
@@ -212,7 +213,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.44'
+DRIVER_VERSION = '0.45'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -242,15 +243,7 @@ def logerr(msg):
 
 
 def _obfuscate_passwords(msg):
-    idx = msg.find('PASSWORD')
-    if idx >= 0:
-        import re
-        msg = re.sub(r'PASSWORD=[^&]+', r'PASSWORD=XXXX', msg)
-    idx = msg.find('PASSKEY')
-    if idx >= 0:
-        import re
-        msg = re.sub(r'PASSKEY=[^&]+', r'PASSKEY=XXXX', msg)
-    return msg
+    return re.sub(r'(PASSWORD|PASSKEY)=[^&]+', r'\1=XXXX', msg)
 
 def _fmt_bytes(data):
     if not data:
@@ -381,15 +374,15 @@ class Consumer(object):
             # FIXME: generalize the packet type detection
             header_len = 0
             idx = 0
-            if (len(data) >= 70 and
+            if len(data) >= 15 and data[12:14] == '\x08\x00':
+                # this is standard IP packet
+                header_len = ord(data[14]) & 0x0f
+                idx = 4 * header_len + 34
+            elif (len(data) >= 70 and
                 data[12:14] == '\x81\x00' and data[16:18] == '\x08\x00'):
                 # this is 802.1Q tagged IP packet
                 header_len = ord(data[18]) & 0x0f
                 idx = 4 * header_len + 38
-            elif len(data) >= 15 and data[12:14] == '\x08\x00':
-                # this is standard IP packet
-                header_len = ord(data[14]) & 0x0f
-                idx = 4 * header_len + 34
             if idx and len(data) >= idx:
                 _data = data[idx:]
                 if 'GET' in _data:
