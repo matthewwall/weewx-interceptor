@@ -60,7 +60,7 @@ wget -O weewx-interceptor.zip https://github.com/matthewwall/weewx-interceptor/a
 
 2) install the driver
 
-sudo wee_extension --install weewx-interceptor-master.zip
+sudo wee_extension --install weewx-interceptor.zip
 
 3) configure the driver
 
