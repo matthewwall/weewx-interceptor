@@ -170,6 +170,22 @@ Example: Acurite Bridge in listen mode, traffic redirected by DNS hijack
 
 
 ===============================================================================
+Example: LW302 in listen mode, traffic redirected by DNS hijack
+
+1) Configure the DNS server for the local network.  Make a DNS entry for this
+   name so that it maps to the IP address of the computer running the
+   interceptor driver:
+
+     gateway.weather.oregonscientific.com
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lw30x
+
+
+===============================================================================
 Example: Acurite Bridge in listen mode, traffic sniffed at router
 
 1) Create a script that captures data from the bridge and sends it to the
@@ -189,7 +205,40 @@ ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | combine-lines.pl 
 
 
 ===============================================================================
+Example: Observer in listen mode
+
+1) Configure the Observer to send data to the computer on which interceptor
+   is running.
+
+2) Set parameters in the weewx configuration file:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = observer
+
+
+===============================================================================
+Example: GW1000U
+
+1) Use the GAS utility to set the proxy on the gateway to the computer on which
+   interceptor is running.
+
+2) Optionally set parameters in the weewx configuration file:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = lacrosse-bridge
+    serial = 7FFFXXXXXXXXXXXX # 16-character registration key
+    sensor_interval = 1 # numer of minutes between sensor updates
+    history_interval = 3 # integer value in [0-7]
+    ping_interval = 120 # number of seconds between gateway pings
+
+
+===============================================================================
 Example: Acurite Bridge in sniff mode
+
+   As of Feb2019, sniffing traffic bound for acurite servers no longer works,
+   since acurite no longer runs the aculink or myacurite servers.
 
 1) The interceptor must be running on a computer that can see traffic from the
    acurite bridge.  For example, run weewx on a raspberry pi that has both a
@@ -222,20 +271,10 @@ sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
 
 
 ===============================================================================
-Example: Observer in listen mode
-
-1) Configure the Observer to send data to the computer on which interceptor
-   is running.
-
-2) Set parameters in the weewx configuration file:
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = observer
-
-
-===============================================================================
 Example: LW302 in sniff mode
+
+   As of 2018, sniffing traffic bound for oregon scientific servers no longer
+   works, since oregon scientific shut down their servers.
 
 1) Plug LW302 into first network interface eth0 on computer running weewx.
    Bridge the two network interfaces eth0 and eth1 on the computer running
@@ -250,23 +289,6 @@ Example: LW302 in sniff mode
     mode = sniff
     iface = eth0
     pcap_filter = src X.X.X.X and dst port 80
-
-
-===============================================================================
-Example: GW1000U
-
-1) Use the GAS utility to set the proxy on the gateway to the computer on which
-   interceptor is running.
-
-2) Optionally set parameters in the weewx configuration file:
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = lacrosse-bridge
-    serial = 7FFFXXXXXXXXXXXX # 16-character registration key
-    sensor_interval = 1 # numer of minutes between sensor updates
-    history_interval = 3 # integer value in [0-7]
-    ping_interval = 120 # number of seconds between gateway pings
 
 
 ===============================================================================
