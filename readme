@@ -186,25 +186,6 @@ Example: LW302 in listen mode, traffic redirected by DNS hijack
 
 
 ===============================================================================
-Example: Acurite Bridge in listen mode, traffic sniffed at router
-
-1) Create a script that captures data from the bridge and sends it to the
-   computer on which weewx runs.  The router address is Z.Z.Z.Z, the acurite
-   bridge address is X.X.X.X, the computer running the interceptor is Y.Y.Y.Y.
-
-#!/bin/sh
-# remote to the router, capture traffic, and send to interceptor
-ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:9999 -s -d
-
-2) Configure the interceptor
-
-[Interceptor]
-    driver = user.interceptor
-    device_type = acurite-bridge
-    port = 9999
-
-
-===============================================================================
 Example: Observer in listen mode
 
 1) Configure the Observer to send data to the computer on which interceptor
@@ -289,6 +270,25 @@ Example: LW302 in sniff mode
     mode = sniff
     iface = eth0
     pcap_filter = src X.X.X.X and dst port 80
+
+
+===============================================================================
+Example: Acurite Bridge in listen mode, traffic sniffed at router
+
+1) Create a script that captures data from the bridge and sends it to the
+   computer on which weewx runs.  The router address is Z.Z.Z.Z, the acurite
+   bridge address is X.X.X.X, the computer running the interceptor is Y.Y.Y.Y.
+
+#!/bin/sh
+# remote to the router, capture traffic, and send to interceptor
+ssh Z.Z.Z.Z "tcpdump -U -w - -i vr1 src X.X.X.X and port 80" | combine-lines.pl | xargs -n 1 curl http://Y.Y.Y.Y:9999 -s -d
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = acurite-bridge
+    port = 9999
 
 
 ===============================================================================
