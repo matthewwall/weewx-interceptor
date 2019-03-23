@@ -13,15 +13,10 @@ stations via the Acurite Access.
 This driver is also useful if you want to use an internet-based weather station
 for which the vendor no longer provides online services.  For example, Oregon
 Scientific shut down their internet gateway, so the LW30x stations now try to
-send data to servers that no longer exist.  With a simple DNS entry and the
-interceptor driver, you can continue to receive data from the LW30x stations.
-
-Warning!  This driver is experimental.  It is fully tested and seems to work
-as designed with the Acurite bridge, the Fine Offset HP1000 and WH2600, the
-Oregon Scientific LW stations, and the GW1000U.  However, the implementation
-is a proof-of-concept to help understand how these devices work. My intent is
-to push the components into weewx, at which time the driver will be refactored
-to simplify setup for each type of weather station.
+send data to servers that no longer exist.  Acurite shut down their myacurite
+and aculink services, thus abandoning those who purchased the acurite bridge.
+But with a simple DNS entry and the interceptor driver, you can continue to
+receive data from these stations.
 
 There are two modes of operation: listen and sniff.
 
@@ -30,6 +25,21 @@ posted to that server are parsed then processed as sensor inputs.
 
 In sniff mode, the driver runs a packet sniffer on a dedicated thread.  Data
 captured by sniffing are parsed then processed as sensor inputs.
+
+Sniff mode is typically used when you want the device to continue to talk to
+the servers it was designed to talk to.  In sniff mode, the interceptor will
+capture data, but will not interfere with communication.  Listen mode is used
+when you want the device to talk to your server.  In listen mode, the
+interceptor will capture all communications.  So use listen mode when the
+vendor no longer provides network services.
+
+Warning!  This driver is experimental.  It is fully tested and seems to work
+as designed with the Acurite bridge, the Acurite Access, the Fine Offset
+HP1000 and WH2600, the Oregon Scientific LW stations, the LaCrosse GW1000U,
+and many other devices that use the WU protocol.  However, the implementation
+is a proof-of-concept to help understand how these devices work. My intent is
+to push the components into weewx, at which time the driver will be refactored
+to simplify setup for each type of weather station.
 
 
 ===============================================================================
@@ -144,9 +154,12 @@ PYTHONPATH=bin python bin/user/interceptor.py --help
 ===============================================================================
 Example: Acurite Bridge in listen mode, traffic redirected by DNS hijack
 
-1) Configure the DNS server for the local network to make hubapi.myacurite.com
-   point to the computer running weewx.  See the DNS hijack section for details
-   and/or the sample bind DNS configuration in util/bind
+1) Configure the DNS server for the local network.  Make a DNS entry for one
+   (or both) of these names so that they map to the IP address of the computer
+   running the interceptor driver:
+
+     hubapi.myacurite.com   # firmware
+     www.acu-link.com       # firmware
 
 2) Configure the interceptor
 
