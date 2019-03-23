@@ -158,8 +158,8 @@ Example: Acurite Bridge in listen mode, traffic redirected by DNS hijack
    (or both) of these names so that they map to the IP address of the computer
    running the interceptor driver:
 
-     hubapi.myacurite.com   # firmware
-     www.acu-link.com       # firmware
+     hubapi.myacurite.com   # firmware 126 uses this name
+     www.acu-link.com       # firmware 224 uses this name
 
 2) Configure the interceptor
 
@@ -335,6 +335,10 @@ Change the DNS entry so that the internet bridge device sends directly to the
 driver.  If you control DNS on the network, you can make the internet bridge
 send to the driver by creating a DNS entry for the host to which the internet
 bridge tries to send its data.
+
+The examples that follow use hubapi.myacurite.com.  For acurite devices with
+firmware 224 you should use www.acu-link.com.  For LW30x devices use
+gateway.weather.oregonscientific.com.
 
 1a) If you run pfsense, simply add an entry in the Services -> DNS forwarder
 
