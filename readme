@@ -216,6 +216,28 @@ Example: GW1000U
 
 
 ===============================================================================
+Example: sniff mode for any WU client
+
+   This example assumes two network interfaces on the computer running weewx.
+
+1) Plug the computer into the local network using the first interface (eth0).
+   Plug the device into the second interface (eth1).
+   Bridge the two network interfaces.
+   If you run any web services on the computer, configure them to listen on
+   interface eth0, not eth1.
+
+2) Set parameters in the weewx configuration file.  The device has IP address
+   of X.X.X.X
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = wu-client
+    mode = sniff
+    iface = eth1
+    pcap_filter = src X.X.X.X and dst port 80
+
+
+===============================================================================
 Example: Acurite Bridge in sniff mode
 
    As of Feb2019, sniffing traffic bound for acurite servers no longer works,
