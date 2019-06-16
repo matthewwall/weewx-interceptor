@@ -1,3 +1,6 @@
+0.46 16jun2019
+* added support for pm2_5 and soilmoisture from HP2550 stations (observer)
+
 0.45 02jan2019
 * minor code cleanup
 

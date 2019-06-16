@@ -213,7 +213,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.45'
+DRIVER_VERSION = '0.46'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -1107,6 +1107,15 @@ class AcuriteBridge(Consumer):
 # ailyrainin=0.00&weeklyrainin=0.87&monthlyrainin=0.87&totalrainin=0.87
 # &baromrelin=29.89&baromabsin=29.48&humidity=61&tempinf=73.4&humidityi
 # n=51&uv=3&solarradiation=299.23
+#
+# from an ecowitt HP2550 with PM2.5 and soilmoisture:
+#
+# indoortempf=71.6&tempf=55.2&dewptf=51.6&windchillf=55.2&indoorhumidit
+# y=64&humidity=88&windspeedmph=2.0&windgustmph=2.2&winddir=25&absbarom
+# in=29.729&baromin=29.729&rainin=0.000&dailyrainin=0.000&weeklyrainin=
+# 0.000&monthlyrainin=0.091&yearlyrainin=0.091&solarradiation=0.00&UV=0
+# &soilmoisture=52&AqPM2.5=309.0&dateutc=2019-06-16%2001:05:39&software
+# type=EasyWeatherV1.3.9&action=updateraw&realtime=1&rtfreq=5
 
 # resulting raw packet format:
 #   <observation_name> : value
@@ -1142,7 +1151,10 @@ class Observer(Consumer):
             'rain': 'rain',
             'rainRate': 'rain_rate',
             'UV': 'uv',
-            'txBatteryStatus': 'battery'}
+            'txBatteryStatus': 'battery',
+            'soilMoist1': 'soilmoisture',
+            'pm2_5': 'pm2_5',
+        }
 
         # map labels to observation names
         LABEL_MAP = {
@@ -1179,6 +1191,10 @@ class Observer(Consumer):
 
             # firmware WS-1002 V2.4.3 also reports station pressure
             'absbaromin': 'pressure',
+
+            # firmware EasyWeatherV1.3.9 (ecowitt HP2550)
+            'AqPM2.5': 'pm2_5',
+            'soilmoisture': 'soilmoisture',
 
             # for all firmware
             'winddir': 'wind_dir',
