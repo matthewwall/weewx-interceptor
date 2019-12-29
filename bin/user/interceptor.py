@@ -2346,6 +2346,8 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     # When sniffing, specify a network interface and a pcap filter.
     #iface = eth0
     #pcap_filter = src 192.168.4.12 and dst port 80
+    # If your interface requires promiscuous mode, then set this to True.
+    #promiscuous = False
 
     # Specify a sensor map to associate sensor observations with fields in
     # the database.  This is most appropriate for hardware that supports

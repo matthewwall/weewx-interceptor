@@ -1,6 +1,7 @@
 0.47 29dec2019
 * added explicit support for fine offset GW1000 (ecowitt)
 * update wu-client to match 03jun2019 protocol update from wunderground
+* added promiscuous flag to default conf stanza for sniffing
 
 0.46 16jun2019
 * added support for pm2_5 and soilmoisture from HP2550 stations (observer)
