@@ -1,13 +1,18 @@
 #!/usr/bin/env python
-# Copyright 2016 Matthew Wall, all rights reserved
+# Copyright 2016-2020 Matthew Wall
 # Distributed under the terms of the GNU Public License (GPLv3)
 
 """
-This driver runs a simple web server designed to receive data directly from an
-internet weather reporting device such as the Acurite internet bridge, the
-LaCrosse GW1000U internet bridge, the Oregon Scientific LW300 (LW301/LW302)
-internet bridge, the FineOffset HP1000 console or WH2600 internet bridge, or
-the FineOffset GW1000 wifi bridge.
+This driver runs a simple web server or sniffs network traffic in order to
+capture data directly from an internet weather reporting device including:
+
+  - Acurite Internet Bridge (also known as the SmartHub)
+  - Acurite Access
+  - Oregon Scientific LW301/302
+  - Fine Offset HP1000/WH2600
+  - Fine Offset GW1000 (ecowitt protocol)
+  - Fine Offset wifi consoles (including Ambient)
+  - LaCrosse GW1000U
 
 When this driver was first written (early 2016), there were many different
 firmware versions using different variations of the weather underground
@@ -16,6 +21,9 @@ have been developed (e.g., ambient, ecowitt) to provide functionality not
 available in the WU protocol.  Although this driver maintains backward
 compatiblity as much as possible, it is be feasible to support every firmware
 bug and version.
+
+See the readme file for configuration examples.  The sections below include
+details about and quirks of various supported hardware models.
 
 Thanks to rich of modern toil and george nincehelser for acurite parsing
   http://moderntoil.com/?p=794

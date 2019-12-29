@@ -1,14 +1,21 @@
 weewx-interceptor
-Copyright 2016-2019 Matthew Wall
+Copyright 2016-2020 Matthew Wall
 Distributed under terms of the GPLv3
 
 This is a driver for weewx that receives and parses network traffic.  It can
-be used with a variety of "internet bridge" devices such as the Acurite
-Internet Bridge (also known as the SmartHub), the Oregon Scientific LW301/302,
-the Fine Offset HP1000/WH2600, or the LaCrosse GW1000U.  With the device_type
-set to 'wu-client', it can be used with any weather station that sends directly
-to weather underground, including the Ambient WS2902 stations and the Acurite
-Atlas stations via the Acurite Access.
+be used with a variety of "internet bridge" devices including:
+
+  - Acurite Internet Bridge (also known as the SmartHub)
+  - Acurite Access
+  - Oregon Scientific LW301/302
+  - Fine Offset HP1000/WH2600
+  - Fine Offset GW1000 (ecowitt protocol)
+  - Fine Offset wifi consoles (including Ambient)
+  - LaCrosse GW1000U
+
+With the device_type set to 'wu-client', it can be used with any weather
+station that sends directly to weather underground, including the Ambient
+S2902 stations and the Acurite Atlas stations via the Acurite Access.
 
 This driver is also useful if you want to use an internet-based weather station
 for which the vendor no longer provides online services.  For example, Oregon
