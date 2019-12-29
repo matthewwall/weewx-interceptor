@@ -728,11 +728,13 @@ class WUClient(Consumer):
             'lowbatt': 'battery',
         }
 
-        IGNORED_LABELS = ['ID', 'PASSWORD', 'dateutc', 'softwaretype',
-                          'action', 'realtime', 'rtfreq',
-                          'weather', 'clouds',
-                          'windspdmph_avg2m', 'winddir_avg2m',
-                          'windgustmph_10m', 'windgustdir_10m']
+        IGNORED_LABELS = [
+            'ID', 'PASSWORD', 'dateutc', 'softwaretype',
+            'action', 'realtime', 'rtfreq',
+            'weather', 'clouds',
+            'windspdmph_avg2m', 'winddir_avg2m',
+            'windgustmph_10m', 'windgustdir_10m'
+        ]
 
         def __init__(self):
             self._last_rain = None
@@ -966,11 +968,12 @@ class AcuriteBridge(Consumer):
             # will be a counter wraparound at 00:00 each day.
         }
 
-        IGNORED_LABELS = ['rainin', 'dewptf',
-                          'realtime', 'rtfreq',
-                          'action', 'ID', 'PASSWORD', 'dateutc',
-                          'updateraw', 'sensor', 'mt', 'id',
-                          'probe', 'check', 'water']
+        IGNORED_LABELS = [
+            'ID', 'PASSWORD', 'dateutc',
+            'action', 'realtime', 'rtfreq', 'updateraw',
+            'rainin', 'dewptf',
+            'sensor', 'mt', 'id', 'probe', 'check', 'water'
+        ]
 
         @staticmethod
         def parse_identifiers(s):
@@ -1297,12 +1300,13 @@ class Observer(Consumer):
             'lowbatt': 'battery',
         }
 
-        IGNORED_LABELS = ['relbaro', 'rainin',
-                          'weeklyrain', 'monthlyrain',
-                          'weeklyrainin', 'monthlyrainin',
-                          'realtime', 'rtfreq',
-                          'action', 'ID', 'PASSWORD', 'PASSKEY', 'dateutc',
-                          'softwaretype']
+        IGNORED_LABELS = [
+            'ID', 'PASSWORD', 'PASSKEY', 'dateutc', 'softwaretype',
+            'action', 'realtime', 'rtfreq',
+            'relbaro', 'rainin',
+            'weeklyrain', 'monthlyrain',
+            'weeklyrainin', 'monthlyrainin',
+        ]
 
         def __init__(self):
             self._last_rain = None
@@ -2269,8 +2273,9 @@ class GW1000(Consumer):
             'baromabsin': 'barometer',
         }
 
-        IGNORED_LABELS = ['PASSKEY', 'dateutc', 'stationtype', 'model', 'freq',
-                          'baromrelin']
+        IGNORED_LABELS = [
+            'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin'
+        ]
 
         def __init__(self):
             self._last_rain = None
