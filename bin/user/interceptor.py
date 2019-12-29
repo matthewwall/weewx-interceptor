@@ -6,7 +6,16 @@
 This driver runs a simple web server designed to receive data directly from an
 internet weather reporting device such as the Acurite internet bridge, the
 LaCrosse GW1000U internet bridge, the Oregon Scientific LW300 (LW301/LW302)
-internet bridge, or the FineOffset HP1000 console or WH2600 internet bridge.
+internet bridge, the FineOffset HP1000 console or WH2600 internet bridge, or
+the FineOffset GW1000 wifi bridge.
+
+When this driver was first written (early 2016), there were many different
+firmware versions using different variations of the weather underground
+protocol.  The WU protocol has stabilized, and other protocols similar to it
+have been developed (e.g., ambient, ecowitt) to provide functionality not
+available in the WU protocol.  Although this driver maintains backward
+compatiblity as much as possible, it is be feasible to support every firmware
+bug and version.
 
 Thanks to rich of modern toil and george nincehelser for acurite parsing
   http://moderntoil.com/?p=794
@@ -27,10 +36,22 @@ Thanks to skydvrz, keckec, mycal, kennkong for publishing their lacrosse work
 
 Thanks to Jerome Helbert for the pypcap option.
 
+The following sections provide some details about each type of hardware.
 
 ===============================================================================
-About the stations
+WUClient
 
+This is not a specific type of hardware, but rather *any* hardware that
+communicates data using the weather underground protocol.  The protocol is
+defined here:
+
+https://feedback.weather.com/customer/en/portal/articles/2924682-pws-upload-protocol?b_id=17298
+
+Since that protocol has changed over the years, a PDF version of the protocol
+as of 03jun2019 is incuded in this distribution in the doc directory.
+
+
+===============================================================================
 Acurite Bridge
 
 The Acurite bridge communicates with Acurite 5-in-1, 3-in-1, temperature, and
@@ -166,6 +187,30 @@ this driver.
 
 
 ===============================================================================
+Fine Offset GW1000
+
+The Fine Offset gateway collects data from Fine Offset sensors using 915MHz
+(and other?) unlicensed frequencies, then transmits the data via Wifi to
+various services.  As of dec2019 these include ecowitt.net, wunderground.com,
+and metoffice.gov.uk.
+
+The transmission to wunderground can be captured using the 'wu-client' mode.
+However, since the gateway supports many other sensors that are not supported
+by wunderground, it is usually better use use the 'fineoffset-bridge' mode.
+
+As of firmware 1.5.5, the device will attempt to upload to ecowitt servers,
+even when nothing has been configured.
+
+* the bridge attempts to upload to rtpdate.ecowitt.net using HTTP GET
+* the data are in a format similar to but incompatible with weather underground
+* the default PASSKEY causes the server to reject the request
+
+This device first appeared on the market in 2018.  Despite the similarity of
+name, it is completely unrelated to the LaCrosse GW1000U.  Note that there are
+variants of the Fine Offset GW1000, including GW1000B and GW1000BU.
+
+
+===============================================================================
 SniffServer vs TCPServer
 
 The driver can obtain packets by sniffing network traffic using pcap, or by
@@ -213,7 +258,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.46'
+DRIVER_VERSION = '0.47'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -567,7 +612,7 @@ class Consumer(object):
             s = s.replace("%20", " ")
             s = s.replace("%3A", ":")
             if '+' in s:
-                # this is an ambient weather timestamp
+                # this is a fine offset (ambient, ecowitt) timestamp
                 ts = time.strptime(s, "%Y-%m-%d+%H:%M:%S")
             else:
                 # this is a weather underground timestamp
@@ -608,28 +653,78 @@ class WUClient(Consumer):
             'rain': 'rain',
             'rainRate': 'rain_rate',
             'UV': 'uv',
-            'txBatteryStatus': 'battery'}
+            'txBatteryStatus': 'battery',
+            'extraTemp1', 'temperature_1',
+            'extraTemp2', 'temperature_2',
+            'extraTemp3', 'temperature_3',
+            'soilTemp1', 'temperature_soil_1',
+            'soilTemp2', 'temperature_soil_2',
+            'soilTemp3', 'temperature_soil_3',
+            'soilTemp4', 'temperature_soil_4',
+            'soilMoist1', 'moisture_soil_1',
+            'soilMoist2', 'moisture_soil_2',
+            'soilMoist3', 'moisture_soil_3',
+            'soilMoist4', 'moisture_soil_4',
+            'leafWet1', 'leafwetness',
+            'leafWet2', 'leafwetness2',
+        }
 
         # map labels to observation names
         LABEL_MAP = {
-            'humidity': 'humidity_out',
-            'indoorhumidity': 'humidity_in',
-            'tempf': 'temperature_out',
-            'indoortempf': 'temperature_in',
-            'baromin': 'barometer',
+            'winddir': 'wind_dir',
             'windspeedmph': 'wind_speed',
             'windgustmph': 'wind_gust',
-            'solarradiation': 'radiation',
-            'dewptf': 'dewpoint',
-            'windchillf': 'windchill',
-            'winddir': 'wind_dir',
             'windgustdir': 'wind_gust_dir',
+            'humidity': 'humidity_out',
+            'dewptf': 'dewpoint',
+            'tempf': 'temperature_out',
+            'temp2f': 'temperature_1',
+            'temp3f': 'temperature_2',
+            'temp4f': 'temperature_3',
+            'baromin': 'barometer',
+            'soiltempf': 'temperature_soil_1',
+            'soiltemp2f': 'temperature_soil_2',
+            'soiltemp3f': 'temperature_soil_3',
+            'soiltemp4f': 'temperature_soil_4',
+            'soilmoisture': 'moisture_soil_1',
+            'soilmoisture2': 'moisture_soil_2',
+            'soilmoisture3': 'moisture_soil_3',
+            'soilmoisture4': 'moisture_soil_4',
+            'leafwetness': 'leafwetness',
+            'solarradiation': 'radiation',
             'UV': 'uv',
+            'visibility': 'visibility',
+            'indoortempf': 'temperature_in',
+            'indoorhumidity': 'humidity_in',
+            'AqNO': 'AqNO',
+            'AqNO2T': 'AqNO2T',
+            'AqNO2': 'AqNO2',
+            'AqNO2Y': 'AqNO2Y',
+            'AqNOX': 'AqNOX',
+            'AqNOY': 'AqNOY',
+            'AqNO3': 'AqNO3',
+            'AqSO4': 'AqSO4',
+            'AqSO2': 'AqSO',
+            'AqSO2T': 'AqSO2T',
+            'AqCO': 'AqCO',
+            'AqCOT': 'AqCOT',
+            'AqEC': 'AqEC',
+            'AqOC': 'AqOC',
+            'AqBC': 'AqBC',
+            'AqUV-AETH': 'AqUV_AETH',
+            'AqPM2.5': 'AqPM2_5',
+            'AqPM10': 'AqPM10_0',
+            'AqOZONE': 'AqOZONE',
+            # these have been observed, but apparently are unsupported?
+            'windchillf': 'windchill',
             'lowbatt': 'battery',
         }
 
-        IGNORED_LABELS = ['realtime', 'rtfreq', 'action',
-                          'ID', 'PASSWORD', 'dateutc', 'softwaretype']
+        IGNORED_LABELS = ['ID', 'PASSWORD', 'dateutc', 'softwaretype',
+                          'action', 'realtime', 'rtfreq',
+                          'weather', 'clouds',
+                          'windspdmph_avg2m', 'winddir_avg2m',
+                          'windgustmph_10m', 'windgustdir_10m']
 
         def __init__(self):
             self._last_rain = None
@@ -664,15 +759,6 @@ class WUClient(Consumer):
                 if rain_total is not None:
                     pkt['rain_total'] = rain_total
                     logdbg("using rain_total %s from %s" % (rain_total, field))
-
-                # some firmware reports baromin as station pressure, but others
-                # report it as barometer.
-                if 'softwaretype' in data:
-                    fw = data['softwaretype']
-                    if fw == 'WH2600GEN_V2.2.5' or fw == 'WH2650A_V1.2.1':
-                        self.LABEL_MAP['baromin'] = 'pressure'
-                    logdbg("firmware %s: baromin is %s" %
-                           (fw, self.LABEL_MAP['baromin']))
 
                 # get all of the other parameters
                 for n in data:
@@ -2128,6 +2214,95 @@ class GW1000U(Consumer):
             for y in x:
                 v = (v << 4) + int(y, 16)
             return v
+
+
+# Capture data from the Fine Offset GW1000(B|BU) bridge.
+
+class GW1000(Consumer):
+
+    def __init__(self, **stn_dict):
+        super(GW1000, self).__init__(
+            GW1000.Parser(), handler=GW1000.Handler, **stn_dict)
+
+    class Handler(Consumer.Handler):
+
+        def get_response(self):
+            return 'success'
+
+    class Parser(Consumer.Parser):
+
+        # map database fields to observation names
+        DEFAULT_SENSOR_MAP = {
+            'pressure': 'pressure',
+            'barometer': 'barometer',
+            'outHumidity': 'humidity_out',
+            'inHumidity': 'humidity_in',
+            'outTemp': 'temperature_out',
+            'inTemp': 'temperature_in',
+            'windSpeed': 'wind_speed',
+            'windGust': 'wind_gust',
+            'windDir': 'wind_dir',
+            'windGustDir': 'wind_gust_dir',
+            'radiation': 'radiation',
+            'dewpoint': 'dewpoint',
+            'windchill': 'windchill',
+            'rain': 'rain',
+            'rainRate': 'rain_rate',
+            'UV': 'uv',
+            'txBatteryStatus': 'battery'
+        }
+
+        # map labels to observation names
+        LABEL_MAP = {
+            'humidity': 'humidity_out',
+            'humidityin': 'humidity_in',
+            'tempf': 'temperature_out',
+            'tempinf': 'temperature_in',
+            'baromabsin': 'barometer',
+        }
+
+        IGNORED_LABELS = ['PASSKEY', 'dateutc', 'stationtype', 'model', 'freq',
+                          'baromrelin']
+
+        def __init__(self):
+            self._last_rain = None
+
+        def parse(self, s):
+            pkt = dict()
+            try:
+                data = _cgi_to_dict(s)
+                pkt['dateTime'] = self.decode_datetime(
+                    data.pop('dateutc', int(time.time() + 0.5)))
+                pkt['usUnits'] = weewx.US
+
+                # get all of the other parameters
+                for n in data:
+                    if n in self.LABEL_MAP:
+                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                    elif n in self.IGNORED_LABELS:
+                        val = data[n]
+                        if n == 'PASSKEY':
+                            val = 'X' * len(data[n])
+                        logdbg("ignored parameter %s=%s" % (n, val))
+                    else:
+                        loginf("unrecognized parameter %s=%s" % (n, data[n]))
+
+            except ValueError, e:
+                logerr("parse failed for %s: %s" % (s, e))
+            return pkt
+
+        @staticmethod
+        def map_to_fields(pkt, sensor_map):
+            if sensor_map is None:
+                sensor_map = GW1000.Parser.DEFAULT_SENSOR_MAP
+            return Consumer.Parser.map_to_fields(pkt, sensor_map)
+
+        @staticmethod
+        def decode_float(x):
+            # these stations send a value of -9999 to indicate no value, so
+            # convert that to a proper None.
+            x = Consumer.Parser.decode_float(x)
+            return None if x == -9999 else x
         
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
@@ -2145,6 +2320,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   observer - fine offset WH2600/HP1000/HP1003, ambient WS2902
     #   lw30x - oregon scientific LW301/LW302
     #   lacrosse-bridge - lacrosse GW1000U/C84612 internet bridge
+    #   fineoffset-bridge - fine offset GW1000/GW1000B/GW1000BU wifi gateway
     #   wu-client - any hardware that uses the weather underground protocol
     device_type = acurite-bridge
 
@@ -2182,7 +2358,8 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
         print "Specify the type of device whose data will be captured"
         device_type = self._prompt(
             'device_type', 'acurite-bridge',
-            ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge', 'wu-client'])
+            ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge',
+             'fineoffset-bridge', 'wu-client'])
         return {'device_type': device_type}
 
 
@@ -2193,7 +2370,9 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         'observerip': Observer,
         'lw30x': LW30x,
         'lacrosse-bridge': GW1000U,
-        'wu-client': WUClient}
+        'fineoffset-bridge': GW1000,
+        'wu-client': WUClient
+    }
 
     def __init__(self, **stn_dict):
         loginf('driver version is %s' % DRIVER_VERSION)
