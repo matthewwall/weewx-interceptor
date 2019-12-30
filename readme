@@ -159,6 +159,19 @@ PYTHONPATH=bin python bin/user/interceptor.py --help
 
 
 ===============================================================================
+Example: Ecowitt GW1000 in listen mode on port 8000
+
+1) Configure the GW1000 to send to the weewx computer on port 8000
+
+2) Configure the interceptor
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = fineoffset-bridge
+    port = 8000
+
+
+===============================================================================
 Example: Acurite Bridge in listen mode, traffic redirected by DNS hijack
 
 1) Configure the DNS server for the local network.  Make a DNS entry for one
