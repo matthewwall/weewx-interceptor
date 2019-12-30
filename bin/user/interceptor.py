@@ -234,11 +234,22 @@ However, since the gateway supports many other sensors that are not supported
 by wunderground, it is usually better to use the 'fineoffset-bridge' mode.
 
 As of firmware 1.5.5, the device will attempt to upload to ecowitt servers,
-even when nothing has been configured.
+even when nothing has been configured.  It is possible to turn this off using
+the WSView app.
 
 * the bridge attempts to upload to rtpdate.ecowitt.net using HTTP GET
-* the data are in a format similar to but incompatible with weather underground
-* the default PASSKEY causes the server to reject the request
+* the protocol is called 'ecowitt' - it is similar to but incompatible with WU
+
+The ecowitt.net server responds with HTTP 200.  However, the payload varies
+depending on the configuration.
+
+When the device is not registered, the ecowitt.net server replies with:
+
+{"errcode":"40001","errmsg":"invalid passkey"}
+
+When the device has been registered, the ecowitt.net server replies with:
+
+{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}
 
 The device is a bit chatty - every 2 seconds it does a UDP broadcast that
 includes the name of its wifi SSID.  Every 10 seconds it does an ARP broadcast.
@@ -2272,7 +2283,7 @@ class GW1000(Consumer):
     class Handler(Consumer.Handler):
 
         def get_response(self):
-            return 'success'
+            return '{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}'
 
     class Parser(Consumer.Parser):
 
