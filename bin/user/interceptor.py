@@ -229,6 +229,10 @@ The Fine Offset gateway collects data from Fine Offset sensors using 915MHz
 various services.  As of dec2019 these include ecowitt.net, wunderground.com,
 weathercloud, weatherobservationswebsite, and metoffice.gov.uk.
 
+This device first appeared on the market in 2018.  Despite the similarity of
+name, it is completely unrelated to the LaCrosse GW1000U.  Note that there are
+variants of the Fine Offset GW1000, including GW1000B and GW1000BU.
+
 The transmission to wunderground can be captured using the 'wu-client' mode.
 However, since the gateway supports many other sensors that are not supported
 by wunderground, it is usually better to use the 'fineoffset-bridge' mode.
@@ -236,27 +240,6 @@ by wunderground, it is usually better to use the 'fineoffset-bridge' mode.
 As of firmware 1.5.5, the device will attempt to upload to ecowitt servers,
 even when nothing has been configured.  It is possible to turn this off using
 the WSView app.
-
-* the bridge attempts to upload to rtpdate.ecowitt.net using HTTP GET
-* the protocol is called 'ecowitt' - it is similar to but incompatible with WU
-
-The ecowitt.net server responds with HTTP 200.  However, the payload varies
-depending on the configuration.
-
-When the device is not registered, the ecowitt.net server replies with:
-
-{"errcode":"40001","errmsg":"invalid passkey"}
-
-When the device has been registered, the ecowitt.net server replies with:
-
-{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}
-
-The device is a bit chatty - every 2 seconds it does a UDP broadcast that
-includes the name of its wifi SSID.  Every 10 seconds it does an ARP broadcast.
-
-This device first appeared on the market in 2018.  Despite the similarity of
-name, it is completely unrelated to the LaCrosse GW1000U.  Note that there are
-variants of the Fine Offset GW1000, including GW1000B and GW1000BU.
 """
 
 # FIXME: automatically detect the traffic type
@@ -2272,8 +2255,40 @@ class GW1000U(Consumer):
             return v
 
 
-# Capture data from the Fine Offset GW1000(B|BU) bridge.
+"""
+Capture data from the Fine Offset GW1000(B|BU) bridge.
 
+* the bridge attempts to upload to rtpdate.ecowitt.net using HTTP GET
+* the protocol is called 'ecowitt' - it is similar to but incompatible with WU
+
+The ecowitt.net server responds with HTTP 200.  However, the payload varies
+depending on the configuration.
+
+When the device is not registered, the ecowitt.net server replies with:
+
+{"errcode":"40001","errmsg":"invalid passkey"}
+
+When the device has been registered, the ecowitt.net server replies with:
+
+{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}
+
+The device is a bit chatty - every 2 seconds it does a UDP broadcast.  Every
+10 seconds it does an ARP broadcast.
+
+The UDP broadcast packet is 35 bytes.  It contains the MAC address, IP address,
+and SSID of the GW1000.  For example:
+
+FFFF120021807D5A3D537AC0A84C08AFC810475731303030422D5749464935333741B3
+
+which breaks down to:
+
+FFFF 120021 807D5A3D537A C0A84C08 AFC810 475731303030422D5749464935333741
+     ------ ------------ -------- ------ --------------------------------
+     ?      MAC          IPADDR   ?       G W 1 0 0 0 B - W I F I 5 3 7 A
+
+Here the IPADDR is 192.168.76.8, and the SSID uses the last 4 digits of the
+MAC address.
+"""
 class GW1000(Consumer):
 
     def __init__(self, **stn_dict):
