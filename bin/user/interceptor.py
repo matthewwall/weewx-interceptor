@@ -242,7 +242,10 @@ even when nothing has been configured.  It is possible to turn this off using
 the WSView app.
 """
 
-# FIXME: automatically detect the traffic type
+# FIXME: do a single mapping from GET/POST args to weewx schema names
+# FIXME: specify by protocol, not by hardware device
+# FIXME: automatically detect the protocol?
+# FIXME: add code to skip duplicate and out-of-order packets
 # FIXME: default acurite mapping confuses multiple tower sensors
 
 from __future__ import with_statement
@@ -2290,6 +2293,7 @@ Here the IPADDR is 192.168.76.8, and the SSID uses the last 4 digits of the
 MAC address.
 """
 class GW1000(Consumer):
+    """Use the ecowitt protocol (not WU protocol) to capture data"""
 
     def __init__(self, **stn_dict):
         super(GW1000, self).__init__(
@@ -2325,11 +2329,45 @@ class GW1000(Consumer):
 
         # map labels to observation names
         LABEL_MAP = {
+            'baromabsin': 'pressure',
             'humidity': 'humidity_out',
             'humidityin': 'humidity_in',
             'tempf': 'temperature_out',
             'tempinf': 'temperature_in',
-            'baromabsin': 'barometer',
+            # FIXME: the following have not been verified - they might be WU
+            'solarradiation': 'solar_radiation',
+            'uv': 'uv',
+            'lux': 'lux',
+            'temp1f': 'temperature_1',
+            'temp2f': 'temperature_2',
+            'temp3f': 'temperature_3',
+            'temp4f': 'temperature_4',
+            'temp5f': 'temperature_5',
+            'temp6f': 'temperature_6',
+            'temp7f': 'temperature_7',
+            'temp8f': 'temperature_8',
+            'humidity1': 'humidity_1',
+            'humidity2': 'humidity_2',
+            'humidity3': 'humidity_3',
+            'humidity4': 'humidity_4',
+            'humidity5': 'humidity_5',
+            'humidity6': 'humidity_6',
+            'humidity7': 'humidity_7',
+            'humidity8': 'humidity_8',
+            'soilmoisture1': 'soil_moisture_1',
+            'soilmoisture2': 'soil_moisture_2',
+            'soilmoisture3': 'soil_moisture_3',
+            'soilmoisture4': 'soil_moisture_4',
+            'batt1': 'battery_1',
+            'soilbatt1': 'battery_soil_1',
+            'soilbatt2': 'battery_soil_2',
+            'soilbatt3': 'battery_soil_3',
+            'soilbatt4': 'battery_soil_4',
+            'wh40batt': 'battery_rain', # for WH40 device
+            'wh80batt': 'battery_wind', # for WH80 device
+            # FIXME: what about particulates?
+            # FIXME: how to distinguish multiple rain sensors?
+            # FIXME: how to distinguish multiple wind sensors?
         }
 
         IGNORED_LABELS = [
