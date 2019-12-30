@@ -227,7 +227,7 @@ Fine Offset GW1000
 The Fine Offset gateway collects data from Fine Offset sensors using 915MHz
 (and other?) unlicensed frequencies, then transmits the data via Wifi to
 various services.  As of dec2019 these include ecowitt.net, wunderground.com,
-and metoffice.gov.uk.
+weathercloud, weatherobservationswebsite, and metoffice.gov.uk.
 
 The transmission to wunderground can be captured using the 'wu-client' mode.
 However, since the gateway supports many other sensors that are not supported
@@ -239,6 +239,9 @@ even when nothing has been configured.
 * the bridge attempts to upload to rtpdate.ecowitt.net using HTTP GET
 * the data are in a format similar to but incompatible with weather underground
 * the default PASSKEY causes the server to reject the request
+
+The device is a bit chatty - every 2 seconds it does a UDP broadcast that
+includes the name of its wifi SSID.  Every 10 seconds it does an ARP broadcast.
 
 This device first appeared on the market in 2018.  Despite the similarity of
 name, it is completely unrelated to the LaCrosse GW1000U.  Note that there are
@@ -1871,7 +1874,7 @@ class GW1000U(Consumer):
     @staticmethod
     def encode_bcd(x):
         x = int(x)
-        msb = x / 10
+        msb = x // 10
         lsb = x % 10
         if msb > 10:
             msb = 10
@@ -2036,7 +2039,7 @@ class GW1000U(Consumer):
         @staticmethod
         def _create_gateway_ping_response(interval):
             # 18-byte reply
-            hi = interval / 256
+            hi = interval // 256
             lo = interval % 256
             return ''.join([chr(0) * 16, chr(hi), chr(lo)])
         
@@ -2465,12 +2468,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
 if __name__ == '__main__':
     import optparse
-    import syslog
 
     usage = """%prog [options] [--debug] [--help]"""
-
-    syslog.openlog('interceptor', syslog.LOG_PID | syslog.LOG_CONS)
-    syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_INFO))
 
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('--version', dest='version', action='store_true',
@@ -2512,10 +2511,10 @@ if __name__ == '__main__':
         print("driver version is %s" % DRIVER_VERSION)
         exit(0)
 
-    debug = False
     if options.debug:
-        syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
-        debug = True
+        weewx.debug = 1
+
+    #    weeutil.logger.setup('interceptor', {})
 
     if options.data:
         options.data = options.data.replace(' ', '')
@@ -2565,15 +2564,18 @@ if __name__ == '__main__':
 
     while True:
         try:
-            _data = device.get_queue().get(True, 10)
+            _data = device.get_queue().get(True, 1)
             ids = device.parser.parse_identifiers(_data)
             if ids:
                 print('identifiers: %s' % ids)
-            if debug:
+            if options.debug:
                 print('raw data: %s' % _data)
-                _pkt = device.parser.parse(_data)
+            _pkt = device.parser.parse(_data)
+            if options.debug:
                 print('raw packet: %s' % _pkt)
-                _pkt = device.parser.map_to_fields(_pkt, None)
-                print('mapped packet: %s' % _pkt)
+            _pkt = device.parser.map_to_fields(_pkt, None)
+            print('mapped packet: %s' % _pkt)
         except Queue.Empty:
-            logdbg("empty queue")
+            pass
+        except KeyboardInterrupt:
+            break
