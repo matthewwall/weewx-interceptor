@@ -249,18 +249,52 @@ variants of the Fine Offset GW1000, including GW1000B and GW1000BU.
 # FIXME: default acurite mapping confuses multiple tower sensors
 
 from __future__ import with_statement
-import BaseHTTPServer
-import SocketServer
-import Queue
+
+# support both python2 and python3.  attempt the python3 import first, then
+# fallback to python2.
+try:
+    from http.server import BaseHTTPRequestHandler
+    from socketserver import TCPServer
+    import queue as Queue
+    import urllib.parse as urlparse
+except ImportError:
+    from BaseHTTPServer import BaseHTTPRequestHandler
+    from SocketServer import TCPServer
+    import Queue
+    import urlparse
+
 import binascii
 import calendar
 import fnmatch
 import re
 import string
-import syslog
+import sys
 import threading
 import time
-import urlparse
+
+try:
+    # weewx4 logging
+    import weeutil.logger
+    import logging
+    log = logging.getLogger(__name__)
+    def logdbg(msg):
+        log.debug(msg)
+    def loginf(msg):
+        log.info(msg)
+    def logerr(msg):
+        log.error(msg)
+except ImportError:
+    # old-style weewx logging
+    import syslog
+    def logmsg(level, msg):
+        syslog.syslog(level, 'interceptor: %s: %s' %
+                      (threading.currentThread().getName(), msg))
+    def logdbg(msg):
+        logmsg(syslog.LOG_DEBUG, msg)
+    def loginf(msg):
+        logmsg(syslog.LOG_INFO, msg)
+    def logerr(msg):
+        logmsg(syslog.LOG_ERR, msg)
 
 import weewx.drivers
 import weeutil.weeutil
@@ -281,19 +315,10 @@ def confeditor_loader():
     return InterceptorConfigurationEditor()
 
 
-def logmsg(level, msg):
-    syslog.syslog(level, 'interceptor: %s: %s' %
-                  (threading.currentThread().getName(), msg))
-
-def logdbg(msg):
-    logmsg(syslog.LOG_DEBUG, msg)
-
-def loginf(msg):
-    logmsg(syslog.LOG_INFO, msg)
-
-def logerr(msg):
-    logmsg(syslog.LOG_ERR, msg)
-
+def _to_bytes(data):
+    if sys.version_info < (3, 0):
+        return bytes(data)
+    return bytes(data, 'utf8')
 
 def _obfuscate_passwords(msg):
     return re.sub(r'(PASSWORD|PASSKEY)=[^&]+', r'\1=XXXX', msg)
@@ -337,7 +362,7 @@ class Consumer(object):
         elif mode == 'listen':
             self._server = Consumer.TCPServer(address, port, handler)
         else:
-            raise Exception("unrecognized mode '%s'" % mode)
+            raise TypeError("unrecognized mode '%s'" % mode)
 
     def run_server(self):
         self._server.run()
@@ -482,7 +507,7 @@ class Consumer(object):
             self.data_buffer = ''
 
 
-    class TCPServer(Server, SocketServer.TCPServer):
+    class TCPServer(Server, TCPServer):
         daemon_threads = True
         allow_reuse_address = True
 
@@ -490,7 +515,7 @@ class Consumer(object):
             if handler is None:
                 handler = Consumer.Handler
             loginf("listen on %s:%s" % (address, port))
-            SocketServer.TCPServer.__init__(self, (address, int(port)), handler)
+            TCPServer.__init__(self, (address, int(port)), handler)
 
         def run(self):
             logdbg("start tcp server")
@@ -501,7 +526,7 @@ class Consumer(object):
             self.shutdown()
             self.server_close()
 
-    class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
+    class Handler(BaseHTTPRequestHandler):
 
         def get_response(self):
             # default reply is a simple 'OK' string
@@ -509,7 +534,7 @@ class Consumer(object):
 
         def reply(self):
             # standard reply is HTTP code of 200 and the response string
-            response = bytes(self.get_response())
+            response = _to_bytes(self.get_response())
             self.send_response(200)
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
@@ -788,7 +813,7 @@ class WUClient(Consumer):
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
 
-            except ValueError, e:
+            except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
 
@@ -1024,7 +1049,7 @@ class AcuriteBridge(Consumer):
                         logdbg("ignored parameter %s=%s" % (n, val))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
-            except ValueError, e:
+            except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             # convert rainfall to a delta
             if 'rainfall' in pkt:
@@ -1078,7 +1103,7 @@ class AcuriteBridge(Consumer):
                         pkt[n] = int(v, 16)
                     else:
                         loginf("unknown element '%s' with value '%s'" % (n, v))
-                except (ValueError, IndexError), e:
+                except (ValueError, IndexError) as e:
                     logerr("decode failed for %s '%s': %s" % (n, v, e))
 
             # if this is a pressure packet, calculate the pressure
@@ -1383,7 +1408,7 @@ class Observer(Consumer):
                 if 'luminosity' in pkt and not 'radiation' in pkt:
                     lum2rad = 0.01075 # lux to W/m^2 (approximation)
                     pkt['radiation'] = pkt['luminosity'] * lum2rad
-            except ValueError, e:
+            except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
 
@@ -1507,7 +1532,7 @@ class LW30x(Consumer):
                         pkt[n] = self.decode_float(data[n])
                     else:
                         pkt[n] = data[n]
-            except ValueError, e:
+            except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
 
             # convert rain from inches to mm
@@ -2111,7 +2136,7 @@ class GW1000U(Consumer):
                     pkt = self.parse_history(s)
                 else:
                     loginf("unhandled data len=%s (%s)" % (len(s), s))
-            except ValueError, e:
+            except ValueError as e:
                 logerr("parse failed for %s: %s" % (payload, e))
             # now tag each value with identifiers
             mac = payload.get('mac')
@@ -2300,7 +2325,7 @@ class GW1000(Consumer):
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
 
-            except ValueError, e:
+            except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
 
@@ -2370,7 +2395,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
 """
 
     def prompt_for_settings(self):
-        print "Specify the type of device whose data will be captured"
+        print("Specify the type of device whose data will be captured")
         device_type = self._prompt(
             'device_type', 'acurite-bridge',
             ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge',
@@ -2394,7 +2419,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         stn_dict.pop('driver')
         self._device_type = stn_dict.pop('device_type', 'acurite-bridge')
         if not self._device_type in self.DEVICE_TYPES:
-            raise Exception("unsupported device type '%s'" % self._device_type)
+            raise TypeError("unsupported device type '%s'" % self._device_type)
         loginf('device type: %s' % self._device_type)
         self._obs_map = stn_dict.pop('sensor_map', None)
         loginf('sensor map: %s' % self._obs_map)
@@ -2440,6 +2465,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
 if __name__ == '__main__':
     import optparse
+    import syslog
 
     usage = """%prog [options] [--debug] [--help]"""
 
@@ -2483,7 +2509,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     if options.version:
-        print "driver version is %s" % DRIVER_VERSION
+        print("driver version is %s" % DRIVER_VERSION)
         exit(0)
 
     debug = False
@@ -2496,7 +2522,7 @@ if __name__ == '__main__':
 
     if options.parse_gw1000u:
         parser = GW1000U.Parser()
-        print parser.parse({'mac': 'tester', 'data': options.data})
+        print(parser.parse({'mac': 'tester', 'data': options.data}))
         exit(0)
 
     if options.test_gw1000u_response:
@@ -2508,22 +2534,22 @@ if __name__ == '__main__':
         sensor_interval = GW1000U.sensor_interval
         history_interval = GW1000U.history_interval_idx
         last_history_address = GW1000U.Handler.last_history_address
-        print "ts:", ts
-        print "serial:", serial
-        print "server:", server
-        print "ping_interval:", ping_interval
-        print "brightness:", brightness
-        print "sensor_interval:", sensor_interval
-        print "history_interval:", history_interval
-        print "last_address:", last_history_address
-        print "gateway_reg_response:", _fmt_bytes(GW1000U.Handler._create_gateway_reg_response(server))
-        print "gateway_ping_response:", _fmt_bytes(GW1000U.Handler._create_gateway_ping_response(ping_interval))
-        print "station_reg_response:", _fmt_bytes(GW1000U.Handler._create_station_reg_response(ts, serial, brightness))
-        print "station_ping_response:", _fmt_bytes(GW1000U.Handler._create_station_ping_response(ts, serial, sensor_interval, history_interval, brightness, last_history_address))
+        print("ts: %s" % ts)
+        print("serial: %s" % serial)
+        print("server: %s" % server)
+        print("ping_interval: %s" % ping_interval)
+        print("brightness: %s" % brightness)
+        print("sensor_interval: %s" % sensor_interval)
+        print("history_interval: %s" % history_interval)
+        print("last_address: %s" % last_history_address)
+        print("gateway_reg_response: %s" % _fmt_bytes(GW1000U.Handler._create_gateway_reg_response(server)))
+        print("gateway_ping_response: %s" % _fmt_bytes(GW1000U.Handler._create_gateway_ping_response(ping_interval)))
+        print("station_reg_response: %s" % _fmt_bytes(GW1000U.Handler._create_station_reg_response(ts, serial, brightness)))
+        print("station_ping_response: %s" % _fmt_bytes(GW1000U.Handler._create_station_ping_response(ts, serial, sensor_interval, history_interval, brightness, last_history_address)))
         exit(0)
 
     if not options.device_type in InterceptorDriver.DEVICE_TYPES:
-        raise Exception("unsupported device type '%s'.  options include %s" %
+        raise TypeError("unsupported device type '%s'.  options include %s" %
                         (options.device_type,
                          ', '.join(InterceptorDriver.DEVICE_TYPES.keys())))
 
@@ -2542,12 +2568,12 @@ if __name__ == '__main__':
             _data = device.get_queue().get(True, 10)
             ids = device.parser.parse_identifiers(_data)
             if ids:
-                print 'identifiers:', ids
+                print('identifiers: %s' % ids)
             if debug:
-                print 'raw data: %s' % _data
+                print('raw data: %s' % _data)
                 _pkt = device.parser.parse(_data)
-                print 'raw packet: %s' % _pkt
+                print('raw packet: %s' % _pkt)
                 _pkt = device.parser.map_to_fields(_pkt, None)
-                print 'mapped packet: %s' % _pkt
+                print('mapped packet: %s' % _pkt)
         except Queue.Empty:
             logdbg("empty queue")

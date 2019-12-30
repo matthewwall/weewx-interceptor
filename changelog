@@ -1,4 +1,6 @@
 0.47 29dec2019
+* update to work with weewx4
+* update to work with python3 and python2
 * added explicit support for fine offset GW1000 (ecowitt)
 * update wu-client to match 03jun2019 protocol update from wunderground
 * added promiscuous flag to default conf stanza for sniffing
