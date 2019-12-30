@@ -44,7 +44,34 @@ Thanks to skydvrz, keckec, mycal, kennkong for publishing their lacrosse work
 
 Thanks to Jerome Helbert for the pypcap option.
 
+
+===============================================================================
+SniffServer vs TCPServer
+
+The driver can obtain packets by sniffing network traffic using pcap, or by
+listening for TCP/IP requests.  The pcap approach requires the python pypcap
+module, which in turn requires libpcap.  This means a separate installation
+on most platforms.
+
+https://github.com/pynetwork/pypcap
+
+To run a listener, specify an address and port.  This is the default mode.
+For example:
+
+[Interceptor]
+    mode = listen
+    address = localhost
+    port = 9999
+
+To run a sniffer, specify an interface and filter.  For example:
+
+[Interceptor]
+    mode = sniff
+    iface = eth0
+    pcap_filter = src host 192.168.1.5 && dst port 80
+
 The following sections provide some details about each type of hardware.
+
 
 ===============================================================================
 WUClient
@@ -204,7 +231,7 @@ and metoffice.gov.uk.
 
 The transmission to wunderground can be captured using the 'wu-client' mode.
 However, since the gateway supports many other sensors that are not supported
-by wunderground, it is usually better use use the 'fineoffset-bridge' mode.
+by wunderground, it is usually better to use the 'fineoffset-bridge' mode.
 
 As of firmware 1.5.5, the device will attempt to upload to ecowitt servers,
 even when nothing has been configured.
@@ -216,33 +243,6 @@ even when nothing has been configured.
 This device first appeared on the market in 2018.  Despite the similarity of
 name, it is completely unrelated to the LaCrosse GW1000U.  Note that there are
 variants of the Fine Offset GW1000, including GW1000B and GW1000BU.
-
-
-===============================================================================
-SniffServer vs TCPServer
-
-The driver can obtain packets by sniffing network traffic using pcap, or by
-listening for TCP/IP requests.  The pcap approach requires the python pypcap
-module, which in turn requires libpcap.  This means a separate installation
-on most platforms.
-
-https://github.com/pynetwork/pypcap
-
-To run a listener, specify an address and port.  This is the default mode.
-For example:
-
-[Interceptor]
-    mode = listen
-    address = localhost
-    port = 9999
-
-To run a sniffer, specify an interface and filter.  For example:
-
-[Interceptor]
-    mode = sniff
-    iface = eth0
-    pcap_filter = src host 192.168.1.5 && dst port 80
-
 """
 
 # FIXME: automatically detect the traffic type
@@ -662,19 +662,19 @@ class WUClient(Consumer):
             'rainRate': 'rain_rate',
             'UV': 'uv',
             'txBatteryStatus': 'battery',
-            'extraTemp1', 'temperature_1',
-            'extraTemp2', 'temperature_2',
-            'extraTemp3', 'temperature_3',
-            'soilTemp1', 'temperature_soil_1',
-            'soilTemp2', 'temperature_soil_2',
-            'soilTemp3', 'temperature_soil_3',
-            'soilTemp4', 'temperature_soil_4',
-            'soilMoist1', 'moisture_soil_1',
-            'soilMoist2', 'moisture_soil_2',
-            'soilMoist3', 'moisture_soil_3',
-            'soilMoist4', 'moisture_soil_4',
-            'leafWet1', 'leafwetness',
-            'leafWet2', 'leafwetness2',
+            'extraTemp1': 'temperature_1',
+            'extraTemp2': 'temperature_2',
+            'extraTemp3': 'temperature_3',
+            'soilTemp1': 'temperature_soil_1',
+            'soilTemp2': 'temperature_soil_2',
+            'soilTemp3': 'temperature_soil_3',
+            'soilTemp4': 'temperature_soil_4',
+            'soilMoist1': 'moisture_soil_1',
+            'soilMoist2': 'moisture_soil_2',
+            'soilMoist3': 'moisture_soil_3',
+            'soilMoist4': 'moisture_soil_4',
+            'leafWet1': 'leafwetness',
+            'leafWet2': 'leafwetness2',
         }
 
         # map labels to observation names
@@ -2540,7 +2540,9 @@ if __name__ == '__main__':
     while True:
         try:
             _data = device.get_queue().get(True, 10)
-            print 'identifiers:', device.parser.parse_identifiers(_data)
+            ids = device.parser.parse_identifiers(_data)
+            if ids:
+                print 'identifiers:', ids
             if debug:
                 print 'raw data: %s' % _data
                 _pkt = device.parser.parse(_data)
