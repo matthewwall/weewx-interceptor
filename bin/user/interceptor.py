@@ -323,6 +323,11 @@ def _to_bytes(data):
         return bytes(data)
     return bytes(data, 'utf8')
 
+def _bytes_to_str(data):
+    if sys.version_info < (3, 0):
+        return data
+    return str(data, 'utf-8')
+
 def _obfuscate_passwords(msg):
     return re.sub(r'(PASSWORD|PASSKEY)=[^&]+', r'\1=XXXX', msg)
 
@@ -1869,7 +1874,7 @@ class GW1000U(Consumer):
     @staticmethod
     def encode_serial(sn):
         # encode a 16-character serial number into 8 bytes
-        return binascii.unhexlify(sn)
+        return _bytes_to_str(binascii.unhexlify(sn))
 
     @staticmethod
     def encode_bcd(x):
@@ -2073,7 +2078,7 @@ class GW1000U(Consumer):
                                           brightness, last_history_address):
             # 38-byte reply
             # sensor_interval is in minutes
-            hi = last_history_address / 256
+            hi = last_history_address // 256
             lo = last_history_address % 256
             payload = ''.join(
                 [chr(1),
@@ -2526,6 +2531,7 @@ if __name__ == '__main__':
 
     if options.test_gw1000u_response:
         ts = int(time.time())
+#        ts = 1577681257 # for deterministic test comparisons
         serial = GW1000U.station_serial
         server = GW1000U.server_name
         ping_interval = GW1000U.ping_interval
