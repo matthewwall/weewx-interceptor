@@ -6,21 +6,19 @@
 This driver runs a simple web server or sniffs network traffic in order to
 capture data directly from an internet weather reporting device including:
 
-  - Acurite Internet Bridge (also known as the SmartHub)
-  - Acurite Access
-  - Oregon Scientific LW301/302
+  - Acurite Internet Bridge (also known as the SmartHub) (acurite protocol)
+  - Acurite Access (wu protocol)
+  - Oregon Scientific LW301/302 (OS protocol)
   - Fine Offset HP1000/WH2600
-  - Fine Offset GW1000 (ecowitt protocol)
+  - Fine Offset GW1000 (ecowitt protocol or wu protocol)
   - Fine Offset wifi consoles (including Ambient)
-  - LaCrosse GW1000U
+  - LaCrosse GW1000U (LaCrosse protocol)
 
 When this driver was first written (early 2016), there were many different
 firmware versions using different variations of the weather underground
 protocol.  The WU protocol has stabilized, and other protocols similar to it
 have been developed (e.g., ambient, ecowitt) to provide functionality not
-available in the WU protocol.  Although this driver maintains backward
-compatiblity as much as possible, it is be feasible to support every firmware
-bug and version.
+available in the WU protocol.
 
 See the readme file for configuration examples.  The sections below include
 details about and quirks of various supported hardware models.
@@ -231,7 +229,12 @@ weathercloud, weatherobservationswebsite, and metoffice.gov.uk.
 
 This device first appeared on the market in 2018.  Despite the similarity of
 name, it is completely unrelated to the LaCrosse GW1000U.  Note that there are
-variants of the Fine Offset GW1000, including GW1000B and GW1000BU.
+variants of the Fine Offset GW1000, including:
+
+  GW1000 - 433MHz
+  GW1000A - 868MHz
+  GW1000B - 915MHz
+  GW1000BU - 915MHz with better rang
 
 The transmission to wunderground can be captured using the 'wu-client' mode.
 However, since the gateway supports many other sensors that are not supported
@@ -300,7 +303,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.47'
+DRIVER_VERSION = '0.48'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -2259,7 +2262,8 @@ class GW1000U(Consumer):
 
 
 """
-Capture data from the Fine Offset GW1000(B|BU) bridge.
+Capture data from devices that transmit using ecowitt protocol, such as the
+Fine Offset GW1000 bridge.
 
 * the bridge attempts to upload to rtpdate.ecowitt.net using HTTP GET
 * the protocol is called 'ecowitt' - it is similar to but incompatible with WU
@@ -2292,12 +2296,12 @@ FFFF 120021 807D5A3D537A C0A84C08 AFC810 475731303030422D5749464935333741
 Here the IPADDR is 192.168.76.8, and the SSID uses the last 4 digits of the
 MAC address.
 """
-class GW1000(Consumer):
+class EcowittClient(Consumer):
     """Use the ecowitt protocol (not WU protocol) to capture data"""
 
     def __init__(self, **stn_dict):
-        super(GW1000, self).__init__(
-            GW1000.Parser(), handler=GW1000.Handler, **stn_dict)
+        super(EcowittClient, self).__init__(
+            EcowittClient.Parser(), handler=EcowittClient.Handler, **stn_dict)
 
     class Handler(Consumer.Handler):
 
@@ -2334,40 +2338,14 @@ class GW1000(Consumer):
             'humidityin': 'humidity_in',
             'tempf': 'temperature_out',
             'tempinf': 'temperature_in',
-            # FIXME: the following have not been verified - they might be WU
+            'windspeedmph': 'wind_speed',
+            'windgustmph': 'wind_gust',
             'solarradiation': 'solar_radiation',
             'uv': 'uv',
-            'lux': 'lux',
-            'temp1f': 'temperature_1',
-            'temp2f': 'temperature_2',
-            'temp3f': 'temperature_3',
-            'temp4f': 'temperature_4',
-            'temp5f': 'temperature_5',
-            'temp6f': 'temperature_6',
-            'temp7f': 'temperature_7',
-            'temp8f': 'temperature_8',
-            'humidity1': 'humidity_1',
-            'humidity2': 'humidity_2',
-            'humidity3': 'humidity_3',
-            'humidity4': 'humidity_4',
-            'humidity5': 'humidity_5',
-            'humidity6': 'humidity_6',
-            'humidity7': 'humidity_7',
-            'humidity8': 'humidity_8',
-            'soilmoisture1': 'soil_moisture_1',
-            'soilmoisture2': 'soil_moisture_2',
-            'soilmoisture3': 'soil_moisture_3',
-            'soilmoisture4': 'soil_moisture_4',
-            'batt1': 'battery_1',
-            'soilbatt1': 'battery_soil_1',
-            'soilbatt2': 'battery_soil_2',
-            'soilbatt3': 'battery_soil_3',
-            'soilbatt4': 'battery_soil_4',
-            'wh40batt': 'battery_rain', # for WH40 device
-            'wh80batt': 'battery_wind', # for WH80 device
-            # FIXME: what about particulates?
-            # FIXME: how to distinguish multiple rain sensors?
-            # FIXME: how to distinguish multiple wind sensors?
+            'rain_total': 'totalrainin',
+            'rainratein': 'rain_rate',
+            'wh26batt': 'battery',
+            'wh65batt': 'battery_wind',
         }
 
         IGNORED_LABELS = [
@@ -2404,7 +2382,7 @@ class GW1000(Consumer):
         @staticmethod
         def map_to_fields(pkt, sensor_map):
             if sensor_map is None:
-                sensor_map = GW1000.Parser.DEFAULT_SENSOR_MAP
+                sensor_map = EcowittClient.Parser.DEFAULT_SENSOR_MAP
             return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
@@ -2430,7 +2408,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   observer - fine offset WH2600/HP1000/HP1003, ambient WS2902
     #   lw30x - oregon scientific LW301/LW302
     #   lacrosse-bridge - lacrosse GW1000U/C84612 internet bridge
-    #   fineoffset-bridge - fine offset GW1000/GW1000B/GW1000BU wifi gateway
+    #   ecowitt-client - any hardware that uses the ecowitt protocol
     #   wu-client - any hardware that uses the weather underground protocol
     device_type = acurite-bridge
 
@@ -2482,7 +2460,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         'observerip': Observer,
         'lw30x': LW30x,
         'lacrosse-bridge': GW1000U,
-        'fineoffset-bridge': GW1000,
+        'ecowitt-client': EcowittClient,
+        'fineoffset-bridge': EcowittClient,
         'wu-client': WUClient
     }
 

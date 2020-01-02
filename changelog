@@ -1,3 +1,7 @@
+0.48 02jan2020
+* GW1000 is now EcowittClient to better reflect what is really happening
+* added recognized fields to EcowittClient based on input from user G Hammer
+
 0.47 29dec2019
 * update to work with weewx4
 * update to work with python3 and python2
