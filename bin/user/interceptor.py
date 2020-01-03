@@ -2556,6 +2556,8 @@ if __name__ == '__main__':
     parser.add_option('--data', dest='data', metavar='DATA',
                       default='',
                       help='data string for parse testing')
+    parser.add_option('--no-obfuscate', action='store_true', default=False,
+                      help='do not obfuscate passkeys/passwords')
     parser.add_option('--parse-gw1000u', action='store_true',
                       default=False,
                       help='test gw1000u packet parsing')
@@ -2628,12 +2630,20 @@ if __name__ == '__main__':
             if ids:
                 print('identifiers: %s' % ids)
             if options.debug:
-                print('raw data: %s' % _data)
+                s = '%s' % _data
+                if not options.no_obfuscate:
+                    s = _obfuscate_passwords(s)
+                print('raw data: %s' % s)
             _pkt = device.parser.parse(_data)
             if options.debug:
-                print('raw packet: %s' % _pkt)
+                s = '%s' % _pkt
+                if not options.no_obfuscate:
+                    s = _obfuscate_passwords(s)
+                print('raw packet: %s' % s)
             _pkt = device.parser.map_to_fields(_pkt, None)
-            print('mapped packet: %s' % _pkt)
+            if not options.no_obfuscate:
+                s = _obfuscate_passwords(s)
+            print('mapped packet: %s' % s)
         except Queue.Empty:
             pass
         except KeyboardInterrupt:
