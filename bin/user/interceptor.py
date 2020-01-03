@@ -2325,7 +2325,7 @@ class EcowittClient(Consumer):
             'radiation': 'radiation',
             'dewpoint': 'dewpoint',
             'windchill': 'windchill',
-            'rain': 'rain',
+            'rain_total': 'rain_total',
             'rainRate': 'rain_rate',
             'UV': 'uv',
             'txBatteryStatus': 'battery'
