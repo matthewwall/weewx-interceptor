@@ -303,7 +303,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.48'
+DRIVER_VERSION = '0.49'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -2340,16 +2340,20 @@ class EcowittClient(Consumer):
             'tempinf': 'temperature_in',
             'windspeedmph': 'wind_speed',
             'windgustmph': 'wind_gust',
+            'winddir': 'wind_dir',
             'solarradiation': 'solar_radiation',
             'uv': 'uv',
-            'rain_total': 'totalrainin',
+            'totalrainin', 'total_rain',
             'rainratein': 'rain_rate',
-            'wh26batt': 'battery',
+            'wh25batt': 'battery_wh25_1',
+            'wh26batt': 'battery_wh26_1',
             'wh65batt': 'battery_wind',
         }
 
         IGNORED_LABELS = [
-            'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin'
+            'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin',
+            'eventrainin', 'maxdailygust', 'hourlyrainin',
+            'dailyrainin', 'weeklyrainin', 'monthlyrainin', 'yearlyrinin',
         ]
 
         def __init__(self):
@@ -2374,6 +2378,12 @@ class EcowittClient(Consumer):
                         logdbg("ignored parameter %s=%s" % (n, val))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
+
+                # get the rain this period from total
+                if 'rain_total' in pkt:
+                    newtot = pkt['rain_total']
+                    pkt['rain'] = self._delta_rain(newtot, self._last_rain)
+                    self._last_rain = newtot
 
             except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
