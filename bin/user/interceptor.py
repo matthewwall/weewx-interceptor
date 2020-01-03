@@ -2343,7 +2343,7 @@ class EcowittClient(Consumer):
             'winddir': 'wind_dir',
             'solarradiation': 'solar_radiation',
             'uv': 'uv',
-            'totalrainin': 'total_rain',
+            'totalrainin': 'rain_total',
             'rainratein': 'rain_rate',
             'wh25batt': 'battery_wh25_1',
             'wh26batt': 'battery_wh26_1',
