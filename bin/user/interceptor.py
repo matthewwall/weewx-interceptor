@@ -2641,6 +2641,7 @@ if __name__ == '__main__':
                     s = _obfuscate_passwords(s)
                 print('raw packet: %s' % s)
             _pkt = device.parser.map_to_fields(_pkt, None)
+            s = '%s' % _pkt
             if not options.no_obfuscate:
                 s = _obfuscate_passwords(s)
             print('mapped packet: %s' % s)
