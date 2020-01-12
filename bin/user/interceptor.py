@@ -2453,10 +2453,13 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
             raise TypeError("unsupported device type '%s'" % self._device_type)
         loginf('device type: %s' % self._device_type)
         self._queue_timeout = int(stn_dict.pop('queue_timeout', 10))
+        obs_map = stn_dict.pop('sensor_map', None)
+        obs_map_ext = stn_dict.pop('sensor_map_extensions', {})
         self._device = self.DEVICE_TYPES.get(self._device_type)(**stn_dict)
-        self._obs_map = stn_dict.pop('sensor_map', self._device.default_sensor_map())
-        if 'sensor_map_extensions' in stn_dict:
-            self._obs_map.update(stn_dict.pop('sensor_map_extensions', {}))
+        if obs_map is None:
+            obs_map = self._device.default_sensor_map()
+        obs_map.update(obs_map_ext)
+        self._obs_map = obs_map
         loginf('sensor map: %s' % self._obs_map)
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.setDaemon(True)
