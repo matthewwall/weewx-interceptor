@@ -2322,7 +2322,7 @@ class EcowittClient(Consumer):
         IGNORED_LABELS = [
             'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin',
             'eventrainin', 'maxdailygust', 'hourlyrainin',
-            'dailyrainin', 'weeklyrainin', 'monthlyrainin', 'yearlyrinin',
+            'dailyrainin', 'weeklyrainin', 'monthlyrainin', 'yearlyrainin',
             'pm25_avg_24h_ch1',
         ]
 
