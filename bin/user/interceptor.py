@@ -220,7 +220,7 @@ this driver.
 
 
 ===============================================================================
-Fine Offset GW1000
+EcowittClient - Fine Offset GW1000
 
 The Fine Offset gateway collects data from Fine Offset sensors using 915MHz
 (and other?) unlicensed frequencies, then transmits the data via Wifi to
@@ -237,8 +237,8 @@ variants of the Fine Offset GW1000, including:
   GW1000BU - 915MHz with better rang
 
 The transmission to wunderground can be captured using the 'wu-client' mode.
-However, since the gateway supports many other sensors that are not supported
-by wunderground, it is usually better to use the 'fineoffset-bridge' mode.
+The transmission using ecowitt protocol (see the 'customize' page in the WSView
+application) can be captured using the 'ecowitt-client' mode.
 
 As of firmware 1.5.5, the device will attempt to upload to ecowitt servers,
 even when nothing has been configured.  It is possible to turn this off using
@@ -303,7 +303,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.49'
+DRIVER_VERSION = '0.50'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -572,11 +572,56 @@ class Consumer(object):
 
     class Parser(object):
 
-        @staticmethod
-        def parse_identifiers(s):
-            return dict()
+        # the default sensor map associates database field names with generic
+        # observation names.  each derived parser should map observation names
+        # to these generic names, or define a new default sensor map that is
+        # appropriate for the observation names from the derived output.
+        #
+        # the default mapping is for the wview schema plus a few extensions.
+
+        DEFAULT_SENSOR_MAP = {
+            'pressure': 'pressure',
+            'barometer': 'barometer',
+            'outHumidity': 'humidity_out',
+            'inHumidity': 'humidity_in',
+            'outTemp': 'temperature_out',
+            'inTemp': 'temperature_in',
+            'windSpeed': 'wind_speed',
+            'windGust': 'wind_gust',
+            'windDir': 'wind_dir',
+            'windGustDir': 'wind_gust_dir',
+            'radiation': 'solar_radiation',
+            'dewpoint': 'dewpoint',
+            'windchill': 'windchill',
+            'rain': 'rain',
+            'rainRate': 'rain_rate',
+            'UV': 'uv',
+            'txBatteryStatus': 'battery',
+            'extraTemp1': 'temperature_1',
+            'extraTemp2': 'temperature_2',
+            'extraTemp3': 'temperature_3',
+            'soilTemp1': 'soil_temperature_1',
+            'soilTemp2': 'soil_temperature_2',
+            'soilTemp3': 'soil_temperature_3',
+            'soilTemp4': 'soil_temperature_4',
+            'soilMoist1': 'soil_moisture_1',
+            'soilMoist2': 'soil_moisture_2',
+            'soilMoist3': 'soil_moisture_3',
+            'soilMoist4': 'soil_moisture_4',
+            'leafWet1': 'leafwetness_1',
+            'leafWet2': 'leafwetness_2',
+            # these are not in the wview schema
+            'pm2_5': 'pm2_5',
+        }
+
+        def default_sensor_map(self):
+            return Consumer.Parser.DEFAULT_SENSOR_MAP
 
         def parse(self, s):
+            return dict()
+
+        @staticmethod
+        def parse_identifiers(s):
             return dict()
 
         @staticmethod
@@ -676,40 +721,6 @@ class WUClient(Consumer):
 
     class Parser(Consumer.Parser):
 
-        # map database fields to observation names
-        DEFAULT_SENSOR_MAP = {
-            'pressure': 'pressure',
-            'barometer': 'barometer',
-            'outHumidity': 'humidity_out',
-            'inHumidity': 'humidity_in',
-            'outTemp': 'temperature_out',
-            'inTemp': 'temperature_in',
-            'windSpeed': 'wind_speed',
-            'windGust': 'wind_gust',
-            'windDir': 'wind_dir',
-            'windGustDir': 'wind_gust_dir',
-            'radiation': 'radiation',
-            'dewpoint': 'dewpoint',
-            'windchill': 'windchill',
-            'rain': 'rain',
-            'rainRate': 'rain_rate',
-            'UV': 'uv',
-            'txBatteryStatus': 'battery',
-            'extraTemp1': 'temperature_1',
-            'extraTemp2': 'temperature_2',
-            'extraTemp3': 'temperature_3',
-            'soilTemp1': 'temperature_soil_1',
-            'soilTemp2': 'temperature_soil_2',
-            'soilTemp3': 'temperature_soil_3',
-            'soilTemp4': 'temperature_soil_4',
-            'soilMoist1': 'moisture_soil_1',
-            'soilMoist2': 'moisture_soil_2',
-            'soilMoist3': 'moisture_soil_3',
-            'soilMoist4': 'moisture_soil_4',
-            'leafWet1': 'leafwetness',
-            'leafWet2': 'leafwetness2',
-        }
-
         # map labels to observation names
         LABEL_MAP = {
             'winddir': 'wind_dir',
@@ -719,20 +730,20 @@ class WUClient(Consumer):
             'humidity': 'humidity_out',
             'dewptf': 'dewpoint',
             'tempf': 'temperature_out',
-            'temp2f': 'temperature_1',
-            'temp3f': 'temperature_2',
-            'temp4f': 'temperature_3',
+            'temp2f': 'temperature_2',
+            'temp3f': 'temperature_3',
+            'temp4f': 'temperature_4',
             'baromin': 'barometer',
-            'soiltempf': 'temperature_soil_1',
-            'soiltemp2f': 'temperature_soil_2',
-            'soiltemp3f': 'temperature_soil_3',
-            'soiltemp4f': 'temperature_soil_4',
-            'soilmoisture': 'moisture_soil_1',
-            'soilmoisture2': 'moisture_soil_2',
-            'soilmoisture3': 'moisture_soil_3',
-            'soilmoisture4': 'moisture_soil_4',
-            'leafwetness': 'leafwetness',
-            'solarradiation': 'radiation',
+            'soiltempf': 'soil_temperature_1',
+            'soiltemp2f': 'soil_temperature_2',
+            'soiltemp3f': 'soil_temperature_3',
+            'soiltemp4f': 'soil_temperature_4',
+            'soilmoisture': 'soil_moisture_1',
+            'soilmoisture2': 'soil_moisture_2',
+            'soilmoisture3': 'soil_moisture_3',
+            'soilmoisture4': 'soil_moisture_4',
+            'leafwetness': 'leafwetness_1',
+            'solarradiation': 'solar_radiation',
             'UV': 'uv',
             'visibility': 'visibility',
             'indoortempf': 'temperature_in',
@@ -766,7 +777,7 @@ class WUClient(Consumer):
             'action', 'realtime', 'rtfreq',
             'weather', 'clouds',
             'windspdmph_avg2m', 'winddir_avg2m',
-            'windgustmph_10m', 'windgustdir_10m'
+            'windgustmph_10m', 'windgustdir_10m',
         ]
 
         def __init__(self):
@@ -824,12 +835,6 @@ class WUClient(Consumer):
             except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
-
-        @staticmethod
-        def map_to_fields(pkt, sensor_map):
-            if sensor_map is None:
-                sensor_map = WUClient.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
         def decode_float(x):
@@ -1018,6 +1023,9 @@ class AcuriteBridge(Consumer):
         def __init__(self):
             self._last_rain = dict()
 
+        def default_sensor_map(self):
+            return AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
+
         # be ready for either the chaney format or the wu format
         def parse(self, s):
             pkt = dict()
@@ -1140,12 +1148,6 @@ class AcuriteBridge(Consumer):
             return packet
 
         @staticmethod
-        def map_to_fields(pkt, sensor_map):
-            if sensor_map is None:
-                sensor_map = AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(pkt, sensor_map)
-
-        @staticmethod
         def decode_pressure(pkt):
             # pressure in mbar, temperature in degree C
             if (0x100 <= pkt['C1'] <= 0xffff and
@@ -1263,29 +1265,6 @@ class Observer(Consumer):
 
     class Parser(Consumer.Parser):
 
-        # map database fields to observation names
-        DEFAULT_SENSOR_MAP = {
-            'pressure': 'pressure',
-            'barometer': 'barometer',
-            'outHumidity': 'humidity_out',
-            'inHumidity': 'humidity_in',
-            'outTemp': 'temperature_out',
-            'inTemp': 'temperature_in',
-            'windSpeed': 'wind_speed',
-            'windGust': 'wind_gust',
-            'windDir': 'wind_dir',
-            'windGustDir': 'wind_gust_dir',
-            'radiation': 'radiation',
-            'dewpoint': 'dewpoint',
-            'windchill': 'windchill',
-            'rain': 'rain',
-            'rainRate': 'rain_rate',
-            'UV': 'uv',
-            'txBatteryStatus': 'battery',
-            'soilMoist1': 'soilmoisture',
-            'pm2_5': 'pm2_5',
-        }
-
         # map labels to observation names
         LABEL_MAP = {
             # firmware Weather logger V2.1.9
@@ -1296,7 +1275,7 @@ class Observer(Consumer):
             'baromin': 'barometer',
             'windspeedmph': 'wind_speed',
             'windgustmph': 'wind_gust',
-            'solarradiation': 'radiation',
+            'solarradiation': 'solar_radiation',
             'dewptf': 'dewpoint',
             'windchillf': 'windchill',
 
@@ -1324,7 +1303,7 @@ class Observer(Consumer):
 
             # firmware EasyWeatherV1.3.9 (ecowitt HP2550)
             'AqPM2.5': 'pm2_5',
-            'soilmoisture': 'soilmoisture',
+            'soilmoisture': 'soilmoisture_1',
 
             # for all firmware
             'winddir': 'wind_dir',
@@ -1413,18 +1392,12 @@ class Observer(Consumer):
 
                 # convert luminosity to solar radiation
                 # FIXME: this should be done in StdWXCalculate
-                if 'luminosity' in pkt and not 'radiation' in pkt:
+                if 'luminosity' in pkt and not 'solar_radiation' in pkt:
                     lum2rad = 0.01075 # lux to W/m^2 (approximation)
-                    pkt['radiation'] = pkt['luminosity'] * lum2rad
+                    pkt['solar_radiation'] = pkt['luminosity'] * lum2rad
             except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
-
-        @staticmethod
-        def map_to_fields(pkt, sensor_map):
-            if sensor_map is None:
-                sensor_map = Observer.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
         @staticmethod
         def decode_float(x):
@@ -1523,6 +1496,9 @@ class LW30x(Consumer):
             'rain': 'rain.?:*.*',
             'UV': 'uvh.?:*.*'}
 
+        def default_sensor_map(self):
+            return LW30x.Parser.DEFAULT_SENSOR_MAP
+
         @staticmethod
         def parse_identifiers(s):
             data = _cgi_to_dict(s)
@@ -1570,12 +1546,6 @@ class LW30x(Consumer):
             for n in pkt:
                 packet["%s.%s" % (n, _id)] = pkt[n]
             return packet
-
-        @staticmethod
-        def map_to_fields(pkt, sensor_map):
-            if sensor_map is None:
-                sensor_map = LW30x.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(pkt, sensor_map)
 
 
 """
@@ -2129,6 +2099,9 @@ class GW1000U(Consumer):
         def __init__(self):
             self._last_rain = None
 
+        def default_sensor_map(self):
+            return GW1000U.Parser.DEFAULT_SENSOR_MAP
+
         @staticmethod
         def parse_identifiers(payload):
             return {'bridge_id': payload.get('mac')}
@@ -2192,12 +2165,6 @@ class GW1000U(Consumer):
             pkt['next_address'] = self.to_addr(s, 12)
             # FIXME: decode the records
             return pkt
-
-        @staticmethod
-        def map_to_fields(pkt, sensor_map):
-            if sensor_map is None:
-                sensor_map = GW1000U.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(pkt, sensor_map)
         
         @staticmethod
         def to_addr(x, idx):
@@ -2310,27 +2277,6 @@ class EcowittClient(Consumer):
 
     class Parser(Consumer.Parser):
 
-        # map database fields to observation names
-        DEFAULT_SENSOR_MAP = {
-            'pressure': 'pressure',
-            'barometer': 'barometer',
-            'outHumidity': 'humidity_out',
-            'inHumidity': 'humidity_in',
-            'outTemp': 'temperature_out',
-            'inTemp': 'temperature_in',
-            'windSpeed': 'wind_speed',
-            'windGust': 'wind_gust',
-            'windDir': 'wind_dir',
-            'windGustDir': 'wind_gust_dir',
-            'radiation': 'radiation',
-            'dewpoint': 'dewpoint',
-            'windchill': 'windchill',
-            'rain_total': 'rain_total',
-            'rainRate': 'rain_rate',
-            'UV': 'uv',
-            'txBatteryStatus': 'battery'
-        }
-
         # map labels to observation names
         LABEL_MAP = {
             'baromabsin': 'pressure',
@@ -2338,6 +2284,27 @@ class EcowittClient(Consumer):
             'humidityin': 'humidity_in',
             'tempf': 'temperature_out',
             'tempinf': 'temperature_in',
+            'temp2f': 'temperature_2',
+            'temp3f': 'temperature_3',
+            'temp4f': 'temperature_4',
+            'temp5f': 'temperature_5',
+            'temp6f': 'temperature_6',
+            'temp7f': 'temperature_7',
+            'temp8f': 'temperature_8',
+            'humidity2': 'humidity_2',
+            'humidity3': 'humidity_3',
+            'humidity4': 'humidity_4',
+            'humidity5': 'humidity_5',
+            'humidity6': 'humidity_6',
+            'humidity7': 'humidity_7',
+            'humidity8': 'humidity_8',
+            'batt2': 'battery_2',
+            'batt3': 'battery_3',
+            'batt4': 'battery_4',
+            'batt5': 'battery_5',
+            'batt6': 'battery_6',
+            'batt7': 'battery_7',
+            'batt8': 'battery_8',
             'windspeedmph': 'wind_speed',
             'windgustmph': 'wind_gust',
             'winddir': 'wind_dir',
@@ -2345,15 +2312,18 @@ class EcowittClient(Consumer):
             'uv': 'uv',
             'totalrainin': 'rain_total',
             'rainratein': 'rain_rate',
-            'wh25batt': 'battery_wh25_1',
-            'wh26batt': 'battery_wh26_1',
-            'wh65batt': 'battery_wind',
+            'wh25batt': 'battery_wh25',
+            'wh26batt': 'battery_wh26',
+            'wh65batt': 'battery_wh65',
+            'pm25_ch1': 'pm25_ch1',
+            'pm25batt1': 'battery_pm25_1',
         }
 
         IGNORED_LABELS = [
             'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin',
             'eventrainin', 'maxdailygust', 'hourlyrainin',
             'dailyrainin', 'weeklyrainin', 'monthlyrainin', 'yearlyrinin',
+            'pm25_avg_24h_ch1',
         ]
 
         def __init__(self):
@@ -2390,18 +2360,12 @@ class EcowittClient(Consumer):
             return pkt
 
         @staticmethod
-        def map_to_fields(pkt, sensor_map):
-            if sensor_map is None:
-                sensor_map = EcowittClient.Parser.DEFAULT_SENSOR_MAP
-            return Consumer.Parser.map_to_fields(pkt, sensor_map)
-
-        @staticmethod
         def decode_float(x):
             # these stations send a value of -9999 to indicate no value, so
             # convert that to a proper None.
             x = Consumer.Parser.decode_float(x)
             return None if x == -9999 else x
-        
+
 
 class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
@@ -2451,7 +2415,13 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #    inHumidity = humidity_in.*.*
     #    outTemp = temperature.?*.*
     #    outHumidity = humidity.?*.*
-
+    #
+    # Optionally specify a sensor map extensions.  The fields in this stanza
+    # will override any defined in the sensor_map.  The values have the same
+    # format as those in the sensor_map.
+    #
+    #[[sensor_map_extensions]]
+    #    extraTemp1 = temperature_1.*.*
 """
 
     def prompt_for_settings(self):
@@ -2459,7 +2429,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
         device_type = self._prompt(
             'device_type', 'acurite-bridge',
             ['acurite-bridge', 'observer', 'lw30x', 'lacrosse-bridge',
-             'fineoffset-bridge', 'wu-client'])
+             'wu-client', 'ecowitt-client'])
         return {'device_type': device_type}
 
 
@@ -2471,7 +2441,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         'lw30x': LW30x,
         'lacrosse-bridge': GW1000U,
         'ecowitt-client': EcowittClient,
-        'fineoffset-bridge': EcowittClient,
+        'fineoffset-bridge': EcowittClient, # for backward compatibility
         'wu-client': WUClient
     }
 
@@ -2482,7 +2452,9 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         if not self._device_type in self.DEVICE_TYPES:
             raise TypeError("unsupported device type '%s'" % self._device_type)
         loginf('device type: %s' % self._device_type)
-        self._obs_map = stn_dict.pop('sensor_map', None)
+        self._obs_map = stn_dict.pop('sensor_map', self.default_sensor_map())
+        if 'sensor_map_extensions' in stn_dict:
+            self._obs_map.update(stn_dict.pop('sensor_map_extensions', {}))
         loginf('sensor map: %s' % self._obs_map)
         self._queue_timeout = int(stn_dict.pop('queue_timeout', 10))
         self._device = self.DEVICE_TYPES.get(self._device_type)(**stn_dict)

@@ -1,3 +1,8 @@
+0.50 11jan2020
+* added support for more sensors in ecowitt protocol
+* added support for sensor_map_extensions (add to map instead of replace)
+* unify the default sensor map
+
 0.49 03jan2020
 * fixed some sensor mappings for ecowitt protocol
 

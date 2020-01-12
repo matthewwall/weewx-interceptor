@@ -17,6 +17,10 @@ With the device_type set to 'wu-client', it can be used with any weather
 station that sends directly to weather underground, including the Ambient
 S2902 stations and the Acurite Atlas stations via the Acurite Access.
 
+With the device_type set to 'ecowitt-client', it can be used with any weather
+station that sends data using the ecowitt protocol, including the Fine Offset
+GW1000.
+
 This driver is also useful if you want to use an internet-based weather station
 for which the vendor no longer provides online services.  For example, Oregon
 Scientific shut down their internet gateway, so the LW30x stations now try to
@@ -39,6 +43,13 @@ capture data, but will not interfere with communication.  Listen mode is used
 when you want the device to talk to *your* server.  In listen mode, the
 interceptor will capture all communications.  So use listen mode when the
 vendor no longer provides network services.
+
+Many of these devices support more than just a single cluster of wind, rain,
+and temperature/humidity sensors.  The sensor_map associates sensor readings
+with database fields.  You can define your own sensor_map, or you can use the
+sensor_map_extensions to override the default sensor_map.  The sensor_map is
+also used to distinguish between different sensors of the same type, using
+hardware and/or channel identifiers that are broadcast by each sensor.
 
 Warning!  This driver is experimental.  It is fully tested and seems to work
 as designed with the Acurite bridge, the Acurite Access, the Fine Offset
@@ -161,13 +172,14 @@ PYTHONPATH=bin python bin/user/interceptor.py --help
 ===============================================================================
 Example: Ecowitt GW1000 in listen mode on port 8000
 
-1) Configure the GW1000 to send to the weewx computer on port 8000
+1) Using the WSView app, go to the 'customized' page and configure the GW1000
+   to send to the weewx computer on port 8000 using the ecowitt protocol
 
 2) Configure the interceptor
 
 [Interceptor]
     driver = user.interceptor
-    device_type = fineoffset-bridge
+    device_type = ecowitt-client
     port = 8000
 
 
