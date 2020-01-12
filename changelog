@@ -1,5 +1,6 @@
 0.51 12jan2020
 * fix sensor_map initialization
+* skip out-of-order packets
 
 0.50 11jan2020
 * added support for more sensors in ecowitt protocol

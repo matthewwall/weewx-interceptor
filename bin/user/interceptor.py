@@ -2479,6 +2479,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         return self._device_type
 
     def genLoopPackets(self):
+        last_ts = 0
         while True:
             try:
                 data = self._device.get_queue().get(True, self._queue_timeout)
@@ -2488,7 +2489,12 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
                 pkt = self._device.parser.map_to_fields(pkt, self._obs_map)
                 logdbg('mapped packet: %s' % pkt)
                 if pkt and 'dateTime' in pkt and 'usUnits' in pkt:
-                    yield pkt
+                    if pkt['dateTime'] >= last_ts:
+                        last_ts = pkt['dateTime']
+                        yield pkt
+                    else:
+                        loginf("skipping out-of-order packet %s ('%s')" %
+                               (pkt, data))
                 else:
                     logdbg("skipping bogus packet %s ('%s')" % (pkt, data))
             except Queue.Empty:
