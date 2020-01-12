@@ -358,6 +358,51 @@ class Consumer(object):
 
     queue = Queue.Queue()
 
+    # the default sensor map associates database field names with generic
+    # observation names.  each derived parser should map observation names
+    # to these generic names, or define a new default sensor map that is
+    # appropriate for the observation names from the derived output.
+    #
+    # the default mapping is for the wview schema plus a few extensions.
+
+    DEFAULT_SENSOR_MAP = {
+        'pressure': 'pressure',
+        'barometer': 'barometer',
+        'outHumidity': 'humidity_out',
+        'inHumidity': 'humidity_in',
+        'outTemp': 'temperature_out',
+        'inTemp': 'temperature_in',
+        'windSpeed': 'wind_speed',
+        'windGust': 'wind_gust',
+        'windDir': 'wind_dir',
+        'windGustDir': 'wind_gust_dir',
+        'radiation': 'solar_radiation',
+        'dewpoint': 'dewpoint',
+        'windchill': 'windchill',
+        'rain': 'rain',
+        'rainRate': 'rain_rate',
+        'UV': 'uv',
+        'txBatteryStatus': 'battery',
+        'extraTemp1': 'temperature_1',
+        'extraTemp2': 'temperature_2',
+        'extraTemp3': 'temperature_3',
+        'soilTemp1': 'soil_temperature_1',
+        'soilTemp2': 'soil_temperature_2',
+        'soilTemp3': 'soil_temperature_3',
+        'soilTemp4': 'soil_temperature_4',
+        'soilMoist1': 'soil_moisture_1',
+        'soilMoist2': 'soil_moisture_2',
+        'soilMoist3': 'soil_moisture_3',
+        'soilMoist4': 'soil_moisture_4',
+        'leafWet1': 'leafwetness_1',
+        'leafWet2': 'leafwetness_2',
+        # these are not in the wview schema
+        'pm2_5': 'pm2_5',
+    }
+
+    def default_sensor_map(self):
+        return Consumer.DEFAULT_SENSOR_MAP
+
     def __init__(self, parser, mode='listen',
                  address=DEFAULT_ADDR, port=DEFAULT_PORT, handler=None,
                  iface=DEFAULT_IFACE, pcap_filter=DEFAULT_FILTER,
@@ -571,51 +616,6 @@ class Consumer(object):
             pass
 
     class Parser(object):
-
-        # the default sensor map associates database field names with generic
-        # observation names.  each derived parser should map observation names
-        # to these generic names, or define a new default sensor map that is
-        # appropriate for the observation names from the derived output.
-        #
-        # the default mapping is for the wview schema plus a few extensions.
-
-        DEFAULT_SENSOR_MAP = {
-            'pressure': 'pressure',
-            'barometer': 'barometer',
-            'outHumidity': 'humidity_out',
-            'inHumidity': 'humidity_in',
-            'outTemp': 'temperature_out',
-            'inTemp': 'temperature_in',
-            'windSpeed': 'wind_speed',
-            'windGust': 'wind_gust',
-            'windDir': 'wind_dir',
-            'windGustDir': 'wind_gust_dir',
-            'radiation': 'solar_radiation',
-            'dewpoint': 'dewpoint',
-            'windchill': 'windchill',
-            'rain': 'rain',
-            'rainRate': 'rain_rate',
-            'UV': 'uv',
-            'txBatteryStatus': 'battery',
-            'extraTemp1': 'temperature_1',
-            'extraTemp2': 'temperature_2',
-            'extraTemp3': 'temperature_3',
-            'soilTemp1': 'soil_temperature_1',
-            'soilTemp2': 'soil_temperature_2',
-            'soilTemp3': 'soil_temperature_3',
-            'soilTemp4': 'soil_temperature_4',
-            'soilMoist1': 'soil_moisture_1',
-            'soilMoist2': 'soil_moisture_2',
-            'soilMoist3': 'soil_moisture_3',
-            'soilMoist4': 'soil_moisture_4',
-            'leafWet1': 'leafwetness_1',
-            'leafWet2': 'leafwetness_2',
-            # these are not in the wview schema
-            'pm2_5': 'pm2_5',
-        }
-
-        def default_sensor_map(self):
-            return Consumer.Parser.DEFAULT_SENSOR_MAP
 
         def parse(self, s):
             return dict()
@@ -946,6 +946,29 @@ class AcuriteBridge(Consumer):
 
     _firmware_version = 224
 
+    # map database fields to observation identifiers.  this map should work
+    # out-of-the-box for either wu format or chaney format, with a basic
+    # set of sensors.  if there are more than one remote sensor then a
+    # custom sensor map is necessary to avoid confusion of outputs.
+    DEFAULT_SENSOR_MAP = {
+        # wu format uses station pressure in every packet
+        'pressure': 'pressure.*.*',
+        # chaney format uses station pressure in bridge packets only
+        #'pressure': 'pressure..*',
+        # both formats
+        'inTemp': 'temperature_in.*.*',
+        'inHumidity': 'humidity_in.*.*',
+        'outTemp': 'temperature.?*.*',
+        'outHumidity': 'humidity.?*.*',
+        'windSpeed': 'windspeed.?*.*',
+        'windDir': 'winddir.?*.*',
+        'rain': 'rainfall.?*.*',
+        'txBatteryStatus': 'battery.?*.*',
+        'rxCheckPercent': 'rssi.?*.*'}
+
+    def default_sensor_map(self):
+        return AcuriteBridge.DEFAULT_SENSOR_MAP
+
     def __init__(self, **stn_dict):
         AcuriteBridge._firmware_version = stn_dict.pop(
             'firmware_version', AcuriteBridge._firmware_version)
@@ -965,26 +988,6 @@ class AcuriteBridge(Consumer):
             return '{ "localtime": "%s", "checkversion": "224" }' % ts
 
     class Parser(Consumer.Parser):
-
-        # map database fields to observation identifiers.  this map should work
-        # out-of-the-box for either wu format or chaney format, with a basic
-        # set of sensors.  if there are more than one remote sensor then a
-        # custom sensor map is necessary to avoid confusion of outputs.
-        DEFAULT_SENSOR_MAP = {
-            # wu format uses station pressure in every packet
-            'pressure': 'pressure.*.*',
-            # chaney format uses station pressure in bridge packets only
-            #'pressure': 'pressure..*',
-            # both formats
-            'inTemp': 'temperature_in.*.*',
-            'inHumidity': 'humidity_in.*.*',
-            'outTemp': 'temperature.?*.*',
-            'outHumidity': 'humidity.?*.*',
-            'windSpeed': 'windspeed.?*.*',
-            'windDir': 'winddir.?*.*',
-            'rain': 'rainfall.?*.*',
-            'txBatteryStatus': 'battery.?*.*',
-            'rxCheckPercent': 'rssi.?*.*'}
 
         # this is *not* the same as the acurite console mapping!
         IDX_TO_DEG = {5: 0.0, 7: 22.5, 3: 45.0, 1: 67.5, 9: 90.0, 11: 112.5,
@@ -1022,9 +1025,6 @@ class AcuriteBridge(Consumer):
 
         def __init__(self):
             self._last_rain = dict()
-
-        def default_sensor_map(self):
-            return AcuriteBridge.Parser.DEFAULT_SENSOR_MAP
 
         # be ready for either the chaney format or the wu format
         def parse(self, s):
@@ -1474,6 +1474,21 @@ class Observer(Consumer):
 
 class LW30x(Consumer):
 
+    # map database fields to sensor tuples
+    DEFAULT_SENSOR_MAP = {
+        'pressure': 'baro.*.*',
+        'outTemp': 'ot.?:*.*',
+        'outHumidity': 'oh.?:*.*',
+        'windSpeed': 'ws.?:*.*',
+        'windGust': 'wg.?:*.*',
+        'windDir': 'wd.?:*.*',
+        'rainRate': 'rr.?:*.*',
+        'rain': 'rain.?:*.*',
+        'UV': 'uvh.?:*.*'}
+
+    def default_sensor_map(self):
+        return LW30x.DEFAULT_SENSOR_MAP
+
     def __init__(self, **stn_dict):
         super(LW30x, self).__init__(LW30x.Parser(), **stn_dict)
 
@@ -1483,21 +1498,6 @@ class LW30x(Consumer):
             self._last_rain = dict()
 
         FLOATS = ['baro', 'ot', 'oh', 'ws', 'wg', 'wd', 'rr', 'rfa', 'uvh']
-
-        # map database fields to sensor tuples
-        DEFAULT_SENSOR_MAP = {
-            'pressure': 'baro.*.*',
-            'outTemp': 'ot.?:*.*',
-            'outHumidity': 'oh.?:*.*',
-            'windSpeed': 'ws.?:*.*',
-            'windGust': 'wg.?:*.*',
-            'windDir': 'wd.?:*.*',
-            'rainRate': 'rr.?:*.*',
-            'rain': 'rain.?:*.*',
-            'UV': 'uvh.?:*.*'}
-
-        def default_sensor_map(self):
-            return LW30x.Parser.DEFAULT_SENSOR_MAP
 
         @staticmethod
         def parse_identifiers(s):
@@ -1802,7 +1802,25 @@ class GW1000U(Consumer):
     history_interval_idx = 1 # index of history interval
     lcd_brightness = 4
     server_name = 'box.weatherdirect.com'
-    
+
+    # map database fields to sensor identifier tuples
+    DEFAULT_SENSOR_MAP = {
+        'barometer': 'barometer..*',
+        'inTemp': 'temperature_in..*',
+        'outTemp': 'temperature_out..*',
+        'inHumidity': 'humidity_in..*',
+        'outHumidity': 'humidity_out..*',
+        'windSpeed': 'wind_speed..*',
+        'windGust': 'gust_speed..*',
+        'windDir': 'wind_dir..*',
+        'windGustDir': 'gust_dir..*',
+        'rain': 'rain..*',
+        'rxCheckPercent': 'rf_signal_strength..*',
+    }
+
+    def default_sensor_map(self):
+        return GW1000U.DEFAULT_SENSOR_MAP
+
     def __init__(self, **stn_dict):
         stn_dict['mode'] = 'listen' # sniffing not supported for this hardware
         GW1000U.station_serial = stn_dict.pop('serial', GW1000U.station_serial)
@@ -2082,25 +2100,8 @@ class GW1000U(Consumer):
 
     class Parser(Consumer.Parser):
 
-        # map database fields to sensor identifier tuples
-        DEFAULT_SENSOR_MAP = {
-            'barometer': 'barometer..*',
-            'inTemp': 'temperature_in..*',
-            'outTemp': 'temperature_out..*',
-            'inHumidity': 'humidity_in..*',
-            'outHumidity': 'humidity_out..*',
-            'windSpeed': 'wind_speed..*',
-            'windGust': 'gust_speed..*',
-            'windDir': 'wind_dir..*',
-            'windGustDir': 'gust_dir..*',
-            'rain': 'rain..*',
-            'rxCheckPercent': 'rf_signal_strength..*'}
-
         def __init__(self):
             self._last_rain = None
-
-        def default_sensor_map(self):
-            return GW1000U.Parser.DEFAULT_SENSOR_MAP
 
         @staticmethod
         def parse_identifiers(payload):
