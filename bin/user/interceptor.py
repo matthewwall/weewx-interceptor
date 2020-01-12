@@ -386,6 +386,10 @@ class Consumer(object):
         'extraTemp1': 'temperature_1',
         'extraTemp2': 'temperature_2',
         'extraTemp3': 'temperature_3',
+        'extraHumid1': 'humidity_1',
+        'extraHumid2': 'humidity_2',
+        'extraHumid3': 'humidity_3',
+        'extraHumid4': 'humidity_4',
         'soilTemp1': 'soil_temperature_1',
         'soilTemp2': 'soil_temperature_2',
         'soilTemp3': 'soil_temperature_3',
@@ -398,6 +402,7 @@ class Consumer(object):
         'leafWet2': 'leafwetness_2',
         # these are not in the wview schema
         'pm2_5': 'pm2_5',
+        'extraTemp3': 'temperature_3',
     }
 
     def default_sensor_map(self):
