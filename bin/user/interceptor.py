@@ -303,7 +303,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.50'
+DRIVER_VERSION = '0.51'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
