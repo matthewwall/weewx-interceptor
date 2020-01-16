@@ -1,3 +1,7 @@
+0.52 15jan2020
+* try to use names that will work out-of-the-box
+* added 4 soil moisture and battery labels to ecowitt client
+
 0.51 12jan2020
 * fix sensor_map initialization
 * skip out-of-order packets
