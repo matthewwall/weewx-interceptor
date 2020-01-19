@@ -2369,7 +2369,7 @@ class EcowittClient(Consumer):
             'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin',
             'maxdailygust', 'eventrainin', 'hourlyrainin', 'dailyrainin',
             'weeklyrainin', 'monthlyrainin', 'yearlyrainin',
-            'pm25_avg_24h_ch1',
+            'pm25_avg_24h_ch1', 'winddir_avg10m', 'windspdmph_avg10m',
         ]
 
         def __init__(self):
