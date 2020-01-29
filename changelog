@@ -1,3 +1,6 @@
+0.53 29jan2020
+* attempt to deal with devices such as HP2551 that use pseudo ecowitt protocol
+
 0.52 15jan2020
 * try to use names that will work out-of-the-box
 * added 4 soil moisture and battery labels to ecowitt client

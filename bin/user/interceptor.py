@@ -303,7 +303,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.52'
+DRIVER_VERSION = '0.53'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -2374,6 +2374,7 @@ class EcowittClient(Consumer):
 
         def __init__(self):
             self._last_rain = None
+            self._rain_mapping_confirmed = False
 
         def parse(self, s):
             pkt = dict()
@@ -2382,6 +2383,22 @@ class EcowittClient(Consumer):
                 pkt['dateTime'] = self.decode_datetime(
                     data.pop('dateutc', int(time.time() + 0.5)))
                 pkt['usUnits'] = weewx.US
+
+                # some devices (e.g., HP2551_V1.5.7) emit something that looks
+                # a lot like ecowitt protocol, but not quite.  one thing that
+                # they get wrong is the rain - that have no totalrainin.  so
+                # for those devices, substitute a different cumulative rain
+                # measurement.  do this only once, and do not be fooled by
+                # partial packets.
+                if not self._rain_mapping_confirmed:
+                    if 'totalrainin' not in data and 'yearlyrainin' in data:
+                        self.LABEL_MAP.pop('totalrainin')
+                        self.LABEL_MAP['yearlyrainin'] = 'rain_total'
+                        self._rain_mapping_confirmed = True
+                        loginf("using 'yearlyrainin' for rain_total")
+                    elif 'totalrainin' in data:
+                        self._rain_mapping_confirmed = True
+                        loginf("using 'totalrainin' for rain_total")
 
                 # get all of the other parameters
                 for n in data:
