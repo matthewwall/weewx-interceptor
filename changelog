@@ -1,3 +1,6 @@
+0.54 22feb2020
+* added wh40batt in ecowitt protocol
+
 0.53 29jan2020
 * attempt to deal with devices such as HP2551 that use pseudo ecowitt protocol
 

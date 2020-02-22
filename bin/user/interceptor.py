@@ -2360,6 +2360,7 @@ class EcowittClient(Consumer):
             'rainratein': 'rain_rate',
             'wh25batt': 'wh25_battery',
             'wh26batt': 'wh26_battery',
+            'wh40batt': 'wh40_battery',
             'wh65batt': 'wh65_battery',
             'pm25_ch1': 'pm2_5',
             'pm25batt1': 'pm25_battery',
