@@ -149,6 +149,23 @@ example:
         inTemp = ot.2:*.*      # sensor on channel 2
         outTemp = ot.1:*.*     # sensor on channel 1
 
+For hardware such as the GW1000 that use the ecowitt-client protocol, use the
+sensor_map_extensions to add/modify sensor mappings without having to specify
+the entire mapping.  For example, this would use the readings from the first
+temperature sensor as the indoor temperature, and the readings from the fourth
+temperature sensor as the outdoor temperature.  All of the other sensors would
+be mapped using the default sensor mapping for ecowitt-client.
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = ecowitt-client
+    ...
+    [[sensor_map_extensions]]
+        inTemp = temperature_1
+        inHumidity = humidity_1
+        outTemp = temperature_4
+        outHumidity = humidity_4
+
 
 ===============================================================================
 How to run the driver directly
