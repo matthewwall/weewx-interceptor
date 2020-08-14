@@ -2300,7 +2300,9 @@ class EcowittClient(Consumer):
     class Handler(Consumer.Handler):
 
         def get_response(self):
-            return '{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}'
+            if int(-time.timezone)>=0: utcoffset = "+" + str(-time.timezone)
+      	    else: utcoffset = str(-time.timezone)
+            return '{"errcode":"0","errmsg":"ok","UTC_offset":"%s"}' % utcoffset
 
     class Parser(Consumer.Parser):
 
