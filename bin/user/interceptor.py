@@ -303,7 +303,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.53'
+DRIVER_VERSION = '0.60'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -2442,7 +2442,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     # The driver to use:
     driver = user.interceptor
 
-    # Specify the hardware device to capture.  Options include:
+    # Specify the hardware device to capture. Options include:
     #   acurite-bridge - acurite internet bridge, smarthub, or access
     #   observer - fine offset WH2600/HP1000/HP1003, ambient WS2902
     #   lw30x - oregon scientific LW301/LW302
@@ -2450,6 +2450,10 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   ecowitt-client - any hardware that uses the ecowitt protocol
     #   wu-client - any hardware that uses the weather underground protocol
     device_type = acurite-bridge
+
+    # Set the name/type of your weather station hardware. This is a freely
+    # chosen string and should match your weather stations hardware model.
+    #hardware_name = AcuRite 01036M
 
     # For acurite, fine offset, and oregon scientific hardware, the driver
     # can sniff packets directly or run a socket server that listens for

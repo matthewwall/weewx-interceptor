@@ -112,6 +112,14 @@ For example, to listen on port 8000 instead of the default port 80:
     device_type = observer
     port = 8000
 
+To provide the hardware name of your weather station:
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = observer
+    hardware_name = WS-2902A
+    port = 8000
+
 To listen on port 8080 on the network interface with address 192.168.0.14:
 
 [Interceptor]
