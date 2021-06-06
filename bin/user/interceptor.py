@@ -2517,6 +2517,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         if not self._device_type in self.DEVICE_TYPES:
             raise TypeError("unsupported device type '%s'" % self._device_type)
         loginf('device type: %s' % self._device_type)
+        self._hardware_name = stn_dict.pop('hardware_name', DEFAULT_HARDWARE_NAME)
+        loginf('hardware name: %s' % self._hardware_name)
         self._queue_timeout = int(stn_dict.pop('queue_timeout', 10))
         obs_map = stn_dict.pop('sensor_map', None)
         obs_map_ext = stn_dict.pop('sensor_map_extensions', {})
@@ -2540,7 +2542,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
     @property
     def hardware_name(self):
-        return self._device_type
+        return self._hardware_name
 
     def genLoopPackets(self):
         last_ts = 0
@@ -2599,6 +2601,9 @@ if __name__ == '__main__':
     parser.add_option('--device', dest='device_type', metavar='DEVICE_TYPE',
                       default=DEFAULT_DEVICE_TYPE,
                       help='type of device for which to listen')
+    parser.add_option('--hardware_name', dest='hardware_name', metavar='HARDWARE_NAME',
+                      default=DEFAULT_HARDWARE_NAME,
+                      help='Short nickname for the weather station hardware')
     parser.add_option('--data', dest='data', metavar='DATA',
                       default='',
                       help='data string for parse testing')
