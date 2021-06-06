@@ -310,6 +310,7 @@ DEFAULT_PORT = 80
 DEFAULT_IFACE = 'eth0'
 DEFAULT_FILTER = 'dst port 80'
 DEFAULT_DEVICE_TYPE = 'acurite-bridge'
+DEFAULT_HARDWARE_NAME = 'weatherstation via interceptor'
 
 def loader(config_dict, _):
     return InterceptorDriver(**config_dict[DRIVER_NAME])
