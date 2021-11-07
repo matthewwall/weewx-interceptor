@@ -413,8 +413,8 @@ class Consumer(object):
         'soilTemp4': 'soil_temperature_4',
         'lightning_strike_count': 'lightning_strike_count',
         'lightningcount': 'lightningcount',
-		'lightning_last_det_time': 'lightning_time',
-		'lightning_distance': 'lightning_distance',
+	'lightning_last_det_time': 'lightning_time',
+	'lightning_distance': 'lightning_distance',
     }
 
     def default_sensor_map(self):
@@ -1361,14 +1361,13 @@ class Observer(Consumer):
             'lowbatt': 'battery',
         }
 
-        IGNORED_LABELS = ['relbaro', 'rainin',
-                          'weeklyrain', 'monthlyrain',
-                          'weeklyrainin', 'monthlyrainin',
-                          'realtime', 'rtfreq',
-                          'action', 'ID', 'PASSWORD', 'PASSKEY', 'dateutc',
-                          'softwaretype',
-						  'stationtype', 'baromrelin', 'maxdailygust','wh25batt',
-						  'hourlyrainin', 'totalrainin', 'freq', 'model']
+        IGNORED_LABELS = [
+            'ID', 'PASSWORD', 'PASSKEY', 'dateutc', 'softwaretype',
+            'action', 'realtime', 'rtfreq',
+            'relbaro', 'rainin',
+            'weeklyrain', 'monthlyrain',
+            'weeklyrainin', 'monthlyrainin',
+        ]
 
         def __init__(self):
             self._last_rain = None
@@ -2331,7 +2330,6 @@ class EcowittClient(Consumer):
         # map labels to observation names
         LABEL_MAP = {
             'baromabsin': 'pressure',
-            'baromrelin': 'barometer',
             'humidity': 'humidity_out',
             'humidityin': 'humidity_in',
             'tempf': 'temperature_out',
@@ -2443,8 +2441,12 @@ class EcowittClient(Consumer):
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
                 #Fix lightinig distance unit
                 if 'lightning_distance' in pkt:
-                    #WH57 gives a raw value in kilometers, if we are using US units we must convert it to miles, we could use direct formula or call weewx.units methods, here I'm using direct conversion
+                    #WH57 gives a value in kilometers, if we have us units we must convert it to miles, we could use direct formula or call weewx.units methods
+                    #c = weewx.units.Converter()
                     lightdistkm = pkt['lightning_distance']
+                    #d_m = (lightdistkm , 'km', 'group_distance')
+                    #pkt['lightningdist'] = c.convert(d_m)[0]
+                    #direct conversion
                     pkt['lightning_distance'] = 0.62137119 * lightdistkm
 
                 # get the rain this period from total
