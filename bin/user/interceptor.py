@@ -2443,12 +2443,8 @@ class EcowittClient(Consumer):
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
                 #Fix lightinig distance unit
                 if 'lightning_distance' in pkt:
-                    #WH57 gives a value in kilometers, if we have us units we must convert it to miles, we could use direct formula or call weewx.units methods
-                    #c = weewx.units.Converter()
+                    #WH57 gives a raw value in kilometers, if we are using US units we must convert it to miles, we could use direct formula or call weewx.units methods, here I'm using direct conversion
                     lightdistkm = pkt['lightning_distance']
-                    #d_m = (lightdistkm , 'km', 'group_distance')
-                    #pkt['lightningdist'] = c.convert(d_m)[0]
-                    #direct conversion
                     pkt['lightning_distance'] = 0.62137119 * lightdistkm
 
                 # get the rain this period from total
