@@ -412,6 +412,10 @@ class Consumer(object):
         'extraHumid8': 'humidity_8',
         'soilTemp3': 'soil_temperature_3',
         'soilTemp4': 'soil_temperature_4',
+        'lightning_strike_count': 'lightning_strike_count',
+        'lightningcount': 'lightningcount',
+	'lightning_last_det_time': 'lightning_time',
+	'lightning_distance': 'lightning_distance',
     }
 
     def default_sensor_map(self):
@@ -610,7 +614,7 @@ class Consumer(object):
         def do_POST(self):
             # get the payload from an HTTP POST
             length = int(self.headers["Content-Length"])
-            data = str(self.rfile.read(length))
+            data = self.rfile.read(length).decode('utf-8')
             logdbg('POST: %s' % _obfuscate_passwords(data))
             Consumer.queue.put(data)
             self.reply()
@@ -694,6 +698,20 @@ class Consumer(object):
                        (rain, last_rain))
                 return rain
             return rain - last_rain
+
+        @staticmethod
+        def _delta_strikes(strikes, last_strikes):
+            if strikes is None:
+                return None
+            if last_strikes is None:
+                loginf("skipping lightning strikes measurement of %s: no last strikes" % strikes)
+                return None
+            if strikes < last_strikes:
+                loginf("lightning strikes wraparound detected: new=%s last=%s" %
+                       (strikes, last_strikes))
+                return strikes
+            return strikes - last_strikes
+
 
         @staticmethod
         def decode_float(x):
@@ -1330,7 +1348,12 @@ class Observer(Consumer):
 
             # firmware EasyWeatherV1.3.9 (ecowitt HP2550)
             'AqPM2.5': 'pm2_5',
-            'soilmoisture': 'soilmoisture_1',
+            'soilmoisture': 'soilmoisture',
+
+            # firmware GW1000B_V1.4.9 (ecowitt GW1000)
+            'rainratein': 'rain_rate',
+            'wh65batt': 'battery',
+            'eventrainin': 'rain_event',
 
             # for all firmware
             'winddir': 'wind_dir',
@@ -2362,14 +2385,17 @@ class EcowittClient(Consumer):
             'wh25batt': 'wh25_battery',
             'wh26batt': 'wh26_battery',
             'wh40batt': 'wh40_battery',
-            'wh65batt': 'wh65_battery',
+            'wh65batt': 'battery',
             'pm25_ch1': 'pm2_5',
             'pm25batt1': 'pm25_battery',
+            'lightning': 'lightning_distance',
+            'lightning_time': 'lightning_time',
+            'lightning_num': 'lightningcount',
+            'wh57batt': 'wh57_battery',
         }
 
         IGNORED_LABELS = [
-            'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'baromrelin',
-            'maxdailygust', 'eventrainin', 'hourlyrainin', 'dailyrainin',
+            'PASSKEY', 'dateutc', 'stationtype', 'model', 'freq', 'maxdailygust', 'eventrainin', 'hourlyrainin', 'dailyrainin',
             'weeklyrainin', 'monthlyrainin', 'yearlyrainin',
             'pm25_avg_24h_ch1', 'winddir_avg10m', 'windspdmph_avg10m',
         ]
@@ -2377,6 +2403,7 @@ class EcowittClient(Consumer):
         def __init__(self):
             self._last_rain = None
             self._rain_mapping_confirmed = False
+            self._last_strikes_total = None
 
         def parse(self, s):
             pkt = dict()
@@ -2405,7 +2432,7 @@ class EcowittClient(Consumer):
                 # get all of the other parameters
                 for n in data:
                     if n in self.LABEL_MAP:
-                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n])
+                        pkt[self.LABEL_MAP[n]] = self.decode_float(data[n]) if data[n] != '' else 0
                     elif n in self.IGNORED_LABELS:
                         val = data[n]
                         if n == 'PASSKEY':
@@ -2413,6 +2440,15 @@ class EcowittClient(Consumer):
                         logdbg("ignored parameter %s=%s" % (n, val))
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
+                #Fix lightinig distance unit
+                if 'lightning_distance' in pkt:
+                    #WH57 gives a value in kilometers, if we have us units we must convert it to miles, we could use direct formula or call weewx.units methods
+                    #c = weewx.units.Converter()
+                    lightdistkm = pkt['lightning_distance']
+                    #d_m = (lightdistkm , 'km', 'group_distance')
+                    #pkt['lightningdist'] = c.convert(d_m)[0]
+                    #direct conversion
+                    pkt['lightning_distance'] = 0.62137119 * lightdistkm
 
                 # get the rain this period from total
                 if 'rain_total' in pkt:
@@ -2420,6 +2456,10 @@ class EcowittClient(Consumer):
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
 
+                if 'lightningcount' in pkt:
+                    new_strikes_total = pkt['lightningcount']
+                    pkt['lightning_strike_count'] = self._delta_strikes(new_strikes_total, self._last_strikes_total)
+                    self._last_strikes_total = new_strikes_total
             except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
             return pkt
