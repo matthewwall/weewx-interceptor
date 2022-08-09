@@ -303,13 +303,14 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.53'
+DRIVER_VERSION = '0.60'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
 DEFAULT_IFACE = 'eth0'
 DEFAULT_FILTER = 'dst port 80'
 DEFAULT_DEVICE_TYPE = 'acurite-bridge'
+DEFAULT_HARDWARE_NAME = 'weatherstation via interceptor'
 
 def loader(config_dict, _):
     return InterceptorDriver(**config_dict[DRIVER_NAME])
@@ -2441,7 +2442,7 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     # The driver to use:
     driver = user.interceptor
 
-    # Specify the hardware device to capture.  Options include:
+    # Specify the hardware device to capture. Options include:
     #   acurite-bridge - acurite internet bridge, smarthub, or access
     #   observer - fine offset WH2600/HP1000/HP1003, ambient WS2902
     #   lw30x - oregon scientific LW301/LW302
@@ -2449,6 +2450,10 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #   ecowitt-client - any hardware that uses the ecowitt protocol
     #   wu-client - any hardware that uses the weather underground protocol
     device_type = acurite-bridge
+
+    # Set the name/type of your weather station hardware. This is a freely
+    # chosen string and should match your weather stations hardware model.
+    #hardware_name = AcuRite 01036M
 
     # For acurite, fine offset, and oregon scientific hardware, the driver
     # can sniff packets directly or run a socket server that listens for
@@ -2516,6 +2521,8 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         if not self._device_type in self.DEVICE_TYPES:
             raise TypeError("unsupported device type '%s'" % self._device_type)
         loginf('device type: %s' % self._device_type)
+        self._hardware_name = stn_dict.pop('hardware_name', DEFAULT_HARDWARE_NAME)
+        loginf('hardware name: %s' % self._hardware_name)
         self._queue_timeout = int(stn_dict.pop('queue_timeout', 10))
         obs_map = stn_dict.pop('sensor_map', None)
         obs_map_ext = stn_dict.pop('sensor_map_extensions', {})
@@ -2539,7 +2546,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
 
     @property
     def hardware_name(self):
-        return self._device_type
+        return self._hardware_name
 
     def genLoopPackets(self):
         last_ts = 0
@@ -2598,6 +2605,9 @@ if __name__ == '__main__':
     parser.add_option('--device', dest='device_type', metavar='DEVICE_TYPE',
                       default=DEFAULT_DEVICE_TYPE,
                       help='type of device for which to listen')
+    parser.add_option('--hardware_name', dest='hardware_name', metavar='HARDWARE_NAME',
+                      default=DEFAULT_HARDWARE_NAME,
+                      help='Short nickname for the weather station hardware')
     parser.add_option('--data', dest='data', metavar='DATA',
                       default='',
                       help='data string for parse testing')
