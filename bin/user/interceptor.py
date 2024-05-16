@@ -234,7 +234,7 @@ variants of the Fine Offset GW1000, including:
   GW1000 - 433MHz
   GW1000A - 868MHz
   GW1000B - 915MHz
-  GW1000BU - 915MHz with better rang
+  GW1000BU - 915MHz with better range
 
 The transmission to wunderground can be captured using the 'wu-client' mode.
 The transmission using ecowitt protocol (see the 'customize' page in the WSView
@@ -397,6 +397,8 @@ class Consumer(object):
         'soilMoist4': 'soil_moisture_4',
         'leafWet1': 'leafwetness_1',
         'leafWet2': 'leafwetness_2',
+        'lightning_strike_count': 'lightning_strike_count',
+        'lightning_distance': 'lightning_distance',
         # these are not in the wview schema
         'pm2_5': 'pm2_5',
         'extraTemp4': 'temperature_4',
@@ -694,6 +696,19 @@ class Consumer(object):
                        (rain, last_rain))
                 return rain
             return rain - last_rain
+
+        @staticmethod
+        def _delta_strikes(strikes, last_strikes):
+            if strikes is None:
+                return None
+            if last_strikes is None:
+                loginf("skipping lightning strikes measurement of %s: no last strikes" % strikes)
+                return None
+            if strikes < last_strikes:
+                loginf("lightning strikes wraparound detected: new=%s last=%s" %
+                       (strikes, last_strikes))
+                return strikes
+            return strikes - last_strikes
 
         @staticmethod
         def decode_float(x):
@@ -2362,9 +2377,13 @@ class EcowittClient(Consumer):
             'wh25batt': 'wh25_battery',
             'wh26batt': 'wh26_battery',
             'wh40batt': 'wh40_battery',
+            'wh57batt': 'wh57_battery',
             'wh65batt': 'wh65_battery',
             'pm25_ch1': 'pm2_5',
             'pm25batt1': 'pm25_battery',
+            'lightning_num': 'lightning_strike_count',
+            'lightning_time': 'lightning_time',
+            'lightning': 'lightning_distance',
         }
 
         IGNORED_LABELS = [
@@ -2377,6 +2396,7 @@ class EcowittClient(Consumer):
         def __init__(self):
             self._last_rain = None
             self._rain_mapping_confirmed = False
+            self._last_strikes_total = None
 
         def parse(self, s):
             pkt = dict()
@@ -2419,6 +2439,11 @@ class EcowittClient(Consumer):
                     newtot = pkt['rain_total']
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
+
+                if 'lightning_strike_count' in pkt:
+                    new_strikes_total = pkt['lightning_strike_count']
+                    pkt['lightning_strike_count'] = self._delta_strikes(new_strikes_total, self._last_strikes_total)
+                    self._last_strikes_total = new_strikes_total
 
             except ValueError as e:
                 logerr("parse failed for %s: %s" % (s, e))
