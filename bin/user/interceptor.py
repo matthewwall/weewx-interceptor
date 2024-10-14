@@ -765,6 +765,7 @@ class WUClient(Consumer):
             'soiltemp2f': 'soil_temperature_2',
             'soiltemp3f': 'soil_temperature_3',
             'soiltemp4f': 'soil_temperature_4',
+            'soilmoisture': 'soil_moisture_1',
             'soilmoisture1': 'soil_moisture_1',
             'soilmoisture2': 'soil_moisture_2',
             'soilmoisture3': 'soil_moisture_3',
