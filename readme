@@ -82,21 +82,17 @@ Installation
 
 http://weewx.com/docs/usersguide.htm#installing
 
-1) download the interceptor driver
+1) install the driver
 
-wget -O weewx-interceptor.zip https://github.com/matthewwall/weewx-interceptor/archive/master.zip
-
-2) install the driver
-
-sudo wee_extension --install weewx-interceptor.zip
+weectl extension install https://github.com/matthewwall/weewx-interceptor/archive/master.zip
 
 3) configure the driver
 
-sudo wee_config --reconfigure --driver=user.interceptor --no-prompt
+weectl station reconfigure --driver=user.interceptor --no-prompt
 
 4) start weewx
 
-sudo /etc/init.d/weewx start
+sudo systemctl restart weewx
 
 
 ===============================================================================
