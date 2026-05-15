@@ -335,7 +335,10 @@ def _obfuscate_passwords(msg):
 def _fmt_bytes(data):
     if not data:
         return ''
-    return ' '.join(['%02x' % ord(x) for x in data])
+    # In Python 3, indexing bytes yields ints directly; str still needs ord().
+    if isinstance(data, (bytes, bytearray)):
+        return ' '.join(['%02x' % b for b in data])
+    return ' '.join(['%02x' % ord(c) for c in data])
 
 def _cgi_to_dict(s):
     if '=' in s:
@@ -519,35 +522,35 @@ class Consumer(object):
             # FIXME: generalize the packet type detection
             header_len = 0
             idx = 0
-            if len(data) >= 15 and data[12:14] == '\x08\x00':
+            if len(data) >= 15 and data[12:14] == b'\x08\x00':
                 # this is standard IP packet
-                header_len = ord(data[14]) & 0x0f
+                header_len = data[14] & 0x0f
                 idx = 4 * header_len + 34
             elif (len(data) >= 70 and
-                data[12:14] == '\x81\x00' and data[16:18] == '\x08\x00'):
+                data[12:14] == b'\x81\x00' and data[16:18] == b'\x08\x00'):
                 # this is 802.1Q tagged IP packet
-                header_len = ord(data[18]) & 0x0f
+                header_len = data[18] & 0x0f
                 idx = 4 * header_len + 38
             if idx and len(data) >= idx:
                 _data = data[idx:]
-                if 'GET' in _data:
+                if b'GET' in _data:
                     self.flush()
                     logdbg("sniff: start GET")
-                    self.data_buffer = _data
-                elif 'POST' in _data:
+                    self.data_buffer = _data.decode('utf-8', errors='replace')
+                elif b'POST' in _data:
                     self.flush()
                     logdbg("sniff: start POST")
                     self.data_buffer = 'POST?' # start buffer with dummy
                 elif len(self.data_buffer):
-                    if 'HTTP' in data:
+                    if b'HTTP' in data:
                         # looks like the end of a multi-packet GET
                         self.flush()
                     else:
+                        decoded = _data.decode('utf-8', errors='replace')
                         printable = set(string.printable)
-                        fdata = filter(lambda x: x in printable, _data)
-                        if fdata == _data:
+                        if all(c in printable for c in decoded):
                             logdbg("sniff: append %s" % _fmt_bytes(_data))
-                            self.data_buffer += _data
+                            self.data_buffer += decoded
                         else:
                             logdbg("sniff: skip %s" % _fmt_bytes(_data))
                 else:
