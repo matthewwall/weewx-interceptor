@@ -2321,7 +2321,12 @@ class EcowittClient(Consumer):
     class Handler(Consumer.Handler):
 
         def get_response(self):
-            return '{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}'
+            # some stations (e.g., Eurochron EFWS-2900) set their clock from
+            # UTC_offset, so report the offset of the weewx host, in seconds
+            # east of UTC, including daylight saving.  this used to be a
+            # fixed -18000 (US Eastern).
+            offset = time.localtime().tm_gmtoff
+            return '{"errcode":"0","errmsg":"ok","UTC_offset":"%d"}' % offset
 
     class Parser(Consumer.Parser):
 
