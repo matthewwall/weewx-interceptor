@@ -2445,6 +2445,12 @@ class EcowittClient(Consumer):
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
 
+                # the WH57 reports distance in km, even when every other
+                # value is imperial.  the packet is US units, so convert to
+                # miles.
+                if pkt.get('lightning_distance') is not None:
+                    pkt['lightning_distance'] *= 0.621371192
+
                 if 'lightning_strike_count' in pkt:
                     new_strikes_total = pkt['lightning_strike_count']
                     pkt['lightning_strike_count'] = self._delta_strikes(new_strikes_total, self._last_strikes_total)
@@ -2457,7 +2463,10 @@ class EcowittClient(Consumer):
         @staticmethod
         def decode_float(x):
             # these stations send a value of -9999 to indicate no value, so
-            # convert that to a proper None.
+            # convert that to a proper None.  the WH57 sends an empty value
+            # (lightning=) until it detects its first strike.
+            if x == '':
+                return None
             x = Consumer.Parser.decode_float(x)
             return None if x == -9999 else x
 
