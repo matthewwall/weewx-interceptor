@@ -310,7 +310,7 @@ import weeutil.weeutil
 weewx.units.obs_group_dict.setdefault('vpd', 'group_pressure')
 
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.60'
+DRIVER_VERSION = '0.61'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
