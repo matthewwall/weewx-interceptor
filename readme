@@ -86,11 +86,11 @@ http://weewx.com/docs/usersguide.htm#installing
 
 weectl extension install https://github.com/matthewwall/weewx-interceptor/archive/master.zip
 
-3) configure the driver
+2) configure the driver
 
 weectl station reconfigure --driver=user.interceptor --no-prompt
 
-4) start weewx
+3) start weewx
 
 sudo systemctl restart weewx
 
