@@ -1,3 +1,17 @@
+0.61 10nov2026
+* python 3: decode POST bodies as utf-8 (gjr80, #64)
+* python 3: fix bytes/str errors in sniff mode (eduff, #128)
+* python 3.9+: use is_alive(), daemon and name; stopping weewx no longer raises an error
+* wu-client: map soilmoisture for Bresser sensors (Meeeds, #121)
+* ecowitt-client: WH57 lightning sensor (#72, #99), distance in miles
+* ecowitt-client: treat empty values as missing instead of failing the packet
+* ecowitt-client: report the host's real UTC offset (based on #77)
+* ecowitt-client: ignore runtime, heap, interval, last24hrainin
+* map vapour pressure deficit (vpd) for ecowitt-client and wu-client
+* hide passwords and passkeys in raw data and parse error logs
+* optional passkey setting rejects uploads from other devices in listen mode
+* readme: installation steps for weewx 5 (Bram Oosterlynck, #125)
+
 0.54 22feb2020
 * added wh40batt in ecowitt protocol
 

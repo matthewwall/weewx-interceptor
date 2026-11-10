@@ -234,7 +234,7 @@ variants of the Fine Offset GW1000, including:
   GW1000 - 433MHz
   GW1000A - 868MHz
   GW1000B - 915MHz
-  GW1000BU - 915MHz with better rang
+  GW1000BU - 915MHz with better range
 
 The transmission to wunderground can be captured using the 'wu-client' mode.
 The transmission using ecowitt protocol (see the 'customize' page in the WSView
@@ -269,6 +269,7 @@ except ImportError:
 import binascii
 import calendar
 import fnmatch
+import hmac
 import re
 import string
 import sys
@@ -300,10 +301,16 @@ except ImportError:
         logmsg(syslog.LOG_ERR, msg)
 
 import weewx.drivers
+import weewx.units
 import weeutil.weeutil
 
+# vapour pressure deficit is not in the default weewx unit groups.  ecowitt
+# and wu uploads report it in inHg, matching the US packets these clients
+# emit.  setdefault leaves any group the user has already assigned alone.
+weewx.units.obs_group_dict.setdefault('vpd', 'group_pressure')
+
 DRIVER_NAME = 'Interceptor'
-DRIVER_VERSION = '0.60'
+DRIVER_VERSION = '0.61'
 
 DEFAULT_ADDR = ''
 DEFAULT_PORT = 80
@@ -330,12 +337,17 @@ def _bytes_to_str(data):
     return str(data, 'utf-8')
 
 def _obfuscate_passwords(msg):
+    if not isinstance(msg, str):
+        msg = str(msg)
     return re.sub(r'(PASSWORD|PASSKEY)=[^&]+', r'\1=XXXX', msg)
 
 def _fmt_bytes(data):
     if not data:
         return ''
-    return ' '.join(['%02x' % ord(x) for x in data])
+    # In Python 3, indexing bytes yields ints directly; str still needs ord().
+    if isinstance(data, (bytes, bytearray)):
+        return ' '.join(['%02x' % b for b in data])
+    return ' '.join(['%02x' % ord(c) for c in data])
 
 def _cgi_to_dict(s):
     if '=' in s:
@@ -397,6 +409,8 @@ class Consumer(object):
         'soilMoist4': 'soil_moisture_4',
         'leafWet1': 'leafwetness_1',
         'leafWet2': 'leafwetness_2',
+        'lightning_strike_count': 'lightning_strike_count',
+        'lightning_distance': 'lightning_distance',
         # these are not in the wview schema
         'pm2_5': 'pm2_5',
         'extraTemp4': 'temperature_4',
@@ -412,17 +426,28 @@ class Consumer(object):
         'extraHumid8': 'humidity_8',
         'soilTemp3': 'soil_temperature_3',
         'soilTemp4': 'soil_temperature_4',
+        'vpd': 'vpd',
     }
 
     def default_sensor_map(self):
         return Consumer.DEFAULT_SENSOR_MAP
 
+    # when set, uploads whose PASSKEY (or PASSWORD) does not match are
+    # rejected in listen mode.  None accepts everything, as before.
+    passkey = None
+
     def __init__(self, parser, mode='listen',
                  address=DEFAULT_ADDR, port=DEFAULT_PORT, handler=None,
                  iface=DEFAULT_IFACE, pcap_filter=DEFAULT_FILTER,
-                 promiscuous=0):
+                 promiscuous=0, passkey=None):
         self.parser = parser
         loginf("mode is %s" % mode)
+        Consumer.passkey = str(passkey).strip() if passkey else None
+        if Consumer.passkey:
+            if mode == 'listen':
+                loginf("passkey check enabled")
+            else:
+                loginf("passkey is ignored in %s mode" % mode)
         if mode == 'sniff':
             self._server = Consumer.SniffServer(
                 iface, pcap_filter, promiscuous)
@@ -519,35 +544,35 @@ class Consumer(object):
             # FIXME: generalize the packet type detection
             header_len = 0
             idx = 0
-            if len(data) >= 15 and data[12:14] == '\x08\x00':
+            if len(data) >= 15 and data[12:14] == b'\x08\x00':
                 # this is standard IP packet
-                header_len = ord(data[14]) & 0x0f
+                header_len = data[14] & 0x0f
                 idx = 4 * header_len + 34
             elif (len(data) >= 70 and
-                data[12:14] == '\x81\x00' and data[16:18] == '\x08\x00'):
+                data[12:14] == b'\x81\x00' and data[16:18] == b'\x08\x00'):
                 # this is 802.1Q tagged IP packet
-                header_len = ord(data[18]) & 0x0f
+                header_len = data[18] & 0x0f
                 idx = 4 * header_len + 38
             if idx and len(data) >= idx:
                 _data = data[idx:]
-                if 'GET' in _data:
+                if b'GET' in _data:
                     self.flush()
                     logdbg("sniff: start GET")
-                    self.data_buffer = _data
-                elif 'POST' in _data:
+                    self.data_buffer = _data.decode('utf-8', errors='replace')
+                elif b'POST' in _data:
                     self.flush()
                     logdbg("sniff: start POST")
                     self.data_buffer = 'POST?' # start buffer with dummy
                 elif len(self.data_buffer):
-                    if 'HTTP' in data:
+                    if b'HTTP' in data:
                         # looks like the end of a multi-packet GET
                         self.flush()
                     else:
+                        decoded = _data.decode('utf-8', errors='replace')
                         printable = set(string.printable)
-                        fdata = filter(lambda x: x in printable, _data)
-                        if fdata == _data:
+                        if all(c in printable for c in decoded):
                             logdbg("sniff: append %s" % _fmt_bytes(_data))
-                            self.data_buffer += _data
+                            self.data_buffer += decoded
                         else:
                             logdbg("sniff: skip %s" % _fmt_bytes(_data))
                 else:
@@ -607,11 +632,38 @@ class Consumer(object):
             self.end_headers()
             self.wfile.write(response)            
 
+        def accept(self, data):
+            # with no passkey configured, accept everything.  otherwise the
+            # upload must carry a matching PASSKEY (ecowitt protocol) or
+            # PASSWORD (wu protocol).  the key itself is never logged.
+            if not Consumer.passkey:
+                return True
+            try:
+                params = _cgi_to_dict(data)
+            except ValueError:
+                params = dict()
+            key = params.get('PASSKEY', params.get('PASSWORD'))
+            if key is not None and hmac.compare_digest(
+                    _to_bytes(key), _to_bytes(Consumer.passkey)):
+                return True
+            loginf("rejected upload from %s: %s passkey" %
+                   (self.client_address[0],
+                    'missing' if key is None else 'wrong'))
+            response = _to_bytes('{"errcode":"40001","errmsg":"invalid passkey"}')
+            self.send_response(403)
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return False
+
         def do_POST(self):
             # get the payload from an HTTP POST
             length = int(self.headers["Content-Length"])
-            data = str(self.rfile.read(length))
+            # decode in case we have a python3 bytestring
+            data = self.rfile.read(length).decode('utf-8')
             logdbg('POST: %s' % _obfuscate_passwords(data))
+            if not self.accept(data):
+                return
             Consumer.queue.put(data)
             self.reply()
 
@@ -622,6 +674,8 @@ class Consumer(object):
             # get the query string from an HTTP GET
             data = urlparse.urlparse(self.path).query
             logdbg('GET: %s' % _obfuscate_passwords(data))
+            if not self.accept(data):
+                return
             Consumer.queue.put(data)
             self.reply()
 
@@ -696,6 +750,19 @@ class Consumer(object):
             return rain - last_rain
 
         @staticmethod
+        def _delta_strikes(strikes, last_strikes):
+            if strikes is None:
+                return None
+            if last_strikes is None:
+                loginf("skipping lightning strikes measurement of %s: no last strikes" % strikes)
+                return None
+            if strikes < last_strikes:
+                loginf("lightning strikes wraparound detected: new=%s last=%s" %
+                       (strikes, last_strikes))
+                return strikes
+            return strikes - last_strikes
+
+        @staticmethod
         def decode_float(x):
             return None if x is None else float(x)
 
@@ -762,9 +829,11 @@ class WUClient(Consumer):
             'humidity8': 'humidity_8',
             'baromin': 'barometer',
             'soiltempf': 'soil_temperature_1',
+            'vpd': 'vpd',
             'soiltemp2f': 'soil_temperature_2',
             'soiltemp3f': 'soil_temperature_3',
             'soiltemp4f': 'soil_temperature_4',
+            'soilmoisture': 'soil_moisture_1',
             'soilmoisture1': 'soil_moisture_1',
             'soilmoisture2': 'soil_moisture_2',
             'soilmoisture3': 'soil_moisture_3',
@@ -860,7 +929,7 @@ class WUClient(Consumer):
                     self._last_rain = newtot
 
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             return pkt
 
         @staticmethod
@@ -1093,7 +1162,7 @@ class AcuriteBridge(Consumer):
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             # convert rainfall to a delta
             if 'rainfall' in pkt:
                 rain_total = pkt['rainfall']
@@ -1423,7 +1492,7 @@ class Observer(Consumer):
                     lum2rad = 0.01075 # lux to W/m^2 (approximation)
                     pkt['solar_radiation'] = pkt['luminosity'] * lum2rad
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             return pkt
 
         @staticmethod
@@ -1544,7 +1613,7 @@ class LW30x(Consumer):
                     else:
                         pkt[n] = data[n]
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
 
             # convert rain from inches to mm
             if 'rfa' in pkt:
@@ -2301,7 +2370,12 @@ class EcowittClient(Consumer):
     class Handler(Consumer.Handler):
 
         def get_response(self):
-            return '{"errcode":"0","errmsg":"ok","UTC_offset":"-18000"}'
+            # some stations (e.g., Eurochron EFWS-2900) set their clock from
+            # UTC_offset, so report the offset of the weewx host, in seconds
+            # east of UTC, including daylight saving.  this used to be a
+            # fixed -18000 (US Eastern).
+            offset = time.localtime().tm_gmtoff
+            return '{"errcode":"0","errmsg":"ok","UTC_offset":"%d"}' % offset
 
     class Parser(Consumer.Parser):
 
@@ -2362,9 +2436,14 @@ class EcowittClient(Consumer):
             'wh25batt': 'wh25_battery',
             'wh26batt': 'wh26_battery',
             'wh40batt': 'wh40_battery',
+            'wh57batt': 'wh57_battery',
             'wh65batt': 'wh65_battery',
             'pm25_ch1': 'pm2_5',
             'pm25batt1': 'pm25_battery',
+            'vpd': 'vpd',
+            'lightning_num': 'lightning_strike_count',
+            'lightning_time': 'lightning_time',
+            'lightning': 'lightning_distance',
         }
 
         IGNORED_LABELS = [
@@ -2372,11 +2451,13 @@ class EcowittClient(Consumer):
             'maxdailygust', 'eventrainin', 'hourlyrainin', 'dailyrainin',
             'weeklyrainin', 'monthlyrainin', 'yearlyrainin',
             'pm25_avg_24h_ch1', 'winddir_avg10m', 'windspdmph_avg10m',
+            'runtime', 'heap', 'interval', 'last24hrainin',
         ]
 
         def __init__(self):
             self._last_rain = None
             self._rain_mapping_confirmed = False
+            self._last_strikes_total = None
 
         def parse(self, s):
             pkt = dict()
@@ -2420,14 +2501,28 @@ class EcowittClient(Consumer):
                     pkt['rain'] = self._delta_rain(newtot, self._last_rain)
                     self._last_rain = newtot
 
+                # the WH57 reports distance in km, even when every other
+                # value is imperial.  the packet is US units, so convert to
+                # miles.
+                if pkt.get('lightning_distance') is not None:
+                    pkt['lightning_distance'] *= 0.621371192
+
+                if 'lightning_strike_count' in pkt:
+                    new_strikes_total = pkt['lightning_strike_count']
+                    pkt['lightning_strike_count'] = self._delta_strikes(new_strikes_total, self._last_strikes_total)
+                    self._last_strikes_total = new_strikes_total
+
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             return pkt
 
         @staticmethod
         def decode_float(x):
             # these stations send a value of -9999 to indicate no value, so
-            # convert that to a proper None.
+            # convert that to a proper None.  the WH57 sends an empty value
+            # (lightning=) until it detects its first strike.
+            if x == '':
+                return None
             x = Consumer.Parser.decode_float(x)
             return None if x == -9999 else x
 
@@ -2465,6 +2560,12 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     # When listening, specify at least a port on which to bind.
     #address = 127.0.0.1
     #port = 80
+
+    # When listening, accept only uploads that carry this PASSKEY (ecowitt
+    # protocol) or PASSWORD (wu protocol).  Others get HTTP 403.  Find the
+    # PASSKEY in the weewx log with debug = 1, or leave this unset to accept
+    # every upload.
+    #passkey = 0123456789ABCDEF0123456789ABCDEF
 
     # When sniffing, specify a network interface and a pcap filter.
     #iface = eth0
@@ -2533,15 +2634,15 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._obs_map = obs_map
         loginf('sensor map: %s' % self._obs_map)
         self._server_thread = threading.Thread(target=self._device.run_server)
-        self._server_thread.setDaemon(True)
-        self._server_thread.setName('ServerThread')
+        self._server_thread.daemon = True
+        self._server_thread.name = 'ServerThread'
         self._server_thread.start()
 
     def closePort(self):
         loginf('shutting down server thread')
         self._device.stop_server()
         self._server_thread.join(20.0)
-        if self._server_thread.isAlive():
+        if self._server_thread.is_alive():
             logerr('unable to shut down server thread')
 
     @property
@@ -2553,7 +2654,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         while True:
             try:
                 data = self._device.get_queue().get(True, self._queue_timeout)
-                logdbg('raw data: %s' % data)
+                logdbg('raw data: %s' % _obfuscate_passwords(data))
                 pkt = self._device.parser.parse(data)
                 logdbg('raw packet: %s' % pkt)
                 pkt = self._device.parser.map_to_fields(pkt, self._obs_map)
@@ -2611,6 +2712,8 @@ if __name__ == '__main__':
     parser.add_option('--data', dest='data', metavar='DATA',
                       default='',
                       help='data string for parse testing')
+    parser.add_option('--passkey', dest='passkey', metavar='PASSKEY',
+                      help='accept only uploads with this PASSKEY or PASSWORD')
     parser.add_option('--no-obfuscate', action='store_true', default=False,
                       help='do not obfuscate passkeys/passwords')
     parser.add_option('--parse-gw1000u', action='store_true',
@@ -2671,11 +2774,11 @@ if __name__ == '__main__':
     device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
         mode=options.mode,
         iface=options.iface, pcap_filter=options.filter,
-        address=options.addr, port=options.port)
+        address=options.addr, port=options.port, passkey=options.passkey)
 
     server_thread = threading.Thread(target=device.run_server)
-    server_thread.setDaemon(True)
-    server_thread.setName('ServerThread')
+    server_thread.daemon = True
+    server_thread.name = 'ServerThread'
     server_thread.start()
 
     while True:

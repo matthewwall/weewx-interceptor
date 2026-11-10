@@ -82,21 +82,17 @@ Installation
 
 http://weewx.com/docs/usersguide.htm#installing
 
-1) download the interceptor driver
+1) install the driver
 
-wget -O weewx-interceptor.zip https://github.com/matthewwall/weewx-interceptor/archive/master.zip
+weectl extension install https://github.com/matthewwall/weewx-interceptor/archive/master.zip
 
-2) install the driver
+2) configure the driver
 
-sudo wee_extension --install weewx-interceptor.zip
+weectl station reconfigure --driver=user.interceptor --no-prompt
 
-3) configure the driver
+3) start weewx
 
-sudo wee_config --reconfigure --driver=user.interceptor --no-prompt
-
-4) start weewx
-
-sudo /etc/init.d/weewx start
+sudo systemctl restart weewx
 
 
 ===============================================================================
@@ -127,6 +123,24 @@ To listen on port 8080 on the network interface with address 192.168.0.14:
     device_type = lw30x
     port = 8080
     address = 192.168.0.14
+
+To accept only uploads from your own gateway, set its passkey.  The driver
+compares it with the PASSKEY field (ecowitt protocol) or the PASSWORD field
+(wu protocol) and replies HTTP 403 to anything else.  This is useful when the
+listening port is reachable from the internet.  It applies in listen mode only, and only to
+devices that send a PASSKEY or PASSWORD, so leave it unset for other hardware.
+
+[Interceptor]
+    driver = user.interceptor
+    device_type = ecowitt-client
+    port = 8000
+    passkey = 0123456789ABCDEF0123456789ABCDEF
+
+The ecowitt PASSKEY is fixed for each gateway.  The weewx log always masks
+it, so read it by running the driver directly (see 'How to run the driver
+directly') with --debug --no-obfuscate, then look for PASSKEY= in the raw
+data line.  To check the setting before putting it in weewx.conf, add
+--passkey=<value> and confirm that uploads still produce packets.
 
 To sniff packets from 192.168.0.14 on network interface eth1:
 
