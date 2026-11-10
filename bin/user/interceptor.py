@@ -269,6 +269,7 @@ except ImportError:
 import binascii
 import calendar
 import fnmatch
+import hmac
 import re
 import string
 import sys
@@ -431,12 +432,22 @@ class Consumer(object):
     def default_sensor_map(self):
         return Consumer.DEFAULT_SENSOR_MAP
 
+    # when set, uploads whose PASSKEY (or PASSWORD) does not match are
+    # rejected in listen mode.  None accepts everything, as before.
+    passkey = None
+
     def __init__(self, parser, mode='listen',
                  address=DEFAULT_ADDR, port=DEFAULT_PORT, handler=None,
                  iface=DEFAULT_IFACE, pcap_filter=DEFAULT_FILTER,
-                 promiscuous=0):
+                 promiscuous=0, passkey=None):
         self.parser = parser
         loginf("mode is %s" % mode)
+        Consumer.passkey = str(passkey).strip() if passkey else None
+        if Consumer.passkey:
+            if mode == 'listen':
+                loginf("passkey check enabled")
+            else:
+                loginf("passkey is ignored in %s mode" % mode)
         if mode == 'sniff':
             self._server = Consumer.SniffServer(
                 iface, pcap_filter, promiscuous)
@@ -621,12 +632,38 @@ class Consumer(object):
             self.end_headers()
             self.wfile.write(response)            
 
+        def accept(self, data):
+            # with no passkey configured, accept everything.  otherwise the
+            # upload must carry a matching PASSKEY (ecowitt protocol) or
+            # PASSWORD (wu protocol).  the key itself is never logged.
+            if not Consumer.passkey:
+                return True
+            try:
+                params = _cgi_to_dict(data)
+            except ValueError:
+                params = dict()
+            key = params.get('PASSKEY', params.get('PASSWORD'))
+            if key is not None and hmac.compare_digest(
+                    _to_bytes(key), _to_bytes(Consumer.passkey)):
+                return True
+            loginf("rejected upload from %s: %s passkey" %
+                   (self.client_address[0],
+                    'missing' if key is None else 'wrong'))
+            response = _to_bytes('{"errcode":"40001","errmsg":"invalid passkey"}')
+            self.send_response(403)
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return False
+
         def do_POST(self):
             # get the payload from an HTTP POST
             length = int(self.headers["Content-Length"])
             # decode in case we have a python3 bytestring
             data = self.rfile.read(length).decode('utf-8')
             logdbg('POST: %s' % _obfuscate_passwords(data))
+            if not self.accept(data):
+                return
             Consumer.queue.put(data)
             self.reply()
 
@@ -637,6 +674,8 @@ class Consumer(object):
             # get the query string from an HTTP GET
             data = urlparse.urlparse(self.path).query
             logdbg('GET: %s' % _obfuscate_passwords(data))
+            if not self.accept(data):
+                return
             Consumer.queue.put(data)
             self.reply()
 
@@ -2522,6 +2561,12 @@ class InterceptorConfigurationEditor(weewx.drivers.AbstractConfEditor):
     #address = 127.0.0.1
     #port = 80
 
+    # When listening, accept only uploads that carry this PASSKEY (ecowitt
+    # protocol) or PASSWORD (wu protocol).  Others get HTTP 403.  Find the
+    # PASSKEY in the weewx log with debug = 1, or leave this unset to accept
+    # every upload.
+    #passkey = 0123456789ABCDEF0123456789ABCDEF
+
     # When sniffing, specify a network interface and a pcap filter.
     #iface = eth0
     #pcap_filter = src 192.168.4.12 and dst port 80
@@ -2667,6 +2712,8 @@ if __name__ == '__main__':
     parser.add_option('--data', dest='data', metavar='DATA',
                       default='',
                       help='data string for parse testing')
+    parser.add_option('--passkey', dest='passkey', metavar='PASSKEY',
+                      help='accept only uploads with this PASSKEY or PASSWORD')
     parser.add_option('--no-obfuscate', action='store_true', default=False,
                       help='do not obfuscate passkeys/passwords')
     parser.add_option('--parse-gw1000u', action='store_true',
@@ -2727,7 +2774,7 @@ if __name__ == '__main__':
     device = InterceptorDriver.DEVICE_TYPES.get(options.device_type)(
         mode=options.mode,
         iface=options.iface, pcap_filter=options.filter,
-        address=options.addr, port=options.port)
+        address=options.addr, port=options.port, passkey=options.passkey)
 
     server_thread = threading.Thread(target=device.run_server)
     server_thread.daemon = True
