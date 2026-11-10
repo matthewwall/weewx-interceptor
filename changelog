@@ -1,7 +1,7 @@
 0.61 10nov2026
 * python 3: decode POST bodies as utf-8 (gjr80, #64)
 * python 3: fix bytes/str errors in sniff mode (eduff, #128)
-* python 3.9+: use is_alive() so stopping weewx no longer raises an error
+* python 3.9+: use is_alive(), daemon and name; stopping weewx no longer raises an error
 * wu-client: map soilmoisture for Bresser sensors (Meeeds, #121)
 * ecowitt-client: WH57 lightning sensor (#72, #99), distance in miles
 * ecowitt-client: treat empty values as missing instead of failing the packet

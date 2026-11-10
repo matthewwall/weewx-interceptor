@@ -2635,7 +2635,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         loginf('sensor map: %s' % self._obs_map)
         self._server_thread = threading.Thread(target=self._device.run_server)
         self._server_thread.daemon = True
-        self._server_thread.setName('ServerThread')
+        self._server_thread.name = 'ServerThread'
         self._server_thread.start()
 
     def closePort(self):
@@ -2778,7 +2778,7 @@ if __name__ == '__main__':
 
     server_thread = threading.Thread(target=device.run_server)
     server_thread.daemon = True
-    server_thread.setName('ServerThread')
+    server_thread.name = 'ServerThread'
     server_thread.start()
 
     while True:
