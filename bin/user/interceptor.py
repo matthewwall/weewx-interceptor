@@ -300,7 +300,13 @@ except ImportError:
         logmsg(syslog.LOG_ERR, msg)
 
 import weewx.drivers
+import weewx.units
 import weeutil.weeutil
+
+# vapour pressure deficit is not in the default weewx unit groups.  ecowitt
+# and wu uploads report it in inHg, matching the US packets these clients
+# emit.  setdefault leaves any group the user has already assigned alone.
+weewx.units.obs_group_dict.setdefault('vpd', 'group_pressure')
 
 DRIVER_NAME = 'Interceptor'
 DRIVER_VERSION = '0.60'
@@ -417,6 +423,7 @@ class Consumer(object):
         'extraHumid8': 'humidity_8',
         'soilTemp3': 'soil_temperature_3',
         'soilTemp4': 'soil_temperature_4',
+        'vpd': 'vpd',
     }
 
     def default_sensor_map(self):
@@ -781,6 +788,7 @@ class WUClient(Consumer):
             'humidity8': 'humidity_8',
             'baromin': 'barometer',
             'soiltempf': 'soil_temperature_1',
+            'vpd': 'vpd',
             'soiltemp2f': 'soil_temperature_2',
             'soiltemp3f': 'soil_temperature_3',
             'soiltemp4f': 'soil_temperature_4',
@@ -2391,6 +2399,7 @@ class EcowittClient(Consumer):
             'wh65batt': 'wh65_battery',
             'pm25_ch1': 'pm2_5',
             'pm25batt1': 'pm25_battery',
+            'vpd': 'vpd',
             'lightning_num': 'lightning_strike_count',
             'lightning_time': 'lightning_time',
             'lightning': 'lightning_distance',
