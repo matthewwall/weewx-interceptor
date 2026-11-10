@@ -336,6 +336,8 @@ def _bytes_to_str(data):
     return str(data, 'utf-8')
 
 def _obfuscate_passwords(msg):
+    if not isinstance(msg, str):
+        msg = str(msg)
     return re.sub(r'(PASSWORD|PASSKEY)=[^&]+', r'\1=XXXX', msg)
 
 def _fmt_bytes(data):
@@ -888,7 +890,7 @@ class WUClient(Consumer):
                     self._last_rain = newtot
 
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             return pkt
 
         @staticmethod
@@ -1121,7 +1123,7 @@ class AcuriteBridge(Consumer):
                     else:
                         loginf("unrecognized parameter %s=%s" % (n, data[n]))
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             # convert rainfall to a delta
             if 'rainfall' in pkt:
                 rain_total = pkt['rainfall']
@@ -1451,7 +1453,7 @@ class Observer(Consumer):
                     lum2rad = 0.01075 # lux to W/m^2 (approximation)
                     pkt['solar_radiation'] = pkt['luminosity'] * lum2rad
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             return pkt
 
         @staticmethod
@@ -1572,7 +1574,7 @@ class LW30x(Consumer):
                     else:
                         pkt[n] = data[n]
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
 
             # convert rain from inches to mm
             if 'rfa' in pkt:
@@ -2472,7 +2474,7 @@ class EcowittClient(Consumer):
                     self._last_strikes_total = new_strikes_total
 
             except ValueError as e:
-                logerr("parse failed for %s: %s" % (s, e))
+                logerr("parse failed for %s: %s" % (_obfuscate_passwords(s), e))
             return pkt
 
         @staticmethod
@@ -2607,7 +2609,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         while True:
             try:
                 data = self._device.get_queue().get(True, self._queue_timeout)
-                logdbg('raw data: %s' % data)
+                logdbg('raw data: %s' % _obfuscate_passwords(data))
                 pkt = self._device.parser.parse(data)
                 logdbg('raw packet: %s' % pkt)
                 pkt = self._device.parser.map_to_fields(pkt, self._obs_map)
