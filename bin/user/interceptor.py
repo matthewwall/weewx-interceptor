@@ -2401,6 +2401,7 @@ class EcowittClient(Consumer):
             'maxdailygust', 'eventrainin', 'hourlyrainin', 'dailyrainin',
             'weeklyrainin', 'monthlyrainin', 'yearlyrainin',
             'pm25_avg_24h_ch1', 'winddir_avg10m', 'windspdmph_avg10m',
+            'runtime', 'heap', 'interval', 'last24hrainin',
         ]
 
         def __init__(self):
