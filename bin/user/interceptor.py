@@ -2577,7 +2577,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         self._obs_map = obs_map
         loginf('sensor map: %s' % self._obs_map)
         self._server_thread = threading.Thread(target=self._device.run_server)
-        self._server_thread.setDaemon(True)
+        self._server_thread.daemon = True
         self._server_thread.setName('ServerThread')
         self._server_thread.start()
 
@@ -2585,7 +2585,7 @@ class InterceptorDriver(weewx.drivers.AbstractDevice):
         loginf('shutting down server thread')
         self._device.stop_server()
         self._server_thread.join(20.0)
-        if self._server_thread.isAlive():
+        if self._server_thread.is_alive():
             logerr('unable to shut down server thread')
 
     @property
@@ -2718,7 +2718,7 @@ if __name__ == '__main__':
         address=options.addr, port=options.port)
 
     server_thread = threading.Thread(target=device.run_server)
-    server_thread.setDaemon(True)
+    server_thread.daemon = True
     server_thread.setName('ServerThread')
     server_thread.start()
 
